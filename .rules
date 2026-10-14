@@ -1,0 +1,83 @@
+# React Native (Expo) Coding Rules
+
+## General
+- Correctness and clarity over speed. Accessibility is required (`accessibilityLabel`, `accessibilityRole`, touch target >= 44x44).
+- Comments only explain *why*, never *what*.
+- Add to existing files before creating new ones. Reuse before creating.
+- No abbreviated variable names (`error` not `err`, `button` not `btn`).
+- Follow `AGENTS.md` for architecture, commands and workflow. Check Expo docs for the installed SDK before using any Expo/RN API.
+
+## File Naming
+| Type | Convention |
+|------|-----------|
+| Route (in `src/app`) | `kebab-case.tsx` / `[param].tsx` / `_layout.tsx` (Expo Router) |
+| Component | `kebab-case.tsx`, exports `PascalCase` component |
+| Hook | `use-kebab-case.ts` |
+| API wrapper | `<feature>.api.ts` |
+| Store | `<feature>.store.ts` |
+| Schema | `<feature>.schema.ts` |
+| Types | `<feature>.types.ts` |
+
+## Exports
+- Route files: default export (required by Expo Router).
+- Everything else: named exports.
+
+## Structure
+- Feature code in `src/features/<feature>/`. Shared primitives in `src/components/ui/`. Infra in `src/lib/`.
+- Route files in `src/app/` are thin shells: compose hooks + components, no business logic, no component definitions beyond the screen itself.
+- No god screens: extract dialogs, sheets, list items and sections into their own files.
+
+## Data Flow
+- Screen owns API hooks (`useQuery` / `useMutation`) and passes data + callbacks via props.
+- Presentational components do not call React Query hooks or the API directly.
+- Never fetch inside list item components.
+
+## API & Services
+- Use only `api` from `@/lib/api` and `unwrap` for `ApiResponse<T>`. No other axios instances, no raw `fetch` to the backend.
+- API wrappers are plain objects (not classes), return unwrapped data, and do not catch errors — let React Query surface them.
+- Service payloads and response types must match the backend Command/Response exactly (field names, required fields). Update order when BE changes: schema -> types -> api -> hook -> component.
+- Never hard-code hosts; use `EXPO_PUBLIC_API_URL`. Never put secrets in `EXPO_PUBLIC_*`.
+
+## Auth & Security
+- Tokens only in `expo-secure-store` via `token-storage`. Never log tokens, passwords or personal data.
+- Permission codes are centralised in one config file; components never compare raw permission strings. Backend remains the source of truth.
+
+## State Management
+- Server state -> TanStack Query. Query keys are arrays: `['resource', params]`. Handle `onError` in mutations.
+- Client/UI state -> zustand (`*.store.ts`), select with selectors (`useAuth((s) => s.signedIn)`), never subscribe to the whole store needlessly.
+- Never mutate state directly. Minimise `useEffect`; derive during render. Effects with subscriptions/timers/listeners (SignalR, camera, keyboard) must clean up.
+
+## Forms
+- react-hook-form + zod. Define the zod schema first and infer the TS type (`z.infer`).
+- Separate Create vs Update schemas when BE commands differ. Field errors from `formState.errors`.
+- Set proper `keyboardType`, `autoCapitalize`, `returnKeyType`, `secureTextEntry`; wrap forms with keyboard avoidance.
+
+## Error Handling
+- Never swallow errors silently. Log via a central logger (no stray `console.log` in committed code) and show user feedback (inline message/toast/alert).
+- Every async screen handles loading, error and success (empty state too). Use early returns for loading/error.
+- Network failure and 401/403 are normal cases on mobile — handle them explicitly.
+
+## Styling
+- Use `StyleSheet.create`; no inline style objects in hot paths. Use theme tokens from `@/constants/theme` / `useTheme`, not hard-coded colours (support light and dark).
+- Respect safe areas (`react-native-safe-area-context`). Test small and large screens, and font scaling.
+- Platform-specific code via `*.ios.tsx` / `*.android.tsx` / `Platform.select`, kept minimal.
+
+## Performance
+- Long lists: `FlatList`/`FlashList` with `keyExtractor`; stable `renderItem` (`useCallback`) and memoised rows (`React.memo`) when rows are non-trivial.
+- Avoid anonymous heavy work in render; memoise only when profiling or list rows justify it.
+- Images via `expo-image`, sized explicitly.
+- Do not block the JS thread with large synchronous work.
+
+## TypeScript
+- No `any`; use `unknown` and narrow. No `as Type` unless unavoidable (comment why).
+- `interface` for object shapes, `type` for unions/aliases. Use `import type` for type-only imports.
+- Derive types from the source of truth (`z.infer`, `ReturnType`, `Awaited`). Avoid enums — use `as const` objects or `z.enum()`.
+- Props typed with explicit interfaces, destructured in the signature.
+
+## Dependencies & Native
+- Add packages with `npx expo install <pkg>`, never `npm add`. Prefer Expo modules.
+- Never edit `ios/` or `android/`; use `app.json` + config plugins. Native-module libs need a development build (not Expo Go).
+
+## Definition of Done
+- `npx expo lint` and `npx tsc --noEmit` pass for the files you touched.
+- Behaviour verified (on emulator/device when it involves native features) — say so explicitly if it could not be run.
