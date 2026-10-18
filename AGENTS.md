@@ -14,16 +14,16 @@ Expo ships breaking changes every SDK release. APIs you remember are likely rena
 
 ## Commands
 
-Package manager của repo này là **npm** (`package-lock.json`). Không trộn yarn/pnpm/bun.
+Package manager của repo này là **pnpm** (`pnpm-lock.yaml`). Không trộn npm/yarn/bun.
 
 ```bash
-npx expo install <package>  # ALWAYS use instead of npm add — resolves SDK-compatible versions
-npx expo start              # start the dev server
-npx expo start --dev-client # chạy với development build (cần cho expo-camera, expo-sqlite)
-npx expo lint               # lint
-npx tsc --noEmit            # typecheck
-npx expo-doctor             # diagnose dependency and config issues
-npx expo install --fix      # fix incompatible package versions
+pnpm exec expo install <package>  # ALWAYS use instead of pnpm add — resolves SDK-compatible versions
+pnpm exec expo start              # start the dev server
+pnpm exec expo start --dev-client # chạy với development build (cần cho expo-camera, expo-sqlite)
+pnpm exec expo lint               # lint
+pnpm exec tsc --noEmit            # typecheck
+pnpm exec expo-doctor             # diagnose dependency and config issues
+pnpm exec expo install --fix      # fix incompatible package versions
 ```
 
 Run lint and typecheck before declaring any task done. Lỗi có sẵn từ template (`*.css` type declarations, `use-color-scheme.web.ts`) không phải do task của bạn — đừng sửa lan man, chỉ báo lại.
@@ -78,13 +78,13 @@ src/
 
 ## Building with EAS
 
-Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `npx eas-cli@latest <command>`.
+Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `pnpm dlx eas-cli@latest <command>`.
 Docs: https://docs.expo.dev/eas/index.md
 
 ## Native rules
 
 - `ios/` và `android/` được sinh tự động (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go chỉ có sẵn một số native module. `expo-camera`, `expo-sqlite`, ... cần **development build**: `npx expo run:android` (local) hoặc `eas build --profile development`.
+- Expo Go chỉ có sẵn một số native module. `expo-camera`, `expo-sqlite`, ... cần **development build**: `pnpm exec expo run:android` (local) hoặc `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries; kiểm tra thư viện có tương thích SDK trước khi thêm. Docs: https://docs.expo.dev/versions/latest/index.md
 
 ## Git workflow

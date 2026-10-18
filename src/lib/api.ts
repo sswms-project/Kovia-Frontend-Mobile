@@ -12,6 +12,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public statusCode: number,
+    public errors?: Record<string, string[]>,
   ) {
     super(message);
   }
@@ -50,7 +51,7 @@ type Tokens = { accessToken: string; refreshToken: string };
 
 api.interceptors.response.use(
   (res) => res,
-  async (error: AxiosError<{ message?: string; statusCode?: number }>) => {
+  async (error: AxiosError<{ message?: string; statusCode?: number; errors?: Record<string, string[]> }>) => {
     const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
     const isAuthCall = original?.url?.includes('/auth/login') || original?.url?.includes('/auth/refresh');
 
@@ -69,6 +70,7 @@ api.interceptors.response.use(
       new ApiError(
         error.response?.data?.message ?? error.message ?? 'Lỗi kết nối',
         error.response?.data?.statusCode ?? error.response?.status ?? 0,
+        error.response?.data?.errors,
       ),
     );
   },
