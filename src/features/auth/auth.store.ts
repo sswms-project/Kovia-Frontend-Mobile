@@ -1,6 +1,8 @@
+import { toast } from 'sonner-native';
 import { create } from 'zustand';
 
 import { setSessionExpiredHandler } from '@/lib/api';
+import { queryClient } from '@/lib/query-client';
 import { tokenStorage } from '@/lib/token-storage';
 
 import { authApi } from './auth.api';
@@ -31,8 +33,16 @@ export const useAuth = create<AuthState>((set) => ({
   signOut: async () => {
     await authApi.logout().catch(() => undefined);
     await tokenStorage.clear();
+    // Cached /auth/me and task data belong to this user; the next sign-in must start clean.
+    queryClient.clear();
     set({ signedIn: false, twoFactorTempToken: null });
   },
 }));
 
-setSessionExpiredHandler(() => useAuth.setState({ signedIn: false }));
+setSessionExpiredHandler(() => {
+  // Several in-flight requests can report 401 together; only the first one should sign out and notify.
+  if (!useAuth.getState().signedIn) return;
+  queryClient.clear();
+  useAuth.setState({ signedIn: false, twoFactorTempToken: null });
+  toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+});

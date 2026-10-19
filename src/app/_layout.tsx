@@ -5,10 +5,11 @@ import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { StyleSheet, useColorScheme } from 'react-native';
+import { StyleSheet, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Toaster } from 'sonner-native';
 
+import { OfflineBanner } from '@/components/ui/offline-banner';
 import { useAuth } from '@/features/auth/auth.store';
 import { QueryProvider } from '@/providers/query-provider';
 
@@ -42,14 +43,19 @@ export default function RootLayout() {
       <QueryProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <BottomSheetModalProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Protected guard={signedIn}>
-                <Stack.Screen name="(app)" />
-              </Stack.Protected>
-              <Stack.Protected guard={!signedIn}>
-                <Stack.Screen name="(auth)" />
-              </Stack.Protected>
-            </Stack>
+            <View style={styles.root}>
+              <OfflineBanner />
+              <View style={styles.root}>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Protected guard={signedIn}>
+                    <Stack.Screen name="(app)" />
+                  </Stack.Protected>
+                  <Stack.Protected guard={!signedIn}>
+                    <Stack.Screen name="(auth)" />
+                  </Stack.Protected>
+                </Stack>
+              </View>
+            </View>
           </BottomSheetModalProvider>
           <Toaster />
         </ThemeProvider>
