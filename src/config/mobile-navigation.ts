@@ -28,6 +28,14 @@ export const MOBILE_TABS = [
     icon: { sf: 'bell', md: 'notifications' },
   },
   {
+    // Hub for read-only catalogs; it lists only the entries the user may open (see LOOKUP_ENTRIES).
+    name: 'lookup',
+    href: '/lookup',
+    title: 'Tra cứu',
+    permission: null,
+    icon: { sf: 'magnifyingglass', md: 'search' },
+  },
+  {
     name: 'profile',
     href: '/profile',
     title: 'Hồ sơ',
@@ -37,3 +45,14 @@ export const MOBILE_TABS = [
 ] as const;
 
 export type MobileTab = (typeof MOBILE_TABS)[number];
+
+// Each lookup feature adds one entry here; the Lookup tab shows those the user has permission for.
+export const LOOKUP_ENTRIES = [
+  {
+    key: 'products',
+    href: '/lookup/products',
+    title: 'Sản phẩm',
+    description: 'Tìm sản phẩm, xem mã vạch, lô và nhà cung cấp',
+    permission: P.PRODUCTS_VIEW,
+  },
+] as const;

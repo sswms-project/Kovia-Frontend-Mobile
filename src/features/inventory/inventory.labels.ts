@@ -1,5 +1,6 @@
 import type { FilterOption } from '@/components/ui/filter-chips';
 import type { PillTone } from '@/components/ui/status-pill';
+import { formatQuantity } from '@/lib/number-format';
 
 import {
   STOCK_MOVEMENT_TYPES,
@@ -31,9 +32,7 @@ export function formatInventoryLocation(location: LocationParts): string {
     .join(' / ');
 }
 
-export function formatQuantity(value: number): string {
-  return value.toLocaleString('vi-VN', { maximumFractionDigits: 3 });
-}
+export { formatQuantity };
 
 export function formatSignedQuantity(value: number): string {
   return value > 0 ? `+${formatQuantity(value)}` : formatQuantity(value);
