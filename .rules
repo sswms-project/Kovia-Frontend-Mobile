@@ -5,6 +5,7 @@
 - Comments only explain *why*, never *what*.
 - Add to existing files before creating new ones. Reuse before creating.
 - No abbreviated variable names (`error` not `err`, `button` not `btn`).
+- No generic `index.tsx` at a feature root; use explicit names. `index.ts` is allowed only as the barrel of a named component subfolder.
 - Follow `AGENTS.md` for architecture, commands and workflow. Check Expo docs for the installed SDK before using any Expo/RN API.
 
 ## File Naming
@@ -21,6 +22,7 @@
 ## Exports
 - Route files: default export (required by Expo Router).
 - Everything else: named exports.
+- Component subfolders (`components/<screen-name>/`) have an `index.ts` barrel re-exporting all named exports. Screens import from the barrel; files inside the same folder import each other relatively.
 
 ## Structure
 - Feature code in `src/features/<feature>/`. Shared primitives in `src/components/ui/`. Infra in `src/lib/`.
@@ -35,7 +37,8 @@
 ## API & Services
 - Use only `api` from `@/lib/api` and `unwrap` for `ApiResponse<T>`. No other axios instances, no raw `fetch` to the backend.
 - API wrappers are plain objects (not classes), return unwrapped data, and do not catch errors — let React Query surface them.
-- Service payloads and response types must match the backend Command/Response exactly (field names, required fields). Update order when BE changes: schema -> types -> api -> hook -> component.
+- Before writing any form/api/schema, read the BE Command, Validator and `*Response.cs`. Field names match the BE DTO exactly (camelCase, no aliases). Every `NotEmpty`/`MaximumLength`/`MinimumLength`/`GreaterThan`/`EmailAddress` rule has a zod equivalent. Send only the fields the Command declares; never omit required ones. Response types include every field the BE returns.
+- Update order when BE changes: schema -> types -> api -> hook -> component.
 - Never hard-code hosts; use `EXPO_PUBLIC_API_URL`. Never put secrets in `EXPO_PUBLIC_*`.
 
 ## Auth & Security
@@ -49,7 +52,8 @@
 
 ## Forms
 - react-hook-form + zod. Define the zod schema first and infer the TS type (`z.infer`).
-- Separate Create vs Update schemas when BE commands differ. Field errors from `formState.errors`.
+- Schemas live in `<feature>.schema.ts` and export the zod schema plus its inferred type. The screen calls `useForm({ resolver: zodResolver(schema) })`; components receive `form` as a prop and never call `useForm` themselves.
+- Separate Create vs Update schemas when BE commands differ. Field errors from `formState.errors`. No manual validation when zod can express it.
 - Set proper `keyboardType`, `autoCapitalize`, `returnKeyType`, `secureTextEntry`; wrap forms with keyboard avoidance.
 
 ## Error Handling
@@ -72,12 +76,12 @@
 - No `any`; use `unknown` and narrow. No `as Type` unless unavoidable (comment why).
 - `interface` for object shapes, `type` for unions/aliases. Use `import type` for type-only imports.
 - Derive types from the source of truth (`z.infer`, `ReturnType`, `Awaited`). Avoid enums — use `as const` objects or `z.enum()`.
-- Props typed with explicit interfaces, destructured in the signature.
+- Props typed with explicit interfaces, destructured in the signature. Optional props use `?`, not manual `| undefined`; use `readonly` for props/state that must not be mutated.
 
 ## Dependencies & Native
-- Add packages with `npx expo install <pkg>`, never `npm add`. Prefer Expo modules.
+- Package manager is pnpm. Add packages with `pnpm exec expo install <pkg>`, never `pnpm add`. Prefer Expo modules.
 - Never edit `ios/` or `android/`; use `app.json` + config plugins. Native-module libs need a development build (not Expo Go).
 
 ## Definition of Done
-- `npx expo lint` and `npx tsc --noEmit` pass for the files you touched.
+- `pnpm exec expo lint` and `pnpm exec tsc --noEmit` pass for the files you touched.
 - Behaviour verified (on emulator/device when it involves native features) — say so explicitly if it could not be run.

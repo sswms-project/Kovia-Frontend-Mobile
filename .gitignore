@@ -43,3 +43,7 @@ example
 /android
 
 .env
+
+# editor / agent config
+.claude/
+.vscode/
