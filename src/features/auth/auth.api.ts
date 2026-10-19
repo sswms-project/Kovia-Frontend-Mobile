@@ -7,6 +7,7 @@ import type {
   LoginResponseDto,
   ResendVerificationRequestDto,
   ResetPasswordRequestDto,
+  UserProfileResponse,
   Verify2FARequestDto,
 } from './auth.types';
 
@@ -28,5 +29,6 @@ export const authApi = {
     api.post<ApiResponse<unknown>>('/auth/forgot-password', body).then(unwrapMessage),
   resetPassword: (body: ResetPasswordRequestDto) =>
     api.post<ApiResponse<unknown>>('/auth/reset-password', body).then(unwrapMessage),
+  getMe: () => api.get<ApiResponse<UserProfileResponse>>('/auth/me').then(unwrap),
   logout: () => api.post('/auth/logout'),
 };

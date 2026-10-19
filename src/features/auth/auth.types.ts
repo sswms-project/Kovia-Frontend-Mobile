@@ -36,3 +36,25 @@ export interface ResetPasswordRequestDto {
   token: string;
   newPassword: string;
 }
+
+export interface AssignedWarehouse {
+  id: string;
+  warehouseCode: string;
+  warehouseName: string;
+}
+
+export interface UserProfileResponse {
+  id: string;
+  tenantId: string | null;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  role: string | null;
+  status: string;
+  lastLoginAt: string | null;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  isTwoFactorEnabled: boolean;
+  permissions: string[];
+  assignedWarehouses: AssignedWarehouse[];
+}
