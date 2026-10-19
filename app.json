@@ -34,14 +34,9 @@
         }
       ],
       "expo-secure-store",
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Kovia cần dùng camera để quét mã vạch trên hàng hóa.",
-          "recordAudioAndroid": false
-        }
-      ],
-      "expo-sqlite"
+      "expo-sqlite",
+      ["expo-image-picker", { "photosPermission": "Cho phép Kovia chọn ảnh bằng chứng kiểm và từ chối hàng.", "microphonePermission": false }],
+      ["expo-camera", { "cameraPermission": "Cho phép Kovia dùng camera để quét mã sản phẩm và vị trí kho.", "recordAudioAndroid": false, "barcodeScannerEnabled": true }]
     ],
     "experiments": {
       "typedRoutes": true,

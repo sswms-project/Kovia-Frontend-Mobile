@@ -34,15 +34,17 @@ interface ScannerScreenProps {
   readonly onScan: (code: string) => ScanResult;
   readonly onClose: () => void;
   readonly repeatGuardMs?: number;
+  readonly onCameraFailure?: () => void;
 }
 
 /** Shared scanner for inbound, outbound and stocktake flows. The owning feature supplies `onScan`. */
-export function ScannerScreen({ title, onScan, onClose, repeatGuardMs }: ScannerScreenProps) {
+export function ScannerScreen({ title, onScan, onClose, repeatGuardMs, onCameraFailure }: ScannerScreenProps) {
   const theme = useTheme();
   const isFocused = useIsFocused();
   const [permission, requestPermission] = useCameraPermissions();
   const [isTorchOn, setIsTorchOn] = useState(false);
   const [isManualOpen, setIsManualOpen] = useState(false);
+  const [cameraFailed, setCameraFailed] = useState(false);
   const { handleCode, isProcessing, lastScan } = useScanGuard(onScan, repeatGuardMs);
 
   const manualForm = useForm<ManualCodeFormValues>({
@@ -52,7 +54,7 @@ export function ScannerScreen({ title, onScan, onClose, repeatGuardMs }: Scanner
 
   const isCameraGranted = permission?.granted === true;
   // Without camera access the typed fallback is the only way in, so it must already be open.
-  const isManualVisible = isManualOpen || (permission !== null && !isCameraGranted);
+  const isManualVisible = isManualOpen || cameraFailed || (permission !== null && !isCameraGranted);
 
   async function handleManualSubmit(values: ManualCodeFormValues) {
     await handleCode(values.code, { isManual: true });
@@ -60,6 +62,8 @@ export function ScannerScreen({ title, onScan, onClose, repeatGuardMs }: Scanner
   }
 
   function renderBody() {
+    if (cameraFailed) return <EmptyState icon={CameraOff} title="Không thể sử dụng camera"
+      description="Vui lòng nhập mã thủ công bên dưới." />;
     if (permission === null) return <LoadingState message="Đang kiểm tra quyền camera…" />;
 
     if (!permission.granted) {
@@ -83,6 +87,7 @@ export function ScannerScreen({ title, onScan, onClose, repeatGuardMs }: Scanner
         isTorchOn={isTorchOn}
         onToggleTorch={() => setIsTorchOn((value) => !value)}
         onCode={(code) => void handleCode(code)}
+        onFailure={() => { setCameraFailed(true); onCameraFailure?.(); }}
       />
     );
   }

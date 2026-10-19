@@ -1,12 +1,12 @@
-import { Redirect } from 'expo-router';
+import { router } from 'expo-router';
 
-import { getAllowedTabs } from '@/features/auth/auth.permissions';
-import { useMe } from '@/features/auth/hooks/use-me';
+import { WarehousePicker } from '@/features/warehouse-access/components/warehouse-picker';
+import { useWarehouseAccess } from '@/features/warehouse-access/hooks/use-warehouse-access';
 
-// The (app) layout only renders its tabs once /auth/me has loaded, so `data` is set here.
-export default function IndexRoute() {
-  const { data } = useMe();
-  const firstTab = data ? getAllowedTabs(data)[0] : undefined;
-
-  return <Redirect href={firstTab?.href ?? '/profile'} />;
+export default function WarehouseScreen() {
+  const access = useWarehouseAccess();
+  return <WarehousePicker profile={access.profile.data} warehouses={access.snapshot?.warehouses ?? []}
+    selected={access.warehouse} validated={access.validated} loading={access.profile.isFetching || (access.selection.transitioning && access.profile.isSuccess)}
+    error={access.profile.error} notice={access.selection.notice} compatible={access.snapshot?.compatible ?? true}
+    onSelect={access.choose} onRefresh={access.refresh} onProfile={() => router.push('/profile')} />;
 }

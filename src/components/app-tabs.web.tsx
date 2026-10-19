@@ -21,7 +21,7 @@ interface AppTabsProps {
 export default function AppTabs({ allowedTabNames }: AppTabsProps) {
   return (
     <Tabs>
-      <TabSlot style={{ height: '100%' }} />
+      <TabSlot style={styles.content} />
       <TabList asChild>
         <CustomTabList>
           {MOBILE_TABS.filter((tab) => allowedTabNames.includes(tab.name)).map((tab) => (
@@ -65,7 +65,6 @@ export function CustomTabList(props: TabListProps) {
 
 const styles = StyleSheet.create({
   tabListContainer: {
-    position: 'absolute',
     width: '100%',
     padding: Spacing.three,
     justifyContent: 'center',
@@ -77,6 +76,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.five,
     borderRadius: Spacing.five,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     flexGrow: 1,
     gap: Spacing.two,
@@ -89,8 +89,11 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   tabButtonView: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: Spacing.one,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.three,
   },
+  content: { flex: 1 },
 });

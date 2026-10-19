@@ -37,13 +37,15 @@ export interface ResetPasswordRequestDto {
   newPassword: string;
 }
 
-export interface AssignedWarehouse {
-  id: string;
-  warehouseCode: string;
-  warehouseName: string;
+export type SignInResponse = LoginResponseDto;
+export type CaptchaChallenge = CaptchaChallengeResponse;
+
+export interface TwoFactorSetup {
+  secret: string;
+  qrUri: string;
 }
 
-export interface UserProfileResponse {
+export interface UserProfile {
   id: string;
   tenantId: string | null;
   fullName: string;
@@ -56,5 +58,13 @@ export interface UserProfileResponse {
   phoneVerified: boolean;
   isTwoFactorEnabled: boolean;
   permissions: string[];
-  assignedWarehouses: AssignedWarehouse[];
+  assignedWarehouses: {
+    id: string;
+    warehouseCode: string;
+    warehouseName: string;
+    status: string;
+  }[];
 }
+
+export type UserProfileResponse = UserProfile;
+export type AssignedWarehouse = UserProfile['assignedWarehouses'][number];

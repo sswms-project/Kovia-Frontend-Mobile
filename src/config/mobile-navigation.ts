@@ -7,6 +7,13 @@ export const MOBILE_SUPPORTED_ROLES: readonly UserRole[] = [USER_ROLES.Warehouse
 // `permission: null` means every signed-in, supported user sees the tab.
 export const MOBILE_TABS = [
   {
+    name: 'index',
+    href: '/',
+    title: 'Kho làm việc',
+    permission: null,
+    icon: { sf: 'building.2', md: 'warehouse' },
+  },
+  {
     name: 'tasks',
     href: '/tasks',
     title: 'Công việc',

@@ -21,8 +21,9 @@ import { useVerify2FAMutation } from '../hooks/use-auth-mutations';
 
 export function VerifyTwoFactorScreen() {
   const router = useRouter();
-  const tempToken = useAuth((state) => state.twoFactorTempToken);
-  const setTwoFactorTempToken = useAuth((state) => state.setTwoFactorTempToken);
+  const twoFactor = useAuth((state) => state.twoFactor);
+  const tempToken = twoFactor?.tempToken;
+  const cancelTwoFactor = useAuth((state) => state.cancelTwoFactor);
   const applySignIn = useAuth((state) => state.applySignIn);
   const verifyMutation = useVerify2FAMutation();
   const [step, setStep] = useState<VerifyStep>({ status: 'form' });
@@ -41,20 +42,30 @@ export function VerifyTwoFactorScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!twoFactor) return;
+    const timer = setTimeout(() => {
+      flowIdRef.current += 1;
+      cancelTwoFactor();
+      setStep({ status: 'sessionExpired' });
+    }, Math.max(0, twoFactor.expiresAt - Date.now()));
+    return () => clearTimeout(timer);
+  }, [twoFactor, cancelTwoFactor]);
+
   function handleBackToLogin() {
     flowIdRef.current += 1;
-    setTwoFactorTempToken(null);
+    cancelTwoFactor();
     verifyMutation.reset();
     router.replace('/login');
   }
 
   async function handleVerify(values: VerifyTwoFactorFormValues) {
-    if (!tempToken || verifyMutation.isPending) return;
+    if (!tempToken || !twoFactor || Date.now() >= twoFactor.expiresAt || verifyMutation.isPending) return;
     const flowId = flowIdRef.current;
 
     try {
       const result = await verifyMutation.mutateAsync({ tempToken, otp: values.otp });
-      if (flowId !== flowIdRef.current) return;
+      if (flowId !== flowIdRef.current || Date.now() >= twoFactor.expiresAt) return;
 
       if (result.requires2FA || !result.accessToken || !result.refreshToken) {
         toast.error('Phản hồi xác thực hai yếu tố không hợp lệ. Vui lòng thử lại.');
@@ -70,12 +81,12 @@ export function VerifyTwoFactorScreen() {
 
       const kind = classifyVerify2FAError(error);
       if (kind === 'sessionExpired') {
-        setTwoFactorTempToken(null);
+        cancelTwoFactor();
         setStep({ status: 'sessionExpired' });
         return;
       }
       if (kind === 'accountUnavailable') {
-        setTwoFactorTempToken(null);
+        cancelTwoFactor();
         setStep({
           status: 'accountUnavailable',
           reason: isAccountInactiveError(error) ? 'inactive' : 'userNotFound',

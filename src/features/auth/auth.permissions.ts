@@ -4,15 +4,14 @@ import {
   type MobileTab,
 } from '@/config/mobile-navigation';
 import type { PermissionCode } from '@/config/permission-codes';
-import { USER_ROLES } from '@/config/roles';
 
 import type { UserProfileResponse } from './auth.types';
 
 type PermissionSubject = Pick<UserProfileResponse, 'role' | 'permissions'>;
 
-// Tenant Owner implicitly holds every tenant permission, mirroring the web FE.
+// Effective permissions include backend grants/revocations; role names cannot override them.
 export function hasPermission(subject: PermissionSubject, code: PermissionCode): boolean {
-  return subject.role === USER_ROLES.TenantOwner || subject.permissions.includes(code);
+  return subject.permissions.includes(code);
 }
 
 export function isMobileSupportedRole(role: string | null): boolean {

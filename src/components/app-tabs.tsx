@@ -16,8 +16,7 @@ export default function AppTabs({ allowedTabNames }: AppTabsProps) {
       indicatorColor={theme.backgroundSelected}
       tintColor={theme.primary}
       labelStyle={{ selected: { color: theme.primary } }}>
-      {/* `index` only redirects to the first tab the user may open, so it never shows in the bar. */}
-      <NativeTabs.Trigger name="index" hidden />
+      <NativeTabs.Trigger name="lookup" hidden />
       {MOBILE_TABS.map((tab) => (
         <NativeTabs.Trigger
           key={tab.name}

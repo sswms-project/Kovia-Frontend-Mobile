@@ -1,16 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '../auth.store';
+import { profileQueryKey } from '@/features/warehouse-access/warehouse-access';
 
 import { authApi } from '../auth.api';
 
-export const ME_QUERY_KEY = ['auth', 'me'] as const;
-
-const ME_STALE_TIME_MS = 5 * 60_000;
+export const ME_QUERY_KEY = profileQueryKey;
 
 /** Current user's role and effective permissions. The BE stays the source of truth. */
 export function useMe() {
+  const signedIn = useAuth((state) => state.signedIn);
   return useQuery({
     queryKey: ME_QUERY_KEY,
-    queryFn: authApi.getMe,
-    staleTime: ME_STALE_TIME_MS,
+    queryFn: ({ signal }) => authApi.getMe(signal),
+    enabled: signedIn,
+    staleTime: 0,
   });
 }
