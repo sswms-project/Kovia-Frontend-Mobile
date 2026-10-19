@@ -9,11 +9,29 @@ interface TabPlaceholderProps {
   readonly icon: LucideIcon;
   readonly title: string;
   readonly description: string;
+  readonly actionLabel?: string;
+  readonly onAction?: () => void;
 }
 
 // Stands in for each tab until its feature task lands, so the shell can ship and be navigated.
-export function TabPlaceholder({ allowed, icon, title, description }: TabPlaceholderProps) {
+export function TabPlaceholder({
+  allowed,
+  icon,
+  title,
+  description,
+  actionLabel,
+  onAction,
+}: TabPlaceholderProps) {
   if (!allowed) return <ErrorState kind="forbidden" fullScreen />;
 
-  return <EmptyState icon={icon} title={title} description={description} fullScreen />;
+  return (
+    <EmptyState
+      icon={icon}
+      title={title}
+      description={description}
+      actionLabel={actionLabel}
+      onAction={onAction}
+      fullScreen
+    />
+  );
 }
