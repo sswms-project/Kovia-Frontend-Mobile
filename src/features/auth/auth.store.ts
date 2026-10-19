@@ -65,6 +65,8 @@ export const useAuth = create<AuthState>((set) => ({
 }));
 
 setSessionExpiredHandler(() => {
-  useAuth.setState({ notice: 'Phiên đã hết hạn. Vui lòng đăng nhập lại.' });
+  // Stop concurrent 401 responses from clearing the same session repeatedly.
+  if (!useAuth.getState().signedIn) return;
+  useAuth.setState({ signedIn: false, twoFactor: null, notice: 'Phiên đã hết hạn. Vui lòng đăng nhập lại.' });
   void useAuth.getState().clearSession();
 });

@@ -1,13 +1,17 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { onlineManager, QueryClientProvider } from '@tanstack/react-query';
+import * as Network from 'expo-network';
 import type { ReactNode } from 'react';
 
 import { resetWarehouseSelection } from '@/features/warehouse-access/warehouse-access.store';
+import { queryClient } from '@/lib/query-client';
 
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { retry: 1, staleTime: 30_000 },
-    mutations: { retry: 0, gcTime: 0 },
-  },
+export { queryClient } from '@/lib/query-client';
+
+onlineManager.setEventListener((setOnline) => {
+  const subscription = Network.addNetworkStateListener((state) => {
+    setOnline(state.isConnected !== false && state.isInternetReachable !== false);
+  });
+  return () => subscription.remove();
 });
 
 export async function clearSessionQueries() {

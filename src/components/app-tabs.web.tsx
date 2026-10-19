@@ -1,28 +1,99 @@
-import { Tabs, TabList, TabTrigger, TabSlot } from 'expo-router/ui';
-import { StyleSheet } from 'react-native';
+import {
+  Tabs,
+  TabList,
+  TabTrigger,
+  TabSlot,
+  TabTriggerSlotProps,
+  TabListProps,
+} from 'expo-router/ui';
+import { Pressable, View, StyleSheet } from 'react-native';
 
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
-import { Spacing } from '@/constants/theme';
 
-export default function AppTabs() {
+import { MOBILE_TABS } from '@/config/mobile-navigation';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
+
+interface AppTabsProps {
+  readonly allowedTabNames: readonly string[];
+}
+
+export default function AppTabs({ allowedTabNames }: AppTabsProps) {
   return (
     <Tabs>
-      <TabList style={styles.tabs}>
-        <ThemedView style={styles.brand}><ThemedText type="smallBold">Kovia</ThemedText></ThemedView>
-        <TabTrigger name="home" href="/" style={styles.tab}><ThemedText>Kho làm việc</ThemedText></TabTrigger>
-        <TabTrigger name="tasks" href="/tasks" style={styles.tab}><ThemedText>Công việc</ThemedText></TabTrigger>
-        <TabTrigger name="lookup" href="/lookup" style={styles.tab}><ThemedText>Tra cứu</ThemedText></TabTrigger>
-        <TabTrigger name="profile" href="/profile" style={styles.tab}><ThemedText>Hồ sơ</ThemedText></TabTrigger>
-      </TabList>
       <TabSlot style={styles.content} />
+      <TabList asChild>
+        <CustomTabList>
+          {MOBILE_TABS.filter((tab) => allowedTabNames.includes(tab.name)).map((tab) => (
+            <TabTrigger key={tab.name} name={tab.name} href={tab.href} asChild>
+              <TabButton>{tab.title}</TabButton>
+            </TabTrigger>
+          ))}
+        </CustomTabList>
+      </TabList>
     </Tabs>
   );
 }
 
+export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+  return (
+    <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
+      <ThemedView
+        type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
+        style={styles.tabButtonView}>
+        <ThemedText type="small" themeColor={isFocused ? 'text' : 'textSecondary'}>
+          {children}
+        </ThemedText>
+      </ThemedView>
+    </Pressable>
+  );
+}
+
+export function CustomTabList(props: TabListProps) {
+  return (
+    <View {...props} style={styles.tabListContainer}>
+      <ThemedView type="backgroundElement" style={styles.innerContainer}>
+        <ThemedText type="smallBold" style={styles.brandText}>
+          KOVIA
+        </ThemedText>
+
+        {props.children}
+      </ThemedView>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  tabs: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, padding: Spacing.two, flexWrap: 'wrap' },
-  brand: { marginRight: 'auto', padding: Spacing.two },
-  tab: { minHeight: 44, padding: Spacing.two, justifyContent: 'center' },
+  tabListContainer: {
+    width: '100%',
+    padding: Spacing.three,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  innerContainer: {
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.five,
+    borderRadius: Spacing.five,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    flexGrow: 1,
+    gap: Spacing.two,
+    maxWidth: MaxContentWidth,
+  },
+  brandText: {
+    marginRight: 'auto',
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  tabButtonView: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.three,
+  },
   content: { flex: 1 },
 });

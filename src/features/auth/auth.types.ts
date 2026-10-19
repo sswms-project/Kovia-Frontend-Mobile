@@ -47,7 +47,7 @@ export interface TwoFactorSetup {
 
 export interface UserProfile {
   id: string;
-  tenantId: string;
+  tenantId: string | null;
   fullName: string;
   email: string;
   phone: string | null;
@@ -65,3 +65,6 @@ export interface UserProfile {
     status: string;
   }[];
 }
+
+export type UserProfileResponse = UserProfile;
+export type AssignedWarehouse = UserProfile['assignedWarehouses'][number];

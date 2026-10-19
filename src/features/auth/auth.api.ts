@@ -18,6 +18,8 @@ export type { SignInResponse } from './auth.types';
 
 // These endpoints answer with a human-readable message the UI shows as-is.
 const unwrapMessage = (res: { data: ApiResponse<unknown> }) => res.data.message;
+const getProfile = (signal?: AbortSignal) =>
+  api.get<ApiResponse<UserProfile>>('/auth/me', { signal }).then(unwrap);
 
 export const authApi = {
   login: (body: LoginRequestDto) =>
@@ -34,8 +36,8 @@ export const authApi = {
     api.post<ApiResponse<unknown>>('/auth/forgot-password', body).then(unwrapMessage),
   resetPassword: (body: ResetPasswordRequestDto) =>
     api.post<ApiResponse<unknown>>('/auth/reset-password', body).then(unwrapMessage),
-  profile: (signal?: AbortSignal) =>
-    api.get<ApiResponse<UserProfile>>('/auth/me', { signal }).then(unwrap),
+  profile: getProfile,
+  getMe: getProfile,
   updateProfile: (body: ProfileInput) =>
     api.put<ApiResponse<unknown>>('/auth/me', body).then(unwrap),
   setupTwoFactor: () => api.post<ApiResponse<TwoFactorSetup>>('/settings/2fa/setup').then(unwrap),

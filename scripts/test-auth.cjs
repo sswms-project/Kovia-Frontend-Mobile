@@ -296,9 +296,15 @@ test('a failed refresh from the previous account cannot sign out a new account',
 });
 
 test('session cleanup removes cached data from the previous account', async () => {
+  const shared = loadSource('src/lib/query-client.ts', {
+    './api-error': loadSource('src/lib/api-error.ts', { './logger': { logger: { warn() {}, error() {} } } }),
+  });
   const { queryClient, clearSessionQueries } = loadSource('src/providers/query-provider.tsx', {
     '@/features/warehouse-access/warehouse-access.store': loadSource('src/features/warehouse-access/warehouse-access.store.ts'),
+    '@/lib/query-client': shared,
+    'expo-network': { addNetworkStateListener: () => ({ remove() {} }) },
   });
+  assert.equal(queryClient, shared.queryClient);
   queryClient.setQueryData(['auth', 'profile'], { fullName: 'Previous account' });
   queryClient.setQueryData(['warehouse', 'balances'], [{ quantity: 42 }]);
   await clearSessionQueries();

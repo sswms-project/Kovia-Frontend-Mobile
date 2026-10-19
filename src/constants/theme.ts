@@ -35,6 +35,8 @@ export const Colors = {
     onWarningContainer: '#321b00',
     chart1: '#166534',
     chart2: '#65a30d',
+    scrim: 'rgba(0, 0, 0, 0.55)',
+    onScrim: '#ffffff',
   },
   dark: {
     text: '#d9e3d6',
@@ -62,6 +64,8 @@ export const Colors = {
     onWarningContainer: '#f6dfb4',
     chart1: '#7fc78a',
     chart2: '#b8cf6a',
+    scrim: 'rgba(0, 0, 0, 0.65)',
+    onScrim: '#ffffff',
   },
 } as const;
 
