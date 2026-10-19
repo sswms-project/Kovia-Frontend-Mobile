@@ -33,6 +33,7 @@ export const TASK_TYPE_ICON: Record<WarehouseTaskType, LucideIcon> = {
   Relocation: ArrowLeftRight,
   TransferPick: Truck,
   TransferReceive: PackageOpen,
+  TransferPutAway: PackagePlus,
   Picking: PackageSearch,
 };
 

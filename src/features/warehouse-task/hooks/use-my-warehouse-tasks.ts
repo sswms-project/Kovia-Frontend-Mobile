@@ -5,7 +5,7 @@ import {
   type InfiniteData,
 } from '@tanstack/react-query';
 
-import { logApiError } from '@/lib/api-error';
+import { isApiErrorResponse, logApiError } from '@/lib/api-error';
 
 import { warehouseTaskApi } from '../warehouse-task.api';
 import type {
@@ -66,7 +66,13 @@ export function useManageMyWarehouseTaskMutation() {
     mutationFn: ({ taskType, taskId, action, reason }: ManageTaskVariables) =>
       warehouseTaskApi.action(taskType, taskId, action, reason),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: WAREHOUSE_TASKS_QUERY_KEY }),
-    // The screen shows the message in a toast.
-    onError: logApiError,
+    // The screen shows the message in a toast. 409/404 mean the task changed or was reassigned
+    // meanwhile, so the cached list is stale and must be reloaded (same as the web).
+    onError: (error) => {
+      logApiError(error);
+      if (isApiErrorResponse(error) && (error.statusCode === 409 || error.statusCode === 404)) {
+        void queryClient.invalidateQueries({ queryKey: WAREHOUSE_TASKS_QUERY_KEY });
+      }
+    },
   });
 }

@@ -17,6 +17,7 @@ export const TASK_TYPE_LABEL: Record<WarehouseTaskType, string> = {
   Relocation: 'Điều chuyển vị trí',
   TransferPick: 'Lấy hàng điều chuyển',
   TransferReceive: 'Nhận hàng điều chuyển',
+  TransferPutAway: 'Cất hàng điều chuyển',
   Picking: 'Lấy hàng xuất kho',
 };
 
@@ -75,6 +76,7 @@ export const TASK_TYPE_FILTERS: readonly FilterOption<WarehouseTaskType>[] = [
   { value: 'Relocation', label: 'Điều chuyển vị trí' },
   { value: 'TransferPick', label: 'Lấy hàng điều chuyển' },
   { value: 'TransferReceive', label: 'Nhận hàng điều chuyển' },
+  { value: 'TransferPutAway', label: 'Cất hàng điều chuyển' },
 ];
 
 export const ACTION_SUCCESS_MESSAGE: Record<WarehouseTaskAction, string> = {

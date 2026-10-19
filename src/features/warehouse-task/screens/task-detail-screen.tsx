@@ -63,6 +63,8 @@ export function TaskDetailScreen({ taskType, taskId }: TaskDetailScreenProps) {
   );
 
   async function runAction(action: WarehouseTaskAction, reason?: string) {
+    // A double tap must not send the same action twice.
+    if (manageMutation.isPending) return;
     try {
       await manageMutation.mutateAsync({ taskType, taskId, action, reason });
       toast.success(ACTION_SUCCESS_MESSAGE[action]);

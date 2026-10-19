@@ -6,6 +6,7 @@ export const WAREHOUSE_TASK_TYPES = [
   'Relocation',
   'TransferPick',
   'TransferReceive',
+  'TransferPutAway',
   'Picking',
 ] as const;
 
