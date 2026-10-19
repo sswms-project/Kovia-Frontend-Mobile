@@ -53,7 +53,10 @@ api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError<{ message?: string; statusCode?: number; errors?: Record<string, string[]> }>) => {
     const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
-    const isAuthCall = original?.url?.includes('/auth/login') || original?.url?.includes('/auth/refresh');
+    const isAuthCall =
+      original?.url?.includes('/auth/login') ||
+      original?.url?.includes('/auth/refresh') ||
+      original?.url?.includes('/auth/verify-2fa');
 
     if (error.response?.status === 401 && original && !original._retry && !isAuthCall) {
       original._retry = true;
