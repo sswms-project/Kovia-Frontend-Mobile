@@ -36,3 +36,32 @@ export interface ResetPasswordRequestDto {
   token: string;
   newPassword: string;
 }
+
+export type SignInResponse = LoginResponseDto;
+export type CaptchaChallenge = CaptchaChallengeResponse;
+
+export interface TwoFactorSetup {
+  secret: string;
+  qrUri: string;
+}
+
+export interface UserProfile {
+  id: string;
+  tenantId: string;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  role: string | null;
+  status: string;
+  lastLoginAt: string | null;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  isTwoFactorEnabled: boolean;
+  permissions: string[];
+  assignedWarehouses: {
+    id: string;
+    warehouseCode: string;
+    warehouseName: string;
+    status: string;
+  }[];
+}

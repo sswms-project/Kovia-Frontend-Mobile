@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { getApiErrorMessage } from '@/lib/api-error';
+import { useAuth } from '../auth.store';
 
 import { resetPasswordSchema, type ResetPasswordFormValues } from '../auth.schema';
 import { ResetPasswordForm } from '../components/reset-password-page';
@@ -16,6 +17,7 @@ interface ResetPasswordScreenProps {
 export function ResetPasswordScreen({ token }: ResetPasswordScreenProps) {
   const router = useRouter();
   const resetPasswordMutation = useResetPasswordMutation();
+  const clearSession = useAuth((state) => state.clearSession);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>();
 
@@ -36,6 +38,7 @@ export function ResetPasswordScreen({ token }: ResetPasswordScreenProps) {
     try {
       setErrorMessage(undefined);
       await resetPasswordMutation.mutateAsync({ token, newPassword: values.password });
+      await clearSession();
       setIsSuccess(true);
     } catch (error) {
       setErrorMessage(

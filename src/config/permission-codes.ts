@@ -163,6 +163,12 @@ export const P = {
 
 export type PermissionCode = (typeof P)[keyof typeof P]
 
+export const PermissionCodes = {
+  viewOwnTasks: P.WAREHOUSE_TASKS_VIEW_OWN,
+  manageOwnTasks: P.WAREHOUSE_TASKS_MANAGE_OWN,
+  viewInventory: P.INVENTORY_VIEW,
+} as const;
+
 const PLATFORM_ONLY_PERMISSION_CODES: ReadonlySet<string> = new Set([
   P.ADMIN_DASHBOARD_VIEW,
   P.ADMIN_TENANTS_VIEW,

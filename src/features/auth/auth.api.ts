@@ -1,5 +1,7 @@
 import { api, unwrap, type ApiResponse } from '@/lib/api';
 
+import type { OtpInput, ProfileInput } from './auth.schema';
+
 import type {
   CaptchaChallengeResponse,
   ForgotPasswordRequestDto,
@@ -8,7 +10,11 @@ import type {
   ResendVerificationRequestDto,
   ResetPasswordRequestDto,
   Verify2FARequestDto,
+  TwoFactorSetup,
+  UserProfile,
 } from './auth.types';
+
+export type { SignInResponse } from './auth.types';
 
 // These endpoints answer with a human-readable message the UI shows as-is.
 const unwrapMessage = (res: { data: ApiResponse<unknown> }) => res.data.message;
@@ -28,5 +34,14 @@ export const authApi = {
     api.post<ApiResponse<unknown>>('/auth/forgot-password', body).then(unwrapMessage),
   resetPassword: (body: ResetPasswordRequestDto) =>
     api.post<ApiResponse<unknown>>('/auth/reset-password', body).then(unwrapMessage),
-  logout: () => api.post('/auth/logout'),
+  profile: (signal?: AbortSignal) =>
+    api.get<ApiResponse<UserProfile>>('/auth/me', { signal }).then(unwrap),
+  updateProfile: (body: ProfileInput) =>
+    api.put<ApiResponse<unknown>>('/auth/me', body).then(unwrap),
+  setupTwoFactor: () => api.post<ApiResponse<TwoFactorSetup>>('/settings/2fa/setup').then(unwrap),
+  confirmTwoFactor: (body: OtpInput) =>
+    api.post<ApiResponse<unknown>>('/settings/2fa/confirm', body).then(unwrap),
+  disableTwoFactor: (body: OtpInput) =>
+    api.delete<ApiResponse<unknown>>('/settings/2fa', { data: body }).then(unwrap),
+  logout: () => api.post<ApiResponse<unknown>>('/auth/logout').then(unwrap),
 };
