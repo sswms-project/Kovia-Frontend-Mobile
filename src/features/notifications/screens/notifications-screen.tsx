@@ -13,12 +13,12 @@ import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
 
 import { NotificationCard } from '../components/notification-card';
-import { useNotifications } from '../hooks/use-notifications';
+import { useWorkflowNotifications } from '../hooks/use-workflow-notifications';
 import { notificationDestination } from '../notifications';
 import type { WarehouseNotification } from '../notifications.schema';
 
 export function NotificationsScreen() {
-  const state = useNotifications();
+  const state = useWorkflowNotifications();
   const theme = useTheme();
   const [confirmAll, setConfirmAll] = useState<string | null>(null);
   const profile = state.access.profile.data;

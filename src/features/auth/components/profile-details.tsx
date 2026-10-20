@@ -1,3 +1,5 @@
+import { getRoleLabel } from '@/config/roles';
+
 import type { UserProfile } from '../auth.types';
 import { DetailText } from './auth-form';
 
@@ -5,7 +7,7 @@ export function ProfileDetails({ profile }: { profile: UserProfile }) {
   return (
     <>
       <DetailText>
-        {profile.email} · {profile.role ?? 'Chưa có vai trò'}
+        {profile.email} · {profile.role ? getRoleLabel(profile.role) : 'Chưa có vai trò'}
       </DetailText>
       <DetailText>
         Email: {profile.emailVerified ? 'Đã xác minh' : 'Chưa xác minh'}
