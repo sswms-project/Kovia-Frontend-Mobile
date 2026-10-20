@@ -7,6 +7,7 @@ import type {
   ForgotPasswordRequestDto,
   LoginRequestDto,
   LoginResponseDto,
+  RegisterRequestDto,
   ResendVerificationRequestDto,
   ResetPasswordRequestDto,
   Verify2FARequestDto,
@@ -28,6 +29,8 @@ export const authApi = {
     api.post<ApiResponse<CaptchaChallengeResponse>>('/auth/captcha/challenge').then(unwrap),
   verify2FA: (body: Verify2FARequestDto) =>
     api.post<ApiResponse<LoginResponseDto>>('/auth/verify-2fa', body).then(unwrap),
+  register: (body: RegisterRequestDto) =>
+    api.post<ApiResponse<unknown>>('/auth/register', body).then(unwrapMessage),
   resendVerification: (body: ResendVerificationRequestDto) =>
     api.post<ApiResponse<unknown>>('/auth/resend-verification', body).then(unwrapMessage),
   verifyEmail: (token: string) =>

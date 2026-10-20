@@ -13,6 +13,16 @@ export function useLoginMutation() {
   });
 }
 
+export function useRegisterMutation() {
+  return useMutation({
+    mutationFn: authApi.register,
+    onError: (error) => {
+      logApiError(error);
+      toast.error(getApiErrorMessage(error, 'Đăng ký thất bại. Vui lòng thử lại.'));
+    },
+  });
+}
+
 export function useCaptchaMutation() {
   return useMutation({
     mutationFn: authApi.createCaptcha,

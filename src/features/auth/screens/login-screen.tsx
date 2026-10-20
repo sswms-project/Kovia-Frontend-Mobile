@@ -134,6 +134,7 @@ export function LoginScreen() {
       onRefreshCaptcha={() => void refreshCaptcha()}
       onResendVerification={() => void resendVerification()}
       onForgotPassword={() => router.push('/forgot-password')}
+      onRegister={() => router.push('/register')}
     />
   );
 }

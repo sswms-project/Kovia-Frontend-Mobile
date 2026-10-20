@@ -59,6 +59,28 @@ export const loginSchema = z
     }
   });
 
+export const registerSchema = z
+  .object({
+    tenantName: z.string().trim().min(1, 'Tên doanh nghiệp là bắt buộc').max(255, 'Tên doanh nghiệp tối đa 255 ký tự'),
+    ownerName: z.string().trim().min(1, 'Tên chủ sở hữu là bắt buộc').max(255, 'Tên chủ sở hữu tối đa 255 ký tự'),
+    phone: z
+      .string()
+      .trim()
+      .refine(
+        (value) => value.length === 0 || /^(0|\+84)[3-9][0-9]{8}$/.test(value),
+        'Số điện thoại Việt Nam không hợp lệ',
+      ),
+    email: emailField.max(255, 'Email tối đa 255 ký tự'),
+    address: z.string().trim().min(1, 'Địa chỉ là bắt buộc').max(500, 'Địa chỉ tối đa 500 ký tự'),
+    password: passwordField,
+    confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu'),
+    acceptTerms: z.boolean().refine((value) => value, 'Bạn cần đồng ý với điều khoản dịch vụ'),
+  })
+  .refine((values) => values.password === values.confirmPassword, {
+    path: ['confirmPassword'],
+    message: 'Mật khẩu xác nhận không khớp',
+  });
+
 export const verifyTwoFactorSchema = z.object({
   otp: z
     .string()
@@ -80,6 +102,7 @@ export const resetPasswordSchema = z
     message: 'Mật khẩu xác nhận không khớp',
   });
 
+export type RegisterFormValues = z.infer<typeof registerSchema>;
 export type LoginFormValues = z.infer<typeof loginSchema>;
 export type VerifyTwoFactorFormValues = z.infer<typeof verifyTwoFactorSchema>;
 export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;

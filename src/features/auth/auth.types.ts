@@ -24,6 +24,17 @@ export interface Verify2FARequestDto {
   otp: string;
 }
 
+export interface RegisterRequestDto {
+  tenantName: string;
+  ownerName: string;
+  phone: string;
+  email: string;
+  address: string;
+  password: string;
+  confirmPassword: string;
+  acceptTerms: boolean;
+}
+
 export interface ResendVerificationRequestDto {
   email: string;
 }

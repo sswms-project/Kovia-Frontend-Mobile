@@ -29,6 +29,7 @@ interface LoginFormProps {
   readonly onRefreshCaptcha: () => void;
   readonly onResendVerification: () => void;
   readonly onForgotPassword: () => void;
+  readonly onRegister: () => void;
 }
 
 export function LoginForm({
@@ -44,6 +45,7 @@ export function LoginForm({
   onRefreshCaptcha,
   onResendVerification,
   onForgotPassword,
+  onRegister,
 }: LoginFormProps) {
   const theme = useTheme();
   const passwordRef = useRef<TextInput>(null);
@@ -175,6 +177,7 @@ export function LoginForm({
       ) : null}
 
       <Button label="Đăng nhập" loading={isLoading} disabled={lockSeconds > 0} onPress={submit} />
+      <Button variant="ghost" label="Chưa có tài khoản? Đăng ký" onPress={onRegister} />
     </AuthScreenLayout>
   );
 }
