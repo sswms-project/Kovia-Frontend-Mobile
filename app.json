@@ -8,9 +8,11 @@
     "scheme": "koviafrontendmobile",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.sswms.kovia",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.sswms.kovia",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

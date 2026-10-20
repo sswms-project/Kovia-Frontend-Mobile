@@ -34,3 +34,17 @@ export function isoDateStringToDate(value: string): Date | undefined {
   const date = new Date(`${value}T00:00:00+07:00`);
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
+
+/** Relative time in Vietnamese: "vừa xong", "5 phút trước", "2 giờ trước", "3 ngày trước", else dd/MM/yyyy */
+export function formatRelativeTime(value: string | Date, now: Date = new Date()): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  const seconds = Math.max(0, Math.floor((now.getTime() - date.getTime()) / 1000));
+  if (seconds < 60) return 'vừa xong';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} phút trước`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} ngày trước`;
+  return formatDisplayDate(date);
+}
