@@ -25,6 +25,22 @@ export function getApiErrorCode(error: unknown): string | undefined {
   return error.errors?.code?.find((code) => code.trim().length > 0);
 }
 
+export type ApiErrorKind = 'network' | 'unauthorized' | 'forbidden' | 'notFound' | 'server' | 'unknown';
+
+/**
+ * Coarse bucket for choosing how to present a failure. Status 0 means the request never got a
+ * response (offline, timeout), which the api client normalises into an ApiError.
+ */
+export function getApiErrorKind(error: unknown): ApiErrorKind {
+  if (!isApiErrorResponse(error)) return 'unknown';
+  if (error.statusCode === 0) return 'network';
+  if (error.statusCode === 401) return 'unauthorized';
+  if (error.statusCode === 403) return 'forbidden';
+  if (error.statusCode === 404) return 'notFound';
+  if (error.statusCode >= 500) return 'server';
+  return 'unknown';
+}
+
 /** Human-readable message for a toast. */
 export function getApiErrorMessage(error: unknown, fallback = FALLBACK_MESSAGE): string {
   if (!isApiErrorResponse(error)) return error instanceof Error ? error.message : fallback;
