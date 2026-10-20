@@ -1,0 +1,32 @@
+import { memo } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { Button } from '@/components/ui/button';
+import { FontFamily, Radius } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+
+import type { StockIssueItem } from '../stock-issue.schema';
+
+interface Props { readonly item: StockIssueItem; readonly canPick: boolean; readonly busy: boolean;
+  readonly onPick: (item: StockIssueItem, inventoryStockId: string) => void }
+export const StockIssueItemCard = memo(function StockIssueItemCard({ item, canPick, busy, onPick }: Props) {
+  const theme = useTheme();
+  const issued = item.pickDetails.filter(value => value.issuedAt).reduce((sum, value) => sum + value.pickedQuantity, 0);
+  return <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+    <Text style={[styles.title, { color: theme.text }]}>{item.sku} · {item.productName}</Text>
+    <Text style={[styles.text, { color: theme.textSecondary }]}>Yêu cầu {item.quantity} · Đã lấy {item.pickedQuantity} · Đã xuất {issued} (đơn vị cơ sở)</Text>
+    <Text style={[styles.text, { color: theme.textSecondary }]}>Đóng gói: {item.conversionFactor} đơn vị cơ sở/{item.enteredUnitName}</Text>
+    {item.pickLocations.map(location => <View key={location.inventoryStockId} style={styles.section}>
+      <Text style={[styles.text, { color: theme.text }]}>{location.zoneCode} / {location.rackCode} / {location.slotCode}</Text>
+      <Text style={[styles.text, { color: theme.textSecondary }]}>Lô: {location.lotNumber ?? 'Không áp dụng'} · Hạn: {location.expiryDate ?? 'Không áp dụng'} · Giữ cho phiếu: {location.reservedQuantity}</Text>
+      {canPick && location.reservedQuantity > 0 && item.pickedQuantity < item.quantity &&
+        <Button label={`Lấy hàng tại ${location.slotCode}`} variant="outline" disabled={busy} onPress={() => onPick(item, location.inventoryStockId)} />}
+    </View>)}
+    {item.pickDetails.map(detail => <Text key={detail.id} style={[styles.text, { color: theme.textSecondary }]}>
+      {detail.slotCode} → {detail.stagingSlotCode} · {detail.pickedQuantity} · {detail.issuedAt ? 'Đã xuất thực tế' : 'Đang chờ xuất'}
+    </Text>)}
+  </View>;
+});
+const styles = StyleSheet.create({ card: { padding: 16, gap: 10, borderWidth: 1, borderRadius: Radius.lg },
+  section: { gap: 8 }, title: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 24 },
+  text: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 22 } });

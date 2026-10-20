@@ -28,15 +28,17 @@ interface MyTaskListProps {
   readonly onWarehouse: () => void;
   readonly onAction: (task: WarehouseTask, action: TaskActionInput['action']) => void;
   readonly onOpenDocument?: (task: WarehouseTask) => void;
+  readonly canOpenDocument?: (task: WarehouseTask) => boolean;
 }
 
 export function MyTaskList({ warehouseName, data, filters, loading, fetching, error, busy, canManage, notice,
-  onFilters, onRefresh, onWarehouse, onAction, onOpenDocument }: MyTaskListProps) {
+  onFilters, onRefresh, onWarehouse, onAction, onOpenDocument, canOpenDocument }: MyTaskListProps) {
   const theme = useTheme();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const renderItem = useCallback(({ item }: { item: WarehouseTask }) => (
-    <TaskCard task={item} history={filters.history} canManage={canManage && !error} busy={busy || fetching} onAction={onAction} onOpenDocument={onOpenDocument} />
-  ), [filters.history, canManage, error, busy, fetching, onAction, onOpenDocument]);
+    <TaskCard task={item} history={filters.history} canManage={canManage && !error} busy={busy || fetching} onAction={onAction}
+      onOpenDocument={!canOpenDocument || canOpenDocument(item) ? onOpenDocument : undefined} />
+  ), [filters.history, canManage, error, busy, fetching, onAction, onOpenDocument, canOpenDocument]);
   const total = data?.totalCount ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / (data?.pageSize ?? TASK_PAGE_SIZE)));
   return <SafeAreaView edges={['top', 'left', 'right']} style={[styles.root, { backgroundColor: theme.background }]}>
