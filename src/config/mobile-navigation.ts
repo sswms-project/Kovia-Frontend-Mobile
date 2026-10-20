@@ -1,8 +1,8 @@
 import { P } from './permission-codes';
 import { USER_ROLES, type UserRole } from './roles';
 
-// Mobile is built for floor work; owners and managers use the web app.
-export const MOBILE_SUPPORTED_ROLES: readonly UserRole[] = [USER_ROLES.WarehouseStaff];
+// Operational roles can work on mobile; effective permissions still gate each action.
+export const MOBILE_SUPPORTED_ROLES: readonly UserRole[] = [USER_ROLES.WarehouseStaff, USER_ROLES.WarehouseManager, USER_ROLES.TenantOwner];
 
 // `permission: null` means every signed-in, supported user sees the tab.
 export const MOBILE_TABS = [

@@ -64,6 +64,7 @@ export interface UserProfile {
     warehouseName: string;
     status: string;
   }[];
+  accessibleWarehouses?: UserProfile['assignedWarehouses'];
 }
 
 export type UserProfileResponse = UserProfile;

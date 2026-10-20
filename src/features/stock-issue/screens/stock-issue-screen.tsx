@@ -55,10 +55,10 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
     <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : state.closeEditor}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>{state.editor && <PickingEditor
         key={`${state.contextKey}:${state.editor.item.id}:${state.form.getValues('inventoryStockId')}`}
-        item={state.editor.item} slotCode={state.editor.slotCode} form={state.form} busy={busy} notice={state.notice}
+        item={state.editor.item} slotCode={state.editor.slotCode} destinationPath={state.editor.destinationPath} form={state.form} busy={busy} notice={state.notice}
         onReview={() => { void state.reviewPick(); }} onClose={state.closeEditor} />}
         <ConfirmationModal visible={state.target?.action === 'Pick'} title="Xác nhận đã lấy hàng vào khu chờ xuất?"
-          description={`Đã di chuyển ${state.target?.values?.pickedQuantity ?? ''} đơn vị cơ sở từ vị trí ${state.editor?.slotCode ?? ''}. Tổng tồn kho không thay đổi.`}
+          description={`Đã di chuyển ${state.target?.values?.pickedQuantity ?? ''} đơn vị cơ sở từ vị trí ${state.editor?.slotCode ?? ''} đến ${state.editor?.destinationPath ?? ''}. Tổng tồn kho không thay đổi.`}
           busy={busy} error={state.mutation.error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />
         <ConfirmationModal visible={state.discard} title="Bỏ thay đổi chưa lưu?" description="Bạn có thay đổi chưa được lưu. Bạn có chắc chắn muốn rời khỏi trang không?"
           busy={busy} onConfirm={state.discardChanges} onCancel={() => state.setDiscard(false)} />

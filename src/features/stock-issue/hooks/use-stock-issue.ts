@@ -11,7 +11,7 @@ import { warehouseCommand, type WarehouseCommandMemory } from '@/lib/warehouse-c
 import { useWarehouseAccess } from '@/features/warehouse-access/hooks/use-warehouse-access';
 import { profileQueryKey, warehouseSnapshot } from '@/features/warehouse-access/warehouse-access';
 import { useWarehouseSelection } from '@/features/warehouse-access/warehouse-access.store';
-import { logApiError } from '@/lib/api-error';
+import { getApiErrorMessage, logApiError } from '@/lib/api-error';
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
 
 import { assertPick, outstandingPicks } from '../stock-issue';
@@ -33,7 +33,7 @@ export function useStockIssue(documentId: string) {
     queryFn: ({ signal }) => stockIssueApi.detail(documentId, scope!.warehouseId, userId, signal) });
   const actions = useQuery({ queryKey: [...prefix, 'actions'], enabled: !!scope && detail.isSuccess, retry: false,
     queryFn: ({ signal }) => stockIssueApi.actions(documentId, signal) });
-  const [editor, setEditor] = useState<{ key: string; version: string; item: StockIssueItem; slotCode: string } | null>(null);
+  const [editor, setEditor] = useState<{ key: string; version: string; item: StockIssueItem; slotCode: string; destinationId: string; destinationPath: string } | null>(null);
   const [target, setTarget] = useState<Target | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [discard, setDiscard] = useState(false);
@@ -78,17 +78,34 @@ export function useStockIssue(documentId: string) {
       : 'Đã xác nhận phần hàng thực tế rời kho. Phần còn lại tiếp tục được theo dõi.');
     await client.invalidateQueries({ queryKey: ['warehouse', identity, warehouseId, revision] });
   } });
-  function beginPick(item: StockIssueItem, inventoryStockId: string) {
+  async function beginPick(item: StockIssueItem, inventoryStockId: string) {
     const location = item.pickLocations.find(value => value.inventoryStockId === inventoryStockId);
     if (!location || !detail.data?.version || !allowed('Pick') || lock.current) return;
-    mutation.reset(); setNotice(null); setDiscard(false);
-    form.reset({ stockIssueRequestItemId: item.id, inventoryStockId, pickedQuantity: Number.NaN, scannedBarcode: '', scannedSlotCode: '' });
-    setEditor({ key: contextKey, version: detail.data.version, item, slotCode: location.slotCode });
+    lock.current = true;
+    mutation.reset(); setNotice('Đang xác minh vị trí chờ xuất…'); setDiscard(false);
+    const expectedVersion = detail.data.version;
+    try {
+      assertCurrent(P.STOCK_ISSUE_REQUESTS_PICK);
+      const destination = await stockIssueApi.destination(documentId, inventoryStockId, scope!.warehouseId);
+      assertCurrent(P.STOCK_ISSUE_REQUESTS_PICK);
+      if (destination.version !== expectedVersion) throw new Error('Phiếu đã đổi phiên bản. Vui lòng tải lại trước khi lấy hàng.');
+      form.reset({ stockIssueRequestItemId: item.id, inventoryStockId, pickedQuantity: Number.NaN, scannedBarcode: '', scannedSlotCode: '',
+        destinationStagingSlotId: destination.slotId, scannedStagingSlotCode: '' });
+      setEditor({ key: contextKey, version: expectedVersion, item, slotCode: location.slotCode,
+        destinationId: destination.slotId, destinationPath: destination.path });
+      setNotice(null);
+    } catch (error) { logApiError(error); setNotice(getApiErrorMessage(error)); }
+    finally { lock.current = false; }
   }
   async function reviewPick() {
     await form.handleSubmit(values => {
       if (editor?.key !== contextKey || lock.current) return;
-      try { assertPick(values, detail.data!); setTarget({ key: contextKey, version: editor.version, action: 'Pick', values }); }
+      try {
+        assertPick(values, detail.data!);
+        if (values.destinationStagingSlotId !== editor.destinationId || !values.scannedStagingSlotCode?.trim())
+          throw new Error('Vui lòng quét hoặc nhập mã khu chờ xuất đã được chỉ định.');
+        setTarget({ key: contextKey, version: editor.version, action: 'Pick', values });
+      }
       catch (error) { setNotice(error instanceof Error ? error.message : 'Dữ liệu chưa hợp lệ.'); }
     })();
   }
