@@ -15,18 +15,21 @@ export function MyTasksScreen() {
   const state = useMyTasks();
   const theme = useTheme();
   function canOpenDocument(task: WarehouseTask) {
-    const permission = task.taskType === 'Picking' ? P.STOCK_ISSUE_REQUESTS_VIEW : task.taskType === 'CycleCount' ? P.CYCLE_COUNTS_VIEW : P.GOODS_RECEIPTS_VIEW;
+    const permission = task.taskType === 'TransferPick' ? P.TRANSFERS_VIEW : task.taskType === 'Picking' ? P.STOCK_ISSUE_REQUESTS_VIEW : task.taskType === 'CycleCount' ? P.CYCLE_COUNTS_VIEW : P.GOODS_RECEIPTS_VIEW;
+    if (task.taskType === 'TransferPick' && (!task.transferId || !task.transferShipmentId)) return false;
     return !!state.access.profile.data?.permissions.includes(permission);
   }
   function openDocument(task: WarehouseTask) {
     const profile = state.access.profile.data;
-    const permission = task.taskType === 'Picking' ? P.STOCK_ISSUE_REQUESTS_VIEW : task.taskType === 'CycleCount' ? P.CYCLE_COUNTS_VIEW : P.GOODS_RECEIPTS_VIEW;
+    const permission = task.taskType === 'TransferPick' ? P.TRANSFERS_VIEW : task.taskType === 'Picking' ? P.STOCK_ISSUE_REQUESTS_VIEW : task.taskType === 'CycleCount' ? P.CYCLE_COUNTS_VIEW : P.GOODS_RECEIPTS_VIEW;
     if (!state.canView || !profile?.permissions.includes(permission) ||
       task.warehouseId !== state.access.warehouse?.id || task.assignedTo !== profile.id) return;
     if (task.taskType === 'Receiving') router.push({ pathname: '/(account)/receiving/[id]', params: { id: task.id } });
     if (task.taskType === 'PutAway') router.push({ pathname: '/(account)/putaway/[id]', params: { id: task.id } });
     if (task.taskType === 'Picking') router.push({ pathname: '/(account)/stock-issue/[id]', params: { id: task.id } });
     if (task.taskType === 'CycleCount') router.push({ pathname: '/(account)/cycle-count/[id]', params: { id: task.id } });
+    if (task.taskType === 'TransferPick' && task.transferId && task.transferShipmentId)
+      router.push({ pathname: '/(account)/transfer-pick/[id]', params: { id: task.transferId, shipmentId: task.transferShipmentId } });
   }
   if (!state.canView) {
     const title = !state.access.validated ? 'Đang chờ xác minh kho và quyền truy cập.'
