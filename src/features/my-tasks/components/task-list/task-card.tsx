@@ -23,7 +23,7 @@ export const TaskCard = memo(function TaskCard({ task, history, canManage, busy,
   const [expanded, setExpanded] = useState(false);
   const actions = availableTaskActions(task, canManage, history);
   const urgent = task.priority === 'Urgent' || task.deadlineStatus === 'Overdue';
-  const canOpen = !!onOpenDocument && (task.taskType === 'TransferPick' || task.taskType === 'CycleCount' || task.taskType === 'Picking' || task.taskType === 'PutAway' || (task.taskType === 'Receiving' && !history));
+  const canOpen = !!onOpenDocument && (task.taskType.startsWith('Transfer') || task.taskType === 'CycleCount' || task.taskType === 'Picking' || task.taskType === 'PutAway' || (task.taskType === 'Receiving' && !history));
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: urgent ? theme.error : theme.border }]}>
       <View style={styles.heading}>
@@ -59,7 +59,7 @@ export const TaskCard = memo(function TaskCard({ task, history, canManage, busy,
         </Text>}
       </View>}
       {canOpen && <Button
-        label={task.taskType === 'TransferPick' ? 'Mở lấy hàng điều chuyển' : task.taskType === 'CycleCount' ? 'Mở phiếu kiểm kê' : task.taskType === 'Picking' ? 'Mở lấy hàng và xuất kho' : task.taskType === 'Receiving' ? 'Mở nhận hàng được giao' : 'Mở phiếu cất hàng'}
+        label={task.taskType === 'TransferReceive' ? 'Xem phiếu nhận điều chuyển' : task.taskType === 'TransferPutAway' ? 'Xem phiếu cất điều chuyển' : task.taskType === 'TransferPick' ? 'Mở lấy hàng điều chuyển' : task.taskType === 'CycleCount' ? 'Mở phiếu kiểm kê' : task.taskType === 'Picking' ? 'Mở lấy hàng và xuất kho' : task.taskType === 'Receiving' ? 'Mở nhận hàng được giao' : 'Mở phiếu cất hàng'}
         variant="outline" disabled={busy} onPress={() => onOpenDocument?.(task)} />}
       {actions.map((action) => <Button key={action}
         label={action === 'Start' && task.executionStatus === 'Paused' ? 'Tiếp tục' : ACTION_LABELS[action]}

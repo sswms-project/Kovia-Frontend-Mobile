@@ -9,8 +9,9 @@ export const profileQueryKey = ['auth', 'profile'] as const;
 export type AssignedWarehouse = UserProfile['assignedWarehouses'][number];
 
 export function warehouseSnapshot(profile: UserProfile) {
+  const accessible = profile.accessibleWarehouses ?? profile.assignedWarehouses;
   const warehouses = [...new Map(
-    profile.assignedWarehouses
+    accessible
       .filter((warehouse) => warehouse.status === 'Active')
       .map((warehouse) => [warehouse.id, warehouse]),
   ).values()];
@@ -18,14 +19,15 @@ export function warehouseSnapshot(profile: UserProfile) {
   const signature = JSON.stringify([
     identity,
     profile.status,
+    profile.role,
     [...new Set(profile.permissions)].sort(),
-    profile.assignedWarehouses.map((warehouse) => `${warehouse.id}:${warehouse.status}`).sort(),
+    accessible.map((warehouse) => `${warehouse.id}:${warehouse.status}`).sort(),
   ]);
   return {
     identity,
     signature,
     warehouses,
-    compatible: profile.assignedWarehouses.every(
+    compatible: accessible.every(
       (warehouse) => warehouse.status === 'Active' || warehouse.status === 'Inactive',
     ),
     activeUser: profile.status === 'Active',

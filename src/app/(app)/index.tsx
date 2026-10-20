@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getRoleLabel } from '@/config/roles';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
+import { P } from '@/config/permission-codes';
 import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { FontFamily, MaxContentWidth, Radius } from '@/constants/theme';
@@ -141,6 +143,11 @@ export default function HomeScreen() {
           )}
         </View>
       ) : null}
+
+      {access.ready && profile.permissions.includes(P.STOCK_ISSUE_REQUESTS_VIEW) && profile.permissions.includes(P.STOCK_ISSUE_REQUESTS_ASSIGN_PICKER) &&
+        <Button label="Phân bổ thông minh · FEFO và đi thẳng" variant="outline" onPress={() => router.push('/smart-allocation')} />}
+      {access.ready && profile.permissions.includes(P.GOODS_RECEIPTS_VIEW) && profile.permissions.includes(P.GOODS_RECEIPTS_APPROVE) &&
+        <Button label="Duyệt hàng đạt tại khu nhận" variant="outline" onPress={() => router.push('/receiving-review')} />}
 
       {tasks.canView ? (
         <View style={styles.section}>

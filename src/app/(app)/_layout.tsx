@@ -34,7 +34,7 @@ export default function AppLayout() {
         fullScreen
         icon={Smartphone}
         title="Chưa hỗ trợ trên ứng dụng di động"
-        description={`Vai trò ${roleLabel} hiện chỉ sử dụng được trên bản web. Ứng dụng di động dành cho nhân viên kho.`}
+        description={`Vai trò ${roleLabel} chưa có không gian làm việc vận hành kho trên ứng dụng di động.`}
         actionLabel="Đăng xuất"
         onAction={() => void signOut()}
       />

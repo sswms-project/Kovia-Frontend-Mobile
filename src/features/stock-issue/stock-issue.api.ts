@@ -5,11 +5,20 @@ import { api, unwrap, type ApiResponse } from '@/lib/api';
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
 
 import { assertStockIssueScope } from './stock-issue';
-import { dispatchCommandSchema, executionActionsSchema, pickingCommandSchema, stockIssueSchema } from './stock-issue.schema';
+import { dispatchCommandSchema, executionActionsSchema, pickingCommandSchema, stockIssueSchema, pickingDestinationSchema } from './stock-issue.schema';
 
 const id = nonEmptyDotNetGuidSchema('Mã phiếu xuất không hợp lệ.');
 function guarded(assertCurrentContext: () => void): AxiosRequestConfig & { assertCurrentContext: () => void } { return { assertCurrentContext }; }
 export const stockIssueApi = {
+  destination: async (documentId: string, inventoryStockId: string, warehouseId: string) => {
+    id.parse(documentId); id.parse(inventoryStockId); id.parse(warehouseId);
+    const destination = pickingDestinationSchema.parse(unwrap(await api.get<ApiResponse<unknown>>(`/stock-issue-requests/${documentId}/picking-destination`, {
+      params: { inventoryStockId },
+    })));
+    if (destination.stockIssueRequestId !== documentId || destination.inventoryStockId !== inventoryStockId || destination.warehouseId !== warehouseId)
+      throw new Error('Vị trí chờ xuất không khớp công việc trong kho đang chọn.');
+    return destination;
+  },
   detail: async (documentId: string, warehouseId: string, userId: string, signal?: AbortSignal) => {
     id.parse(documentId);
     return assertStockIssueScope(stockIssueSchema.parse(unwrap(await api.get<ApiResponse<unknown>>(`/stock-issue-requests/${documentId}`, { signal }))), warehouseId, userId);

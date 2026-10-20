@@ -45,7 +45,7 @@ export const receiptItemSchema = z.object({
   allowedUnits: z.array(z.object({ unitId: id, unitName: text, unitCode: text, quantityPrecision: quantity.int().max(6), conversionFactor: z.number().positive() })),
   orderedQuantity: quantity, receivedQuantity: quantity, damagedQuantity: quantity, usableQuantity: quantity,
   rejectedQuantity: quantity.default(0), deliveredQuantity: quantity.optional(), isolatedDamagedQuantity: quantity.default(0), remainingDamageIsolationQuantity: quantity.default(0),
-  putAwayQuantity: quantity, remainingPutAwayQuantity: quantity, exceptionReason: nullableText,
+  putAwayQuantity: quantity, keptAtReceivingQuantity: quantity.default(0), remainingPutAwayQuantity: quantity, exceptionReason: nullableText,
   putAwayDetails: z.array(putAwayDetailSchema), putAwayPlan: z.array(planSchema),
 });
 const lifecycleSchema = z.object({ action: text, fromState: nullableText, toState: nullableText, actorId: id,
@@ -57,7 +57,7 @@ export const receiptSchema = z.object({
   createdAt: text, modifiedAt: nullableText, submittedAt: nullableText, approvedAt: nullableText, rejectionReason: nullableText,
   arrivalConfirmedBy: id.nullable(), arrivalConfirmedAt: nullableText, receivingSlotId: id.nullable(),
   arrivalStockPostedAt: nullableText, sourceRequestVersion: nullableText, putAwayTaskExecutionStatus: text,
-  receivingFlowVersion: quantity.int().max(1).default(0), refusedGoodsHandedBack: z.boolean().default(false), refusalEvidence: z.array(evidenceSchema).default([]),
+  receivingFlowVersion: quantity.int().max(1).default(0), keptAtReceiving: z.boolean().default(false), refusedGoodsHandedBack: z.boolean().default(false), refusalEvidence: z.array(evidenceSchema).default([]),
   putAwayAssignedTo: id.nullable(), putAwayAssignedToName: nullableText, putAwayAssignedAt: nullableText,
   putAwayTaskPriority: text, putAwayTaskDueAt: nullableText, receivingAssignedTo: id.nullable(), receivingAssignedToName: nullableText,
   putAwayTaskCancelledAt: nullableText, putAwayTaskCancellationReason: nullableText, putAwayTaskRequiresReconciliation: z.boolean(),

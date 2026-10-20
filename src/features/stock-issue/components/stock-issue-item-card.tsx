@@ -19,8 +19,10 @@ export const StockIssueItemCard = memo(function StockIssueItemCard({ item, canPi
     {item.pickLocations.map(location => <View key={location.inventoryStockId} style={styles.section}>
       <Text style={[styles.text, { color: theme.text }]}>{location.zoneCode} / {location.rackCode} / {location.slotCode}</Text>
       <Text style={[styles.text, { color: theme.textSecondary }]}>Lô: {location.lotNumber ?? 'Không áp dụng'} · Hạn: {location.expiryDate ?? 'Không áp dụng'} · Giữ cho phiếu: {location.reservedQuantity}</Text>
+      {location.directFromReceiving && <Text style={[styles.title, { color: theme.primary }]}>Đi thẳng từ khu nhận đến khu chờ xuất</Text>}
+      {location.allocationReason && <Text style={[styles.text, { color: theme.textSecondary }]}>{location.allocationReason}</Text>}
       {canPick && location.reservedQuantity > 0 && item.pickedQuantity < item.quantity &&
-        <Button label={`Lấy hàng tại ${location.slotCode}`} variant="outline" disabled={busy} onPress={() => onPick(item, location.inventoryStockId)} />}
+        <Button label={`${location.directFromReceiving ? 'Chuyển thẳng từ' : 'Lấy hàng tại'} ${location.slotCode}`} variant="outline" disabled={busy} onPress={() => onPick(item, location.inventoryStockId)} />}
     </View>)}
     {item.pickDetails.map(detail => <Text key={detail.id} style={[styles.text, { color: theme.textSecondary }]}>
       {detail.slotCode} → {detail.stagingSlotCode} · {detail.pickedQuantity} · {detail.issuedAt ? 'Đã xuất thực tế' : 'Đang chờ xuất'}
