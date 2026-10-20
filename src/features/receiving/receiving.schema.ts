@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
+import { warehouseActionsSchema, warehouseEvidenceSchema as evidenceSchema } from '@/lib/warehouse-contract.schema';
 
 const id = nonEmptyDotNetGuidSchema('Mã dữ liệu không hợp lệ.');
 const text = z.string();
@@ -28,8 +29,7 @@ export const receivingTasksSchema = z.object({
   items: z.array(receivingTaskSchema), totalCount: quantity.int(), pageNumber: quantity.int(), pageSize: quantity.int(),
   taskStats: z.object({ totalOpenCount: quantity.int(), unassignedCount: quantity.int(), inProgressCount: quantity.int(), pausedCount: quantity.int() }),
 });
-export const evidenceSchema = z.object({ id, warehouseId: id, fileName: text, contentType: text, fileSize: quantity,
-  uploadedByUserId: id, createdAt: text, referenceType: nullableText, referenceId: id.nullable() });
+export { evidenceSchema };
 const planSchema = z.object({ id, slotId: id, slotCode: text, rackCode: text, isSystemDefaultSlot: z.boolean(), quantity });
 const putAwayDetailSchema = z.object({
   id, inventoryStockId: id, stockMovementId: id, warehouseId: id, slotId: id, slotCode: text, rackCode: text,
@@ -64,8 +64,7 @@ export const receiptSchema = z.object({
   putAwayPlanUpdatedAt: nullableText, putAwayTaskReconciledAt: nullableText, putAwayTaskReconciliationNote: nullableText,
   version, items: z.array(receiptItemSchema), history: z.array(lifecycleSchema),
 });
-export const receiptActionsSchema = z.object({ allowedActions: z.array(text), selfApprovalRequired: z.boolean(),
-  currentVersion: nullableText, denialReasonCode: nullableText });
+export const receiptActionsSchema = warehouseActionsSchema;
 const dateInput = text.refine(value => !value || z.iso.date().safeParse(value).success, 'Nhập ngày hợp lệ theo YYYY-MM-DD.');
 export const receiptLineInputSchema = z.object({
   inboundRequestItemId: id, enteredUnitId: id, receivedQty: z.number({ error: 'Vui lòng nhập số chấp nhận hợp lệ.' }).finite().min(0, 'Số chấp nhận không được âm.').lt(1e16, 'Số lượng vượt giới hạn cho phép.'),

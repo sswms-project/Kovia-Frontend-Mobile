@@ -14,11 +14,19 @@ import { useMyTasks } from '../hooks/use-my-tasks';
 export function MyTasksScreen() {
   const state = useMyTasks();
   const theme = useTheme();
+  function canOpenDocument(task: WarehouseTask) {
+    const permission = task.taskType === 'Picking' ? P.STOCK_ISSUE_REQUESTS_VIEW : task.taskType === 'CycleCount' ? P.CYCLE_COUNTS_VIEW : P.GOODS_RECEIPTS_VIEW;
+    return !!state.access.profile.data?.permissions.includes(permission);
+  }
   function openDocument(task: WarehouseTask) {
-    if (!state.canView || !state.access.profile.data?.permissions.includes(P.GOODS_RECEIPTS_VIEW) ||
-      task.warehouseId !== state.access.warehouse?.id || task.assignedTo !== state.access.profile.data.id) return;
+    const profile = state.access.profile.data;
+    const permission = task.taskType === 'Picking' ? P.STOCK_ISSUE_REQUESTS_VIEW : task.taskType === 'CycleCount' ? P.CYCLE_COUNTS_VIEW : P.GOODS_RECEIPTS_VIEW;
+    if (!state.canView || !profile?.permissions.includes(permission) ||
+      task.warehouseId !== state.access.warehouse?.id || task.assignedTo !== profile.id) return;
     if (task.taskType === 'Receiving') router.push({ pathname: '/(account)/receiving/[id]', params: { id: task.id } });
     if (task.taskType === 'PutAway') router.push({ pathname: '/(account)/putaway/[id]', params: { id: task.id } });
+    if (task.taskType === 'Picking') router.push({ pathname: '/(account)/stock-issue/[id]', params: { id: task.id } });
+    if (task.taskType === 'CycleCount') router.push({ pathname: '/(account)/cycle-count/[id]', params: { id: task.id } });
   }
   if (!state.canView) {
     const title = !state.access.validated ? 'Đang chờ xác minh kho và quyền truy cập.'
@@ -39,7 +47,7 @@ export function MyTasksScreen() {
       busy={state.mutation.isPending} canManage={state.canManage} notice={state.notice}
       onFilters={state.changeFilters} onRefresh={() => { void state.list.refetch(); }}
       onWarehouse={() => router.navigate('/')} onAction={state.beginAction}
-      onOpenDocument={state.access.profile.data?.permissions.includes(P.GOODS_RECEIPTS_VIEW) ? openDocument : undefined} />
+      onOpenDocument={openDocument} canOpenDocument={canOpenDocument} />
     <TaskActionDialog target={state.target} form={state.form} busy={state.mutation.isPending}
       awaitingRefresh={state.list.isFetching || state.list.isError}
       error={state.mutation.error} onConfirm={() => { void state.confirmAction(); }} onCancel={state.closeAction} />

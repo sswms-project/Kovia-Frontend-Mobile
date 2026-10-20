@@ -72,6 +72,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   innerContainer: {
+    width: '100%',
+    flexShrink: 1,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.five,
     borderRadius: Spacing.five,
