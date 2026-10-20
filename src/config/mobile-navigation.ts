@@ -9,22 +9,33 @@ export const MOBILE_TABS = [
   {
     name: 'index',
     href: '/',
-    title: 'Kho làm việc',
+    title: 'Trang chủ',
     permission: null,
-    icon: { sf: 'building.2', md: 'warehouse' },
+    inNavbar: true,
+    icon: { sf: 'house', md: 'home' },
   },
   {
     name: 'tasks',
     href: '/tasks',
     title: 'Công việc',
     permission: P.WAREHOUSE_TASKS_VIEW_OWN,
+    inNavbar: true,
     icon: { sf: 'checklist', md: 'checklist' },
+  },
+  {
+    name: 'scanner',
+    href: '/scanner',
+    title: 'Quét mã',
+    permission: null,
+    inNavbar: true,
+    icon: { sf: 'barcode.viewfinder', md: 'qr_code_scanner' },
   },
   {
     name: 'inventory',
     href: '/inventory',
     title: 'Tồn kho',
     permission: P.INVENTORY_VIEW,
+    inNavbar: true,
     icon: { sf: 'shippingbox', md: 'inventory_2' },
   },
   {
@@ -32,6 +43,8 @@ export const MOBILE_TABS = [
     href: '/notifications',
     title: 'Thông báo',
     permission: P.NOTIFICATIONS_VIEW,
+    // Mở từ chuông ở trang chủ; navbar chỉ giữ 5 mục để nút quét nằm giữa.
+    inNavbar: false,
     icon: { sf: 'bell', md: 'notifications' },
   },
   {
@@ -39,6 +52,7 @@ export const MOBILE_TABS = [
     href: '/profile',
     title: 'Hồ sơ',
     permission: null,
+    inNavbar: true,
     icon: { sf: 'person.crop.circle', md: 'person' },
   },
 ] as const;

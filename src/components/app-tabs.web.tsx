@@ -24,7 +24,7 @@ export default function AppTabs({ allowedTabNames }: AppTabsProps) {
       <TabSlot style={styles.content} />
       <TabList asChild>
         <CustomTabList>
-          {MOBILE_TABS.filter((tab) => allowedTabNames.includes(tab.name)).map((tab) => (
+          {MOBILE_TABS.filter((tab) => tab.inNavbar && allowedTabNames.includes(tab.name)).map((tab) => (
             <TabTrigger key={tab.name} name={tab.name} href={tab.href} asChild>
               <TabButton>{tab.title}</TabButton>
             </TabTrigger>

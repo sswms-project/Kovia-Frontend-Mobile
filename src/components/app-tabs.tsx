@@ -21,7 +21,7 @@ export default function AppTabs({ allowedTabNames }: AppTabsProps) {
         <NativeTabs.Trigger
           key={tab.name}
           name={tab.name}
-          hidden={!allowedTabNames.includes(tab.name)}>
+          hidden={!tab.inNavbar || !allowedTabNames.includes(tab.name)}>
           <NativeTabs.Trigger.Label>{tab.title}</NativeTabs.Trigger.Label>
           <NativeTabs.Trigger.Icon sf={tab.icon.sf} md={tab.icon.md} />
         </NativeTabs.Trigger>
