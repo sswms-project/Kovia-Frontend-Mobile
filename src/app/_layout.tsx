@@ -47,20 +47,20 @@ export default function RootLayout() {
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <BottomSheetModalProvider>
             <WarehouseSessionProvider signedIn={signedIn}>
-            <View style={styles.root}>
-            <OfflineBanner />
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Protected guard={signedIn}>
-                <Stack.Screen name="(app)" />
-                <Stack.Screen name="(account)" />
-                <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
-              </Stack.Protected>
-              <Stack.Protected guard={!signedIn}>
-                <Stack.Screen name="(auth)" />
-              </Stack.Protected>
-              <Stack.Screen name="auth" />
-            </Stack>
-            </View>
+              <View style={styles.root}>
+                <OfflineBanner />
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Protected guard={signedIn}>
+                    <Stack.Screen name="(app)" />
+                    <Stack.Screen name="(account)" />
+                    <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
+                  </Stack.Protected>
+                  <Stack.Protected guard={!signedIn}>
+                    <Stack.Screen name="(auth)" />
+                  </Stack.Protected>
+                  <Stack.Screen name="auth" />
+                </Stack>
+              </View>
             </WarehouseSessionProvider>
           </BottomSheetModalProvider>
           <Toaster />

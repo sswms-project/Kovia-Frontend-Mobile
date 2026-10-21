@@ -1,0 +1,60 @@
+import { useRouter } from 'expo-router';
+import { History, ScanLine } from 'lucide-react-native';
+import { useState } from 'react';
+
+import { TaskListView, type TaskListHeaderAction } from '../components/task-list-view';
+import {
+  flattenTasks,
+  useMyWarehouseTasksQuery,
+} from '../hooks/use-my-warehouse-tasks';
+import { OPEN_STATUS_FILTERS } from '../warehouse-task.labels';
+import type { MyWarehouseTask, WarehouseTaskExecutionStatus, WarehouseTaskType } from '../warehouse-task.types';
+
+export function MyTasksScreen() {
+  const router = useRouter();
+  const [statusFilter, setStatusFilter] = useState<WarehouseTaskExecutionStatus | null>(null);
+  const [typeFilter, setTypeFilter] = useState<WarehouseTaskType | null>(null);
+
+  const query = useMyWarehouseTasksQuery({
+    executionStatus: statusFilter ?? undefined,
+    taskType: typeFilter ?? undefined,
+  });
+
+  const actions: readonly TaskListHeaderAction[] = [
+    { label: 'Quét mã', icon: ScanLine, onPress: () => router.push('/scan') },
+    { label: 'Lịch sử công việc', icon: History, onPress: () => router.push('/tasks/history') },
+  ];
+
+  function openTask(task: MyWarehouseTask) {
+    router.push({
+      pathname: '/tasks/[taskType]/[taskId]',
+      params: { taskType: task.taskType, taskId: task.id },
+    });
+  }
+
+  return (
+    <TaskListView
+      title="Công việc của tôi"
+      description="Các nhiệm vụ kho đang chờ bạn thực hiện."
+      actions={actions}
+      stats={query.data?.pages[0]?.stats}
+      statusOptions={OPEN_STATUS_FILTERS}
+      statusFilter={statusFilter}
+      onStatusChange={setStatusFilter}
+      typeFilter={typeFilter}
+      onTypeChange={setTypeFilter}
+      tasks={flattenTasks(query.data)}
+      isLoading={query.isPending}
+      error={query.error}
+      isRefreshing={query.isRefetching && !query.isFetchingNextPage}
+      isFetchingNextPage={query.isFetchingNextPage}
+      emptyDescription="Các nhiệm vụ được giao cho bạn sẽ xuất hiện tại đây."
+      onRefresh={() => void query.refetch()}
+      onEndReached={() => {
+        if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+      }}
+      onRetry={() => void query.refetch()}
+      onOpenTask={openTask}
+    />
+  );
+}

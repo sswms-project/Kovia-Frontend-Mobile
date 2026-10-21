@@ -33,6 +33,7 @@
     "expo-symbols": "~57.0.3",
     "expo-system-ui": "~57.0.4",
     "expo-web-browser": "~57.0.3",
+    "jsbarcode": "^3.12.3",
     "lucide-react-native": "^1.59.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -50,6 +51,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@types/jsbarcode": "^3.11.4",
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.2",
