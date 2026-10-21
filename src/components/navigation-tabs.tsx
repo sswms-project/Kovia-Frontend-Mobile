@@ -7,7 +7,7 @@ import { MOBILE_TABS } from '@/config/mobile-navigation';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-const TAB_ICONS = { index: House, tasks: ClipboardList, scanner: ScanLine, inventory: PackageSearch, profile: UserRound };
+const TAB_ICONS = { index: House, tasks: ClipboardList, scanner: ScanLine, inventory: PackageSearch, profile: UserRound, catalog: PackageSearch };
 
 export function KoviaTabs({ allowedTabNames }: { readonly allowedTabNames: readonly string[] }) {
   const theme = useTheme();

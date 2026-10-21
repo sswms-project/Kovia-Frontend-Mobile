@@ -88,6 +88,12 @@ export function ProfileScreen() {
       />
       <ActionButton
         secondary
+        label="Danh mục và tra cứu"
+        disabled={busy}
+        onPress={() => router.push('/catalog')}
+      />
+      <ActionButton
+        secondary
         label="Đăng xuất"
         busy={logout.isPending}
         disabled={update.isPending}

@@ -37,6 +37,9 @@ export const Colors = {
     chart2: '#65a30d',
     scrim: 'rgba(0, 0, 0, 0.55)',
     onScrim: '#ffffff',
+    // Bars must stay dark on white in both themes or scanners cannot read the label.
+    barcodeInk: '#111111',
+    barcodePaper: '#ffffff',
   },
   dark: {
     text: '#d9e3d6',
@@ -66,6 +69,8 @@ export const Colors = {
     chart2: '#b8cf6a',
     scrim: 'rgba(0, 0, 0, 0.65)',
     onScrim: '#ffffff',
+    barcodeInk: '#111111',
+    barcodePaper: '#ffffff',
   },
 } as const;
 

@@ -118,7 +118,7 @@ export function HomeScreen() {
       <GreetingCard
         name={profile.fullName}
         subtitle={roleLabel}
-        onSearch={(query) => router.push({ pathname: '/inventory', params: { q: query } })}
+        onSearch={(query) => router.push({ pathname: '/inventory/lookup', params: { q: query } })}
         onScan={() => router.push('/scan')}
       />
 

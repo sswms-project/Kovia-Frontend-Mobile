@@ -10,7 +10,7 @@ export default function ScanRoute() {
       title="Quét mã"
       onClose={() => { if (router.canGoBack()) router.back(); else router.replace('/'); }}
       onScan={(code) => {
-        router.dismissTo({ pathname: '/inventory', params: { code,
+        router.dismissTo({ pathname: '/inventory/lookup', params: { code,
           kind: code.toUpperCase().startsWith('KOVIA:LOC:') ? 'Location' : 'Product', scanId: String(Date.now()) } });
         return true;
       }}

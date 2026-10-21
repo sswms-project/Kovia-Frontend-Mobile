@@ -19,6 +19,19 @@ export function formatDisplayDate(date: Date): string {
   return DISPLAY_DATE_FORMATTER.format(date);
 }
 
+const DISPLAY_DATE_TIME_FORMATTER = new Intl.DateTimeFormat('vi-VN', {
+  day: '2-digit',
+  month: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: TZ,
+});
+
+/** Format a Date to a short display string with time: dd/MM HH:mm */
+export function formatDisplayDateTime(date: Date): string {
+  return DISPLAY_DATE_TIME_FORMATTER.format(date);
+}
+
 /** Convert a Date to yyyy-MM-dd string for filter state / API conversion */
 export function dateToIsoDateString(date: Date): string {
   const parts = ISO_DATE_PARTS_FORMATTER.formatToParts(date);
