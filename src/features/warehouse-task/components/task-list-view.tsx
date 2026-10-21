@@ -5,10 +5,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { FilterChips, type FilterOption } from '@/components/ui/filter-chips';
+import type { FilterOption } from '@/components/ui/filter-chips';
+import { SelectionField } from '@/components/ui/selection-field';
+import { AlertBanner } from '@/components/ui/alert-banner';
+import { Button } from '@/components/ui/button';
+import { useState, type ReactNode } from 'react';
 import { LoadingState } from '@/components/ui/loading-state';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { isApiErrorResponse } from '@/lib/api-error';
+import { executionStatusSchema, taskTypeSchema } from '@/features/my-tasks/my-tasks.schema';
 
 import { TASK_TYPE_FILTERS } from '../warehouse-task.labels';
 import type {
@@ -31,6 +37,7 @@ interface TaskListViewProps {
   readonly title?: string;
   readonly description?: string;
   readonly actions?: readonly TaskListHeaderAction[];
+  readonly workspaceControl?: ReactNode;
   readonly stats?: WarehouseTaskStats;
   readonly statusOptions: readonly FilterOption<WarehouseTaskExecutionStatus>[];
   readonly statusFilter: WarehouseTaskExecutionStatus | null;
@@ -46,7 +53,7 @@ interface TaskListViewProps {
   readonly onRefresh: () => void;
   readonly onEndReached: () => void;
   readonly onRetry: () => void;
-  /** Omit for read-only lists such as history. */
+  /** Opens current work or a read-only history detail. */
   readonly onOpenTask?: (task: MyWarehouseTask) => void;
 }
 
@@ -54,6 +61,7 @@ export function TaskListView({
   title,
   description,
   actions = [],
+  workspaceControl,
   stats,
   statusOptions,
   statusFilter,
@@ -72,11 +80,14 @@ export function TaskListView({
   onOpenTask,
 }: TaskListViewProps) {
   const theme = useTheme();
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilters = Number(statusFilter !== null) + Number(typeFilter !== null);
   const hasNativeHeader = title === undefined;
 
   function renderBody() {
     if (isLoading) return <LoadingState message="Đang tải công việc…" />;
-    if (error && tasks.length === 0) return <ErrorState error={error} onRetry={onRetry} />;
+    if (error && (tasks.length === 0 || (isApiErrorResponse(error) && [401, 403, 404].includes(error.statusCode))))
+      return <ErrorState error={error} onRetry={onRetry} />;
     if (tasks.length === 0) {
       return (
         <EmptyState icon={ClipboardList} title="Chưa có công việc" description={emptyDescription} />
@@ -88,7 +99,7 @@ export function TaskListView({
         data={tasks}
         keyExtractor={(task) => `${task.taskType}-${task.id}`}
         renderItem={({ item }) => (
-          <TaskCard task={item} onPress={onOpenTask ? () => onOpenTask(item) : undefined} />
+          <TaskCard task={item} onPress={onOpenTask && !error ? () => onOpenTask(item) : undefined} />
         )}
         ItemSeparatorComponent={Separator}
         contentContainerStyle={styles.listContent}
@@ -139,23 +150,26 @@ export function TaskListView({
         </Text>
       ) : null}
 
-      {stats ? <TaskStatsBar stats={stats} /> : null}
+      {workspaceControl && <View style={styles.chips}>{workspaceControl}</View>}
+      {stats && !error ? <TaskStatsBar stats={stats} /> : null}
+      {!!error && tasks.length > 0 && !(isApiErrorResponse(error) && [401, 403, 404].includes(error.statusCode)) && <AlertBanner
+        title="Đang hiển thị danh sách cũ. Tải lại trước khi mở công việc.">
+        <Button label="Tải lại danh sách" variant="outline" loading={isRefreshing} onPress={onRetry} />
+      </AlertBanner>}
 
       <View style={styles.chips}>
-        <FilterChips
-          accessibilityLabel="Lọc theo trạng thái"
-          options={statusOptions}
-          value={statusFilter}
-          onChange={onStatusChange}
-        />
-        <FilterChips
-          accessibilityLabel="Lọc theo loại công việc"
-          options={TASK_TYPE_FILTERS}
-          value={typeFilter}
-          onChange={onTypeChange}
-          allLabel="Mọi loại việc"
-        />
+        <Button label={filtersOpen ? 'Ẩn bộ lọc' : `Bộ lọc${activeFilters ? ` (${activeFilters})` : ''}`}
+          variant="outline" onPress={() => setFiltersOpen((value) => !value)} />
+        {activeFilters > 0 && <Button label="Xóa bộ lọc" variant="ghost" onPress={() => { onStatusChange(null); onTypeChange(null); }} />}
       </View>
+      {filtersOpen && <View style={styles.chips}>
+        <SelectionField label="Trạng thái" value={statusFilter ?? ''}
+          options={[{ value: '', label: 'Tất cả trạng thái' }, ...statusOptions]}
+          onChange={(value) => onStatusChange(value ? executionStatusSchema.parse(value) : null)} />
+        <SelectionField label="Loại công việc" value={typeFilter ?? ''}
+          options={[{ value: '', label: 'Mọi loại công việc' }, ...TASK_TYPE_FILTERS]}
+          onChange={(value) => onTypeChange(value ? taskTypeSchema.parse(value) : null)} />
+      </View>}
 
       <View style={styles.body}>{renderBody()}</View>
     </SafeAreaView>
