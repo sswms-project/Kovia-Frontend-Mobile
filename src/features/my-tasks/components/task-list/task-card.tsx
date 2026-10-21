@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-import { ACTION_LABELS, availableTaskActions, DEADLINE_LABELS, documentLabel, EXECUTION_LABELS,
+import { ACTION_LABELS, availableTaskActions, DEADLINE_LABELS, EXECUTION_LABELS,
   TASK_LABELS, taskDate } from '../../my-tasks';
 import type { TaskActionInput, WarehouseTask } from '../../my-tasks.schema';
 
@@ -22,8 +22,8 @@ export const TaskCard = memo(function TaskCard({ task, history, canManage, busy,
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const actions = availableTaskActions(task, canManage, history);
-  const openLabel = documentLabel(task, history);
   const urgent = task.priority === 'Urgent' || task.deadlineStatus === 'Overdue';
+  const canOpen = !!onOpenDocument && (task.taskType.startsWith('Transfer') || task.taskType === 'CycleCount' || task.taskType === 'Picking' || task.taskType === 'PutAway' || (task.taskType === 'Receiving' && !history));
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: urgent ? theme.error : theme.border }]}>
       <View style={styles.heading}>
@@ -54,12 +54,13 @@ export const TaskCard = memo(function TaskCard({ task, history, canManage, busy,
         <Text style={[styles.text, { color: theme.textSecondary }]}>Giao lúc: {taskDate(task.assignedAt)}</Text>
         <Text style={[styles.text, { color: theme.textSecondary }]}>Bắt đầu: {taskDate(task.startedAt)} · Kết thúc: {taskDate(task.completedAt)}</Text>
         {task.pauseReason && <Text style={[styles.text, { color: theme.text }]}>Lý do tạm dừng: {task.pauseReason}</Text>}
-        {!(onOpenDocument && openLabel) && <Text style={[styles.text, { color: theme.textSecondary }]}>
+        {!canOpen && <Text style={[styles.text, { color: theme.textSecondary }]}>
           Chưa hỗ trợ ghi nhận {TASK_LABELS[task.taskType].toLocaleLowerCase('vi')} trên mobile. Liên hệ quản lý để xử lý nghiệp vụ.
         </Text>}
       </View>}
-      {onOpenDocument && openLabel && <Button label={openLabel}
-        variant="outline" disabled={busy} onPress={() => onOpenDocument(task)} />}
+      {canOpen && <Button
+        label={task.taskType === 'TransferReceive' ? 'Xem phiếu nhận điều chuyển' : task.taskType === 'TransferPutAway' ? 'Xem phiếu cất điều chuyển' : task.taskType === 'TransferPick' ? 'Mở lấy hàng điều chuyển' : task.taskType === 'CycleCount' ? 'Mở phiếu kiểm kê' : task.taskType === 'Picking' ? 'Mở lấy hàng và xuất kho' : task.taskType === 'Receiving' ? 'Mở nhận hàng được giao' : 'Mở phiếu cất hàng'}
+        variant="outline" disabled={busy} onPress={() => onOpenDocument?.(task)} />}
       {actions.map((action) => <Button key={action}
         label={action === 'Start' && task.executionStatus === 'Paused' ? 'Tiếp tục' : ACTION_LABELS[action]}
         accessibilityLabel={`${ACTION_LABELS[action]} ${task.referenceCode}`} variant={action === 'Start' ? 'primary' : 'outline'}

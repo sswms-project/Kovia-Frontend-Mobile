@@ -52,20 +52,6 @@ export function availableTaskActions(task: WarehouseTask, canManage: boolean, hi
   return [];
 }
 
-/** Button label for task types that open a work document; null means the task is only listed. */
-export function documentLabel(task: WarehouseTask, history: boolean): string | null {
-  if (task.taskType === 'PutAway') return 'Mở phiếu cất hàng';
-  if (history) return null;
-  if (task.taskType === 'Receiving') return 'Mở nhận hàng được giao';
-  if (task.taskType === 'CycleCount') return 'Mở phiếu kiểm kê';
-  if (task.taskType === 'Picking') return 'Mở phiếu lấy hàng';
-  // Transfer documents are addressed by transfer and shipment, so both ids must be present.
-  if (!task.transferId || !task.transferShipmentId) return null;
-  if (task.taskType === 'TransferPick') return 'Mở phiếu lấy hàng điều chuyển';
-  if (task.taskType === 'TransferReceive') return 'Mở phiếu nhận hàng điều chuyển';
-  return null;
-}
-
 export function taskScopeMatches(scope: TaskScope, current: {
   identity: string | null; warehouseId: string | null; revision: number; signature: string | null; transitioning: boolean;
 }) {

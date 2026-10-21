@@ -8,12 +8,10 @@ import { getRoleLabel } from '@/config/roles';
 import { getAllowedTabs, isMobileSupportedRole } from '@/features/auth/auth.permissions';
 import { useAuth } from '@/features/auth/auth.store';
 import { useMe } from '@/features/auth/hooks/use-me';
-import { useNotificationRealtime } from '@/features/notifications/hooks/use-notification-realtime';
 
 export default function AppLayout() {
   const me = useMe();
   const signOut = useAuth((state) => state.signOut);
-  useNotificationRealtime();
 
   if (me.isPending) return <LoadingState fullScreen message="Đang tải tài khoản…" />;
 
@@ -36,7 +34,7 @@ export default function AppLayout() {
         fullScreen
         icon={Smartphone}
         title="Chưa hỗ trợ trên ứng dụng di động"
-        description={`Vai trò ${roleLabel} hiện chỉ sử dụng được trên bản web. Ứng dụng di động dành cho nhân viên kho.`}
+        description={`Vai trò ${roleLabel} chưa có không gian làm việc vận hành kho trên ứng dụng di động.`}
         actionLabel="Đăng xuất"
         onAction={() => void signOut()}
       />

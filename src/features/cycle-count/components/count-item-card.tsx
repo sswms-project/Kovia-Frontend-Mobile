@@ -1,110 +1,31 @@
 import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { StatusPill } from '@/components/ui/status-pill';
+import { Button } from '@/components/ui/button';
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formatDisplayDate } from '@/lib/date-format';
 
-import {
-  ITEM_STATE_LABEL,
-  ITEM_STATE_TONE,
-  QUALITY_LABEL,
-  formatItemLocation,
-  formatQuantity,
-  type ItemState,
-} from '../cycle-count.labels';
-import type { CycleCountItem } from '../cycle-count.schema';
+import type { CountItem } from '../cycle-count.schema';
 
-interface CountItemCardProps {
-  readonly item: CycleCountItem;
-  readonly state: ItemState;
-  readonly isEditable: boolean;
-  readonly isBlind: boolean;
-  readonly onPress: (item: CycleCountItem) => void;
-}
-
-export const CountItemCard = memo(function CountItemCard({
-  item,
-  state,
-  isEditable,
-  isBlind,
-  onPress,
-}: CountItemCardProps) {
+interface Props { readonly item: CountItem; readonly canRecord: boolean; readonly busy: boolean; readonly onRecord: (item: CountItem) => void }
+export const CountItemCard = memo(function CountItemCard({ item, canRecord, busy, onRecord }: Props) {
   const theme = useTheme();
-  const unit = item.unitName ? ` ${item.unitName}` : '';
-  // Blind counts hide the book quantity while the count is open; never read that null as zero.
-  const systemText =
-    item.systemQuantity != null ? formatQuantity(item.systemQuantity) : isBlind ? 'Đã ẩn' : '—';
-  const difference = item.difference;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${item.productName}, vị trí ${formatItemLocation(item)}, ${ITEM_STATE_LABEL[state]}`}
-      accessibilityState={{ disabled: !isEditable }}
-      disabled={!isEditable}
-      onPress={() => onPress(item)}
-      style={({ pressed }) => [
-        styles.card,
-        { backgroundColor: theme.card, borderColor: state === 'recount' ? theme.warning : theme.border },
-        pressed && styles.pressed,
-      ]}>
-      <View style={styles.header}>
-        <Text style={[styles.location, { color: theme.primary }]}>{formatItemLocation(item)}</Text>
-        <StatusPill label={ITEM_STATE_LABEL[state]} tone={ITEM_STATE_TONE[state]} />
-      </View>
-
-      <Text style={[styles.name, { color: theme.text }]} numberOfLines={2}>
-        {item.productName}
-      </Text>
-      <Text style={[styles.meta, { color: theme.textSecondary }]}>{item.productSku}</Text>
-      <Text style={[styles.meta, { color: theme.textSecondary }]}>
-        {item.lotNumber ? `Lô ${item.lotNumber}` : 'Theo số lượng'}
-        {item.expiryDate ? ` · HSD ${formatDisplayDate(new Date(item.expiryDate))}` : ''}
-        {item.qualityStatus !== 'Good' ? ` · ${QUALITY_LABEL[item.qualityStatus] ?? item.qualityStatus}` : ''}
-      </Text>
-
-      <View style={styles.stats}>
-        <View style={styles.stat}>
-          <Text style={[styles.value, { color: theme.text }]}>{systemText}</Text>
-          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Sổ sách{unit}</Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={[styles.value, { color: theme.primary }]}>
-            {item.countedQuantity != null ? formatQuantity(item.countedQuantity) : '—'}
-          </Text>
-          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Đã đếm</Text>
-        </View>
-        {difference != null && difference !== 0 ? (
-          <View style={styles.stat}>
-            <Text style={[styles.value, { color: difference < 0 ? theme.error : theme.warning }]}>
-              {difference > 0 ? '+' : ''}
-              {formatQuantity(difference)}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Chênh lệch</Text>
-          </View>
-        ) : null}
-      </View>
-
-      {item.countedDamagedQuantity ? (
-        <Text style={[styles.meta, { color: theme.error }]}>
-          Trong đó hỏng: {formatQuantity(item.countedDamagedQuantity)}
-        </Text>
-      ) : null}
-    </Pressable>
-  );
+  return <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+    <Text style={[styles.title, { color: theme.text }]}>{item.productSku} · {item.productName}</Text>
+    <Text style={[styles.text, { color: theme.textSecondary }]}>{item.rackCode ?? ''} / {item.slotCode} · {item.unitName ?? 'Đơn vị cơ sở'}</Text>
+    <Text style={[styles.text, { color: theme.textSecondary }]}>Lô: {item.lotNumber ?? 'Không áp dụng'} · Hạn: {item.expiryDate ?? 'Không áp dụng'}</Text>
+    <Text style={[styles.text, { color: theme.text }]}>{item.countedQuantity === null ? 'Chưa ghi nhận số đếm' : `Đã đếm: ${item.countedQuantity} · Hỏng trong số đếm: ${item.countedDamagedQuantity ?? 0}`}</Text>
+    {item.systemQuantity !== null && <Text style={[styles.text, { color: theme.textSecondary }]}>Tồn tại mốc kiểm kê: {item.systemQuantity} · Chênh lệch: {item.difference ?? 'Chưa xác định'}</Text>}
+    {item.countedByName && <Text style={[styles.text, { color: theme.textSecondary }]}>{item.countedByName} · {item.countedAt ? new Date(item.countedAt).toLocaleString('vi-VN') : ''}</Text>}
+    {item.damageReason && <Text style={[styles.text, { color: theme.textSecondary }]}>Ghi nhận hỏng: {item.damageReason}</Text>}
+    {(item.damageEvidence ?? []).map(file => <Text key={file.id} style={[styles.text, { color: theme.textSecondary }]}>Ảnh: {file.fileName}</Text>)}
+    {item.countHistory.map(history => <View key={history.id} style={styles.history}>
+      <Text style={[styles.text, { color: theme.text }]}>Lần đếm trước vòng {history.recountRound}: {history.countedQuantity} · {history.countedByName ?? 'Nhân viên kiểm đếm'}</Text>
+      <Text style={[styles.text, { color: theme.textSecondary }]}>Yêu cầu đếm lại: {history.recountReason}</Text>
+    </View>)}
+    {canRecord && <Button label={`Ghi đếm ${item.productSku} tại ${item.slotCode}`} variant="outline" disabled={busy} onPress={() => onRecord(item)} />}
+    {item.countedQuantity !== null && <Text style={[styles.text, { color: theme.textSecondary }]}>Nếu cần sửa số đếm, liên hệ quản lý yêu cầu đếm lại để giữ lịch sử.</Text>}
+  </View>;
 });
-
-const styles = StyleSheet.create({
-  card: { gap: 6, padding: 14, borderWidth: 1, borderRadius: Radius.xl },
-  pressed: { opacity: 0.85 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  location: { fontFamily: FontFamily.mono, fontSize: 14 },
-  name: { fontFamily: FontFamily.semibold, fontSize: 15, lineHeight: 21 },
-  meta: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 17 },
-  stats: { flexDirection: 'row', gap: 16, marginTop: 4 },
-  stat: { gap: 1 },
-  value: { fontFamily: FontFamily.mono, fontSize: 18, lineHeight: 24 },
-  statLabel: { fontFamily: FontFamily.regular, fontSize: 11 },
-});
+const styles = StyleSheet.create({ card: { padding: 16, gap: 10, borderWidth: 1, borderRadius: Radius.lg }, history: { gap: 4, paddingTop: 8 },
+  title: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 24 }, text: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 22 } });

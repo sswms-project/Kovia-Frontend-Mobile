@@ -4,5 +4,5 @@ import { CycleCountScreen } from '@/features/cycle-count/screens/cycle-count-scr
 
 export default function CycleCountRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  return <CycleCountScreen id={id} />;
+  return <CycleCountScreen documentId={typeof id === 'string' ? id : ''} />;
 }

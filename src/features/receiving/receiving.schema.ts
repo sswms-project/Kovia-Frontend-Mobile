@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
+import { warehouseActionsSchema, warehouseEvidenceSchema as evidenceSchema } from '@/lib/warehouse-contract.schema';
 
 const id = nonEmptyDotNetGuidSchema('Mã dữ liệu không hợp lệ.');
 const text = z.string();
@@ -28,8 +29,7 @@ export const receivingTasksSchema = z.object({
   items: z.array(receivingTaskSchema), totalCount: quantity.int(), pageNumber: quantity.int(), pageSize: quantity.int(),
   taskStats: z.object({ totalOpenCount: quantity.int(), unassignedCount: quantity.int(), inProgressCount: quantity.int(), pausedCount: quantity.int() }),
 });
-export const evidenceSchema = z.object({ id, warehouseId: id, fileName: text, contentType: text, fileSize: quantity,
-  uploadedByUserId: id, createdAt: text, referenceType: nullableText, referenceId: id.nullable() });
+export { evidenceSchema };
 const planSchema = z.object({ id, slotId: id, slotCode: text, rackCode: text, isSystemDefaultSlot: z.boolean(), quantity });
 const putAwayDetailSchema = z.object({
   id, inventoryStockId: id, stockMovementId: id, warehouseId: id, slotId: id, slotCode: text, rackCode: text,
@@ -45,7 +45,7 @@ export const receiptItemSchema = z.object({
   allowedUnits: z.array(z.object({ unitId: id, unitName: text, unitCode: text, quantityPrecision: quantity.int().max(6), conversionFactor: z.number().positive() })),
   orderedQuantity: quantity, receivedQuantity: quantity, damagedQuantity: quantity, usableQuantity: quantity,
   rejectedQuantity: quantity.default(0), deliveredQuantity: quantity.optional(), isolatedDamagedQuantity: quantity.default(0), remainingDamageIsolationQuantity: quantity.default(0),
-  putAwayQuantity: quantity, remainingPutAwayQuantity: quantity, exceptionReason: nullableText,
+  putAwayQuantity: quantity, keptAtReceivingQuantity: quantity.default(0), remainingPutAwayQuantity: quantity, exceptionReason: nullableText,
   putAwayDetails: z.array(putAwayDetailSchema), putAwayPlan: z.array(planSchema),
 });
 const lifecycleSchema = z.object({ action: text, fromState: nullableText, toState: nullableText, actorId: id,
@@ -57,15 +57,14 @@ export const receiptSchema = z.object({
   createdAt: text, modifiedAt: nullableText, submittedAt: nullableText, approvedAt: nullableText, rejectionReason: nullableText,
   arrivalConfirmedBy: id.nullable(), arrivalConfirmedAt: nullableText, receivingSlotId: id.nullable(),
   arrivalStockPostedAt: nullableText, sourceRequestVersion: nullableText, putAwayTaskExecutionStatus: text,
-  receivingFlowVersion: quantity.int().max(1).default(0), refusedGoodsHandedBack: z.boolean().default(false), refusalEvidence: z.array(evidenceSchema).default([]),
+  receivingFlowVersion: quantity.int().max(1).default(0), keptAtReceiving: z.boolean().default(false), refusedGoodsHandedBack: z.boolean().default(false), refusalEvidence: z.array(evidenceSchema).default([]),
   putAwayAssignedTo: id.nullable(), putAwayAssignedToName: nullableText, putAwayAssignedAt: nullableText,
   putAwayTaskPriority: text, putAwayTaskDueAt: nullableText, receivingAssignedTo: id.nullable(), receivingAssignedToName: nullableText,
   putAwayTaskCancelledAt: nullableText, putAwayTaskCancellationReason: nullableText, putAwayTaskRequiresReconciliation: z.boolean(),
   putAwayPlanUpdatedAt: nullableText, putAwayTaskReconciledAt: nullableText, putAwayTaskReconciliationNote: nullableText,
   version, items: z.array(receiptItemSchema), history: z.array(lifecycleSchema),
 });
-export const receiptActionsSchema = z.object({ allowedActions: z.array(text), selfApprovalRequired: z.boolean(),
-  currentVersion: nullableText, denialReasonCode: nullableText });
+export const receiptActionsSchema = warehouseActionsSchema;
 const dateInput = text.refine(value => !value || z.iso.date().safeParse(value).success, 'Nhập ngày hợp lệ theo YYYY-MM-DD.');
 export const receiptLineInputSchema = z.object({
   inboundRequestItemId: id, enteredUnitId: id, receivedQty: z.number({ error: 'Vui lòng nhập số chấp nhận hợp lệ.' }).finite().min(0, 'Số chấp nhận không được âm.').lt(1e16, 'Số lượng vượt giới hạn cho phép.'),

@@ -75,7 +75,7 @@ export function WarehousePicker({ profile, warehouses, selected, validated, load
             <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>KOVIA · KHÔNG GIAN LÀM VIỆC</Text>
             <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Kho làm việc</Text>
             <Text style={[styles.description, { color: colors.textSecondary }]}>
-              {selected ? `Đang làm việc tại ${selected.warehouseName}.` : 'Chọn kho được giao để bắt đầu ca làm việc.'}
+              {selected ? `Đang làm việc tại ${selected.warehouseName}.` : 'Chọn kho được phép truy cập để bắt đầu làm việc.'}
             </Text>
             <Feedback error={error} message={notice ?? undefined} />
             {!compatible && profile && <Feedback message="Backend chưa cung cấp trạng thái kho hợp lệ. Cần cập nhật API trước khi chọn kho." />}
@@ -90,7 +90,7 @@ export function WarehousePicker({ profile, warehouses, selected, validated, load
               <Text style={{ color: colors.textSecondary }}>Tra cứu tồn kho: {hasWarehousePermission(profile, true, PermissionCodes.viewInventory) ? 'Được xem' : 'Chưa được cấp quyền'}</Text>
               <Text style={[styles.description, { color: colors.textSecondary }]}>Các màn hình nghiệp vụ sẽ được triển khai ở bước tiếp theo.</Text>
             </View>}
-            <Text style={[styles.name, { color: colors.text }]}>Kho được giao ({warehouses.length})</Text>
+            <Text style={[styles.name, { color: colors.text }]}>Kho được phép truy cập ({warehouses.length})</Text>
             <TextInput value={search} onChangeText={setSearch} accessibilityLabel="Tìm kho theo mã hoặc tên"
               placeholder="Tìm mã hoặc tên kho" placeholderTextColor={colors.textSecondary}
               autoCapitalize="none" autoCorrect={false} returnKeyType="search"

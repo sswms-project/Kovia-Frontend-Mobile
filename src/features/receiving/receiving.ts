@@ -1,5 +1,3 @@
-import { randomUUID } from 'expo-crypto';
-
 import { P, type PermissionCode } from '@/config/permission-codes';
 import type { UserProfile } from '@/features/auth/auth.types';
 import type { TaskScope } from '@/features/my-tasks/my-tasks';
@@ -7,11 +5,7 @@ import { warehouseSnapshot } from '@/features/warehouse-access/warehouse-access'
 
 import type { PutAwayForm, Receipt, ReceiptForm, ReceivingTask } from './receiving.schema';
 
-export interface ReceiptCommandMemory { content: string; commandId: string }
-export function receiptCommand(previous: ReceiptCommandMemory | null, payload: unknown): ReceiptCommandMemory {
-  const content = JSON.stringify(payload);
-  return previous?.content === content ? previous : { content, commandId: randomUUID() };
-}
+export { warehouseCommand as receiptCommand, type WarehouseCommandMemory as ReceiptCommandMemory } from '@/lib/warehouse-command';
 export function assertReceivingContext(scope: TaskScope, profile: UserProfile | undefined, signedIn: boolean, permission: PermissionCode) {
   const snapshot = profile ? warehouseSnapshot(profile) : null;
   if (!signedIn || !snapshot?.activeUser || !snapshot.compatible || snapshot.identity !== scope.identity ||
