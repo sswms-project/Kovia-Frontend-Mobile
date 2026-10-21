@@ -21,7 +21,9 @@ import {
 export function LoginScreen() {
   const router = useRouter();
   const applySignIn = useAuth((state) => state.applySignIn);
-  const setTwoFactorTempToken = useAuth((state) => state.setTwoFactorTempToken);
+  const beginTwoFactor = useAuth((state) => state.beginTwoFactor);
+  const cancelTwoFactor = useAuth((state) => state.cancelTwoFactor);
+  const sessionNotice = useAuth((state) => state.notice);
   const loginMutation = useLoginMutation();
   const captchaMutation = useCaptchaMutation();
   const resendMutation = useResendVerificationMutation();
@@ -65,7 +67,7 @@ export function LoginScreen() {
   }
 
   async function handleLogin(values: LoginFormValues) {
-    setTwoFactorTempToken(null);
+    cancelTwoFactor();
     setAuthNotice(null);
     setRequiresVerification(false);
     setLastEmail(values.email);
@@ -84,7 +86,7 @@ export function LoginScreen() {
           toast.error('Không thể bắt đầu phiên xác thực hai yếu tố. Vui lòng thử lại.');
           return;
         }
-        setTwoFactorTempToken(tempToken);
+        beginTwoFactor(tempToken);
         router.push('/verify-2fa');
         return;
       }
@@ -125,7 +127,7 @@ export function LoginScreen() {
       isLoading={loginMutation.isPending}
       captcha={captcha}
       isCaptchaLoading={captchaMutation.isPending}
-      authNotice={authNotice}
+      authNotice={authNotice ?? sessionNotice}
       requiresVerification={requiresVerification}
       isResending={resendMutation.isPending}
       lockSeconds={lockSeconds}

@@ -14,6 +14,6 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: shouldRetry, staleTime: 30_000 },
     // Offline mutations fail fast with an ApiError (status 0) instead of queueing until reconnect.
-    mutations: { networkMode: 'always' },
+    mutations: { networkMode: 'always', retry: 0, gcTime: 0 },
   },
 });

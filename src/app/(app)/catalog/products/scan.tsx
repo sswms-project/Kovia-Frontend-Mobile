@@ -11,7 +11,7 @@ export default function ProductScanRoute() {
       title="Quét mã sản phẩm"
       onClose={() => router.back()}
       onScan={(code) => {
-        router.dismissTo({ pathname: '/lookup/products', params: { search: code } });
+        router.dismissTo({ pathname: '/catalog/products', params: { search: code } });
         return true;
       }}
     />

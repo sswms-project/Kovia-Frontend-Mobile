@@ -1,4 +1,5 @@
-import axios, { AxiosError, create as createAxios, InternalAxiosRequestConfig } from 'axios';
+import axios, { create as createAxios } from 'axios';
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 import { tokenStorage } from './token-storage';
 
@@ -20,13 +21,32 @@ export class ApiError extends Error {
 
 export const api = createAxios({ baseURL: API_BASE_URL, timeout: 15000 });
 
+const accessDeniedListeners = new Set<() => void>();
+export function subscribeAccessDenied(listener: () => void) {
+  accessDeniedListeners.add(listener);
+  return () => { accessDeniedListeners.delete(listener); };
+}
+
 let onSessionExpired: (() => void) | null = null;
 export const setSessionExpiredHandler = (fn: () => void) => {
   onSessionExpired = fn;
 };
 
 api.interceptors.request.use(async (config) => {
+  if (
+    config.url?.startsWith('/auth/') &&
+    !['/auth/me', '/auth/logout', '/auth/change-password'].includes(config.url)
+  )
+    return config;
   const tokens = await tokenStorage.get();
+  // SecureStore may yield while the account or warehouse changes.
+  if ('assertCurrentContext' in config && typeof config.assertCurrentContext === 'function') {
+    try {
+      config.assertCurrentContext();
+    } catch (error) {
+      throw new ApiError(error instanceof Error ? error.message : 'Phiên làm việc đã thay đổi.', 409);
+    }
+  }
   if (tokens) config.headers.Authorization = `Bearer ${tokens.accessToken}`;
   return config;
 });
@@ -39,10 +59,11 @@ const refreshAccessToken = async (): Promise<string | null> => {
   if (!tokens) return null;
   try {
     const res = await axios.post<ApiResponse<Tokens>>(`${API_BASE_URL}/auth/refresh`, tokens);
-    await tokenStorage.set(res.data.data);
+    // Logout can finish while refresh is in flight; never restore that old session.
+    if (!(await tokenStorage.replaceIfCurrent(tokens.refreshToken, res.data.data))) return null;
     return res.data.data.accessToken;
   } catch {
-    await tokenStorage.clear();
+    await tokenStorage.clearIfCurrent(tokens.refreshToken);
     return null;
   }
 };
@@ -51,14 +72,24 @@ type Tokens = { accessToken: string; refreshToken: string };
 
 api.interceptors.response.use(
   (res) => res,
-  async (error: AxiosError<{ message?: string; statusCode?: number; errors?: Record<string, string[]> }>) => {
-    const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
+  async (
+    error: AxiosError<{ message?: string; statusCode?: number; errors?: Record<string, string[]> }>,
+  ) => {
+    if (error instanceof ApiError) return Promise.reject(error);
+    const original = error.config as
+      | (InternalAxiosRequestConfig & { _retry?: boolean })
+      | undefined;
+    // These endpoints use 401 for wrong CAPTCHA/OTP, not just expired JWTs.
     const isAuthCall =
-      original?.url?.includes('/auth/login') ||
-      original?.url?.includes('/auth/refresh') ||
-      original?.url?.includes('/auth/verify-2fa');
+      (original?.url?.startsWith('/auth/') && original.url !== '/auth/me') ||
+      original?.url?.startsWith('/settings/2fa');
+
+    if (error.response?.status === 403 && original &&
+      !original.url?.startsWith('/auth/') && !original.url?.startsWith('/settings/'))
+      accessDeniedListeners.forEach((listener) => listener());
 
     if (error.response?.status === 401 && original && !original._retry && !isAuthCall) {
+      const requestAuthorization = original.headers.Authorization;
       original._retry = true;
       refreshing ??= refreshAccessToken().finally(() => (refreshing = null));
       const token = await refreshing;
@@ -66,12 +97,17 @@ api.interceptors.response.use(
         original.headers.Authorization = `Bearer ${token}`;
         return api(original);
       }
-      onSessionExpired?.();
+      const currentTokens = await tokenStorage.get();
+      if (!currentTokens || requestAuthorization === `Bearer ${currentTokens.accessToken}`)
+        onSessionExpired?.();
     }
 
     return Promise.reject(
       new ApiError(
-        error.response?.data?.message ?? error.message ?? 'Lỗi kết nối',
+        error.response?.data?.message ??
+          (error.response
+            ? error.message
+            : 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối và thử lại.'),
         error.response?.data?.statusCode ?? error.response?.status ?? 0,
         error.response?.data?.errors,
       ),

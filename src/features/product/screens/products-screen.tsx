@@ -42,14 +42,14 @@ export function ProductsScreen({ initialSearch }: ProductsScreenProps) {
   );
 
   function openProduct(product: ProductListItem) {
-    router.push({ pathname: '/lookup/products/[productId]', params: { productId: product.id } });
+    router.push({ pathname: '/catalog/products/[productId]', params: { productId: product.id } });
   }
 
   return (
     <ProductListView
       searchText={searchText}
       onSearchChange={setSearchText}
-      onScan={() => router.push('/lookup/products/scan')}
+      onScan={() => router.push('/catalog/products/scan')}
       categoryOptions={categoryOptions}
       categoryId={categoryId}
       onCategoryChange={setCategoryId}

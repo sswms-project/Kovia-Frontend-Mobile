@@ -16,13 +16,12 @@ export default function AppTabs({ allowedTabNames }: AppTabsProps) {
       indicatorColor={theme.backgroundSelected}
       tintColor={theme.primary}
       labelStyle={{ selected: { color: theme.primary } }}>
-      {/* `index` only redirects to the first tab the user may open, so it never shows in the bar. */}
-      <NativeTabs.Trigger name="index" hidden />
+      <NativeTabs.Trigger name="lookup" hidden />
       {MOBILE_TABS.map((tab) => (
         <NativeTabs.Trigger
           key={tab.name}
           name={tab.name}
-          hidden={!allowedTabNames.includes(tab.name)}>
+          hidden={!tab.inNavbar || !allowedTabNames.includes(tab.name)}>
           <NativeTabs.Trigger.Label>{tab.title}</NativeTabs.Trigger.Label>
           <NativeTabs.Trigger.Icon sf={tab.icon.sf} md={tab.icon.md} />
         </NativeTabs.Trigger>

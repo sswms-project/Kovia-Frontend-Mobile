@@ -35,12 +35,18 @@ export const passwordRequirements = [
 ] as const;
 
 const emailField = z.string().trim().min(1, 'Email là bắt buộc').email('Email không hợp lệ');
+const passwordField = z.string()
+  .refine(passwordRequirements[0].validate, passwordRequirements[0].message)
+  .refine(passwordRequirements[1].validate, passwordRequirements[1].message)
+  .refine(passwordRequirements[2].validate, passwordRequirements[2].message)
+  .refine(passwordRequirements[3].validate, passwordRequirements[3].message)
+  .refine(passwordRequirements[4].validate, passwordRequirements[4].message);
 
 export const loginSchema = z
   .object({
-    email: z.string().trim().email('Nhập email hợp lệ'),
+    email: emailField.max(255, 'Email tối đa 255 ký tự'),
     password: z.string().min(8, 'Mật khẩu phải có ít nhất 8 ký tự'),
-    captchaId: z.string().optional(),
+    captchaId: z.string().max(36, 'Mã CAPTCHA không hợp lệ').optional(),
     captchaAnswer: z.string().trim().max(20, 'Câu trả lời CAPTCHA không hợp lệ').optional(),
   })
   .superRefine((values, context) => {
@@ -62,17 +68,11 @@ export const verifyTwoFactorSchema = z.object({
 
 export const forgotPasswordSchema = z.object({ email: emailField });
 
-export const resendVerificationSchema = z.object({ email: emailField });
+export const resendVerificationSchema = z.object({ email: emailField.max(255, 'Email tối đa 255 ký tự') });
 
 export const resetPasswordSchema = z
   .object({
-    password: z
-      .string()
-      .refine(passwordRequirements[0].validate, passwordRequirements[0].message)
-      .refine(passwordRequirements[1].validate, passwordRequirements[1].message)
-      .refine(passwordRequirements[2].validate, passwordRequirements[2].message)
-      .refine(passwordRequirements[3].validate, passwordRequirements[3].message)
-      .refine(passwordRequirements[4].validate, passwordRequirements[4].message),
+    password: passwordField,
     confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu'),
   })
   .refine((values) => values.password === values.confirmPassword, {
@@ -85,3 +85,25 @@ export type VerifyTwoFactorFormValues = z.infer<typeof verifyTwoFactorSchema>;
 export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 export type ResendVerificationFormValues = z.infer<typeof resendVerificationSchema>;
 export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
+
+export const otpSchema = verifyTwoFactorSchema;
+export const resetPasswordRequestSchema = z.object({
+  token: z.string().trim().min(1, 'Nhập token hoặc liên kết từ email'),
+  newPassword: passwordField,
+});
+export const verifyEmailSchema = z.object({
+  token: z.string().trim().min(1, 'Nhập token hoặc liên kết từ email'),
+});
+export const profileSchema = z.object({
+  fullName: z.string().trim().min(1, 'Nhập họ tên').max(255, 'Họ tên tối đa 255 ký tự'),
+  phone: z.string().max(30, 'Số điện thoại tối đa 30 ký tự').refine(
+    (value) => !value || /^(0|\+84)[3-9][0-9]{8}$/.test(value),
+    'Số điện thoại Việt Nam không hợp lệ',
+  ),
+});
+export type LoginInput = LoginFormValues;
+export type OtpInput = VerifyTwoFactorFormValues;
+export type ForgotPasswordInput = ForgotPasswordFormValues;
+export type ResetPasswordInput = z.infer<typeof resetPasswordRequestSchema>;
+export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
+export type ProfileInput = z.infer<typeof profileSchema>;

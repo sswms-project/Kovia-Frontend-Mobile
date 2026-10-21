@@ -7,17 +7,35 @@ export const MOBILE_SUPPORTED_ROLES: readonly UserRole[] = [USER_ROLES.Warehouse
 // `permission: null` means every signed-in, supported user sees the tab.
 export const MOBILE_TABS = [
   {
+    name: 'index',
+    href: '/',
+    title: 'Trang chủ',
+    permission: null,
+    inNavbar: true,
+    icon: { sf: 'house', md: 'home' },
+  },
+  {
     name: 'tasks',
     href: '/tasks',
     title: 'Công việc',
     permission: P.WAREHOUSE_TASKS_VIEW_OWN,
+    inNavbar: true,
     icon: { sf: 'checklist', md: 'checklist' },
+  },
+  {
+    name: 'scanner',
+    href: '/scanner',
+    title: 'Quét mã',
+    permission: null,
+    inNavbar: true,
+    icon: { sf: 'barcode.viewfinder', md: 'qr_code_scanner' },
   },
   {
     name: 'inventory',
     href: '/inventory',
     title: 'Tồn kho',
     permission: P.INVENTORY_VIEW,
+    inNavbar: true,
     icon: { sf: 'shippingbox', md: 'inventory_2' },
   },
   {
@@ -25,14 +43,19 @@ export const MOBILE_TABS = [
     href: '/notifications',
     title: 'Thông báo',
     permission: P.NOTIFICATIONS_VIEW,
+    // Mở từ chuông ở trang chủ; navbar chỉ giữ 5 mục để nút quét nằm giữa.
+    inNavbar: false,
     icon: { sf: 'bell', md: 'notifications' },
   },
   {
     // Hub for read-only catalogs; it lists only the entries the user may open (see LOOKUP_ENTRIES).
-    name: 'lookup',
-    href: '/lookup',
-    title: 'Tra cứu',
+    // Not '/lookup': that path belongs to the stock lookup screen.
+    name: 'catalog',
+    href: '/catalog',
+    title: 'Danh mục',
     permission: null,
+    // Navbar stays at 5 items so the scan button is centered; add an entry point from the home screen.
+    inNavbar: false,
     icon: { sf: 'magnifyingglass', md: 'search' },
   },
   {
@@ -40,6 +63,7 @@ export const MOBILE_TABS = [
     href: '/profile',
     title: 'Hồ sơ',
     permission: null,
+    inNavbar: true,
     icon: { sf: 'person.crop.circle', md: 'person' },
   },
 ] as const;
@@ -50,7 +74,7 @@ export type MobileTab = (typeof MOBILE_TABS)[number];
 export const LOOKUP_ENTRIES = [
   {
     key: 'products',
-    href: '/lookup/products',
+    href: '/catalog/products',
     title: 'Sản phẩm',
     description: 'Tìm sản phẩm, xem mã vạch, lô và nhà cung cấp',
     permission: P.PRODUCTS_VIEW,

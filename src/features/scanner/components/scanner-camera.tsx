@@ -18,6 +18,7 @@ const BARCODE_TYPES: BarcodeType[] = [
   'codabar',
   'qr',
   'datamatrix',
+  'pdf417',
 ];
 
 interface ScannerCameraProps {
@@ -26,9 +27,10 @@ interface ScannerCameraProps {
   readonly isTorchOn: boolean;
   readonly onToggleTorch: () => void;
   readonly onCode: (code: string) => void;
+  readonly onFailure?: () => void;
 }
 
-export function ScannerCamera({ isActive, isTorchOn, onToggleTorch, onCode }: ScannerCameraProps) {
+export function ScannerCamera({ isActive, isTorchOn, onToggleTorch, onCode, onFailure }: ScannerCameraProps) {
   const theme = useTheme();
 
   return (
@@ -40,6 +42,7 @@ export function ScannerCamera({ isActive, isTorchOn, onToggleTorch, onCode }: Sc
           enableTorch={isTorchOn}
           barcodeScannerSettings={{ barcodeTypes: BARCODE_TYPES }}
           onBarcodeScanned={(result) => onCode(result.data)}
+          onMountError={onFailure}
           accessibilityLabel="Hình ảnh từ camera"
         />
       ) : null}
