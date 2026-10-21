@@ -1,122 +1,67 @@
-import { memo, useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Warehouse } from 'lucide-react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { PermissionCodes } from '@/config/permission-codes';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { ActionButton, Feedback } from '@/features/auth/components/auth-form';
+import { KoviaLogo } from '@/components/kovia-logo';
+
+import { AlertBanner } from '@/components/ui/alert-banner';
+import { Button } from '@/components/ui/button';
+import { SelectionField } from '@/components/ui/selection-field';
+import { FontFamily, MaxContentWidth, Radius } from '@/constants/theme';
 import type { UserProfile } from '@/features/auth/auth.types';
 import { useTheme } from '@/hooks/use-theme';
+import { getApiErrorMessage } from '@/lib/api-error';
 
-import { hasWarehousePermission, type AssignedWarehouse } from '../warehouse-access';
+import type { AssignedWarehouse } from '../warehouse-access';
 
 interface WarehousePickerProps {
-  profile?: UserProfile;
-  warehouses: AssignedWarehouse[];
-  selected: AssignedWarehouse | null;
-  validated: boolean;
-  loading: boolean;
-  error: Error | null;
-  notice: string | null;
-  compatible: boolean;
-  onSelect: (id: string) => Promise<boolean>;
-  onRefresh: () => Promise<void>;
-  onProfile: () => void;
+  readonly profile?: UserProfile;
+  readonly warehouses: AssignedWarehouse[];
+  readonly selected: AssignedWarehouse | null;
+  readonly validated: boolean;
+  readonly loading: boolean;
+  readonly error: Error | null;
+  readonly notice: string | null;
+  readonly compatible: boolean;
+  readonly onSelect: (id: string) => Promise<boolean>;
+  readonly onRefresh: () => Promise<void>;
+  readonly onProfile: () => void;
 }
-
-const WarehouseRow = memo(function WarehouseRow({ warehouse, selected, disabled, onSelect }: {
-  warehouse: AssignedWarehouse; selected: boolean; disabled: boolean; onSelect: (id: string) => void;
-}) {
-  const colors = useTheme();
-  return (
-    <Pressable accessibilityRole="radio" accessibilityState={{ checked: selected, disabled }}
-      accessibilityLabel={`${warehouse.warehouseCode}, ${warehouse.warehouseName}${selected ? ', đang làm việc' : ''}`}
-      disabled={disabled} onPress={() => onSelect(warehouse.id)}
-      style={[styles.row, { borderColor: selected ? colors.text : colors.backgroundSelected,
-        backgroundColor: selected ? colors.backgroundSelected : colors.backgroundElement }]}>
-      <View style={styles.rowText}>
-        <Text style={[styles.code, { color: colors.textSecondary }]}>{warehouse.warehouseCode}</Text>
-        <Text style={[styles.name, { color: colors.text }]}>{warehouse.warehouseName}</Text>
-        {selected && <Text style={{ color: colors.textSecondary }}>Đang làm việc</Text>}
-      </View>
-      <Text accessibilityElementsHidden style={[styles.indicator, { color: colors.text }]}>{selected ? '●' : '○'}</Text>
-    </Pressable>
-  );
-});
 
 export function WarehousePicker({ profile, warehouses, selected, validated, loading, error, notice,
   compatible, onSelect, onRefresh, onProfile }: WarehousePickerProps) {
-  const colors = useTheme();
-  const [search, setSearch] = useState('');
-  const [switching, setSwitching] = useState(false);
-  const filtered = useMemo(() => {
-    const keyword = search.trim().toLocaleLowerCase('vi');
-    return warehouses.filter((warehouse) =>
-      `${warehouse.warehouseCode} ${warehouse.warehouseName}`.toLocaleLowerCase('vi').includes(keyword));
-  }, [search, warehouses]);
-  const choose = useCallback((id: string) => {
-    setSwitching(true);
-    void onSelect(id).finally(() => setSwitching(false));
-  }, [onSelect]);
-  const renderItem = useCallback(({ item }: { item: AssignedWarehouse }) => (
-    <WarehouseRow warehouse={item} selected={selected?.id === item.id}
-      disabled={!validated || loading || switching} onSelect={choose} />
-  ), [selected?.id, validated, loading, switching, choose]);
-  const emptyMessage = !validated ? 'Xác minh quyền truy cập trước khi chọn kho.' :
-    warehouses.length === 0 ? 'Bạn chưa được giao kho đang hoạt động. Liên hệ người quản lý để được phân công.' :
-      'Không tìm thấy kho phù hợp. Thử mã hoặc tên khác.';
-
-  return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.screen, { backgroundColor: colors.background }]}>
-      <FlatList data={validated ? filtered : []} keyExtractor={(warehouse) => warehouse.id}
-        renderItem={renderItem} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>KOVIA · KHÔNG GIAN LÀM VIỆC</Text>
-            <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Kho làm việc</Text>
-            <Text style={[styles.description, { color: colors.textSecondary }]}>
-              {selected ? `Đang làm việc tại ${selected.warehouseName}.` : 'Chọn kho được phép truy cập để bắt đầu làm việc.'}
-            </Text>
-            <Feedback error={error} message={notice ?? undefined} />
-            {!compatible && profile && <Feedback message="Backend chưa cung cấp trạng thái kho hợp lệ. Cần cập nhật API trước khi chọn kho." />}
-            {profile && profile.status !== 'Active' && <Feedback message="Tài khoản chưa hoạt động. Liên hệ người quản lý." />}
-            <View style={styles.actions}>
-              <ActionButton label="Kiểm tra lại quyền" busy={loading} onPress={() => { void onRefresh(); }} secondary />
-              <ActionButton label="Hồ sơ và đăng xuất" onPress={onProfile} secondary />
-            </View>
-            {selected && <View style={[styles.summary, { backgroundColor: colors.backgroundElement }]}>
-              <Text style={[styles.name, { color: colors.text }]}>Quyền tại kho đang chọn</Text>
-              <Text style={{ color: colors.textSecondary }}>Công việc của tôi: {hasWarehousePermission(profile, true, PermissionCodes.viewOwnTasks) ? 'Được xem' : 'Chưa được cấp quyền'}</Text>
-              <Text style={{ color: colors.textSecondary }}>Tra cứu tồn kho: {hasWarehousePermission(profile, true, PermissionCodes.viewInventory) ? 'Được xem' : 'Chưa được cấp quyền'}</Text>
-              <Text style={[styles.description, { color: colors.textSecondary }]}>Các màn hình nghiệp vụ sẽ được triển khai ở bước tiếp theo.</Text>
-            </View>}
-            <Text style={[styles.name, { color: colors.text }]}>Kho được phép truy cập ({warehouses.length})</Text>
-            <TextInput value={search} onChangeText={setSearch} accessibilityLabel="Tìm kho theo mã hoặc tên"
-              placeholder="Tìm mã hoặc tên kho" placeholderTextColor={colors.textSecondary}
-              autoCapitalize="none" autoCorrect={false} returnKeyType="search"
-              style={[styles.search, { color: colors.text, borderColor: colors.backgroundSelected }]} />
-            {loading && <Feedback message="Đang tải kho và quyền truy cập…" />}
-          </View>
-        }
-        ListEmptyComponent={<Text style={[styles.description, { color: colors.textSecondary }]}>{emptyMessage}</Text>}
-      />
-    </SafeAreaView>
-  );
+  const theme = useTheme();
+  return <SafeAreaView edges={['top', 'left', 'right']} style={[styles.screen, { backgroundColor: theme.background }]}>
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KoviaLogo />
+      <View style={[styles.hero, { backgroundColor: theme.primary }]}>
+        <View style={[styles.icon, { backgroundColor: theme.onPrimary }]}><Warehouse size={28} color={theme.primary} /></View>
+        <Text accessibilityRole="header" style={[styles.title, { color: theme.onPrimary }]}>Bắt đầu ca làm việc</Text>
+        <Text style={[styles.body, { color: theme.onPrimary }]}>Chọn kho để xem công việc, tra cứu hàng và ghi nhận thao tác tại hiện trường.</Text>
+      </View>
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        {!!profile && <Text style={[styles.name, { color: theme.text }]}>Xin chào, {profile.fullName}</Text>}
+        <SelectionField label="Kho làm việc" value={selected?.id ?? ''}
+          placeholder={loading ? 'Đang tải kho được phân công…' : 'Chọn kho được phân công'}
+          options={warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.warehouseName, description: warehouse.warehouseCode }))}
+          disabled={!validated || loading} onChange={(id) => { void onSelect(id); }} />
+        {validated && warehouses.length === 0 && <AlertBanner title="Bạn chưa được phân công kho đang hoạt động." description="Liên hệ quản lý để được giao kho." />}
+        {!!error && <AlertBanner variant="destructive" title="Chưa tải được quyền truy cập" description={getApiErrorMessage(error)} />}
+        {!!notice && <AlertBanner title={notice} />}
+        {!compatible && !!profile && <AlertBanner title="Thông tin kho chưa hợp lệ. Vui lòng liên hệ quản lý." />}
+        {!!profile && profile.status !== 'Active' && <AlertBanner title="Tài khoản chưa hoạt động. Vui lòng liên hệ quản lý." />}
+        <Button label="Tải lại danh sách kho" variant="outline" loading={loading} onPress={() => { void onRefresh(); }} />
+        <Text style={[styles.hint, { color: theme.textSecondary }]}>Danh sách chỉ gồm những kho bạn được phép truy cập.</Text>
+      </View>
+      <Button label="Tài khoản của tôi" variant="ghost" onPress={onProfile} />
+    </ScrollView>
+  </SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', padding: Spacing.three, paddingBottom: Spacing.six, gap: Spacing.two },
-  header: { gap: Spacing.three, paddingTop: Spacing.four, paddingBottom: Spacing.two },
-  eyebrow: { fontSize: 12, fontWeight: '700', letterSpacing: 1 },
-  title: { fontSize: 30, lineHeight: 38, fontWeight: '700' },
-  description: { fontSize: 15, lineHeight: 23 },
-  actions: { gap: Spacing.two },
-  summary: { padding: Spacing.three, gap: Spacing.two, borderRadius: Spacing.three },
-  search: { minHeight: 48, paddingHorizontal: Spacing.three, borderWidth: 1, borderRadius: Spacing.two, fontSize: 16 },
-  row: { minHeight: 80, borderRadius: Spacing.three, padding: Spacing.three, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
-  rowText: { flex: 1, gap: Spacing.one },
-  code: { fontSize: 12, fontWeight: '600' },
-  name: { fontSize: 17, fontWeight: '600', lineHeight: 25 },
-  indicator: { fontSize: 25 },
+  screen: { flex: 1 }, content: { padding: 20, paddingBottom: 40, gap: 20, width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' },
+  hero: { padding: 24, borderRadius: 20, gap: 16 }, icon: { width: 56, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  title: { fontFamily: FontFamily.bold, fontSize: 26, lineHeight: 34 }, body: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 23 },
+  card: { borderWidth: 1, borderRadius: Radius.xl, padding: 20, gap: 16 }, name: { fontFamily: FontFamily.semibold, fontSize: 18, lineHeight: 26 },
+  hint: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 20 },
 });

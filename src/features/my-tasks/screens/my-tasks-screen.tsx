@@ -5,7 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/hooks/use-theme';
-import { P } from '@/config/permission-codes';
+import { SelectionField } from '@/components/ui/selection-field';
+import { getTaskDestination } from '../my-tasks.navigation';
 import type { WarehouseTask } from '../my-tasks.schema';
 
 import { MyTaskList, TaskActionDialog } from '../components/task-list';
@@ -15,25 +16,12 @@ export function MyTasksScreen() {
   const state = useMyTasks();
   const theme = useTheme();
   function canOpenDocument(task: WarehouseTask) {
-    const permission = task.taskType.startsWith('Transfer') ? P.TRANSFERS_VIEW : task.taskType === 'Picking' ? P.STOCK_ISSUE_REQUESTS_VIEW : task.taskType === 'CycleCount' ? P.CYCLE_COUNTS_VIEW : P.GOODS_RECEIPTS_VIEW;
-    if (task.taskType.startsWith('Transfer') && (!task.transferId || !task.transferShipmentId)) return false;
-    return !!state.access.profile.data?.permissions.includes(permission);
+    return !!getTaskDestination(task, state.access.profile.data, state.access.warehouse?.id);
   }
   function openDocument(task: WarehouseTask) {
-    const profile = state.access.profile.data;
-    const permission = task.taskType.startsWith('Transfer') ? P.TRANSFERS_VIEW : task.taskType === 'Picking' ? P.STOCK_ISSUE_REQUESTS_VIEW : task.taskType === 'CycleCount' ? P.CYCLE_COUNTS_VIEW : P.GOODS_RECEIPTS_VIEW;
-    if (!state.canView || !profile?.permissions.includes(permission) ||
-      task.warehouseId !== state.access.warehouse?.id || task.assignedTo !== profile.id) return;
-    if (task.taskType === 'Receiving') router.push({ pathname: '/(account)/receiving/[id]', params: { id: task.id } });
-    if (task.taskType === 'PutAway') router.push({ pathname: '/(account)/putaway/[id]', params: { id: task.id } });
-    if (task.taskType === 'Picking') router.push({ pathname: '/(account)/stock-issue/[id]', params: { id: task.id } });
-    if (task.taskType === 'CycleCount') router.push({ pathname: '/(account)/cycle-count/[id]', params: { id: task.id } });
-    if (task.taskType === 'TransferPick' && task.transferId && task.transferShipmentId)
-      router.push({ pathname: '/(account)/transfer-pick/[id]', params: { id: task.transferId, shipmentId: task.transferShipmentId } });
-    if (task.taskType === 'TransferReceive' && task.transferId && task.transferShipmentId)
-      router.push({ pathname: '/(account)/transfer-receipt/[id]', params: { id: task.transferId, shipmentId: task.transferShipmentId } });
-    if (task.taskType === 'TransferPutAway' && task.transferId && task.transferShipmentId)
-      router.push({ pathname: '/(account)/transfer-putaway/[id]', params: { id: task.transferId, shipmentId: task.transferShipmentId } });
+    if (!state.canView) return;
+    const destination = getTaskDestination(task, state.access.profile.data, state.access.warehouse?.id);
+    if (destination) router.push(destination);
   }
   if (!state.canView) {
     const title = !state.access.validated ? 'Đang chờ xác minh kho và quyền truy cập.'
@@ -43,7 +31,7 @@ export function MyTasksScreen() {
       <View style={styles.gate}>
         <AlertBanner title={title} description={state.access.selection.notice ?? undefined} />
         <Button label="Chọn kho làm việc" onPress={() => router.navigate('/')} />
-        <Button label="Kiểm tra lại quyền" variant="outline" loading={state.access.profile.isFetching}
+        <Button label="Tải lại quyền truy cập" variant="outline" loading={state.access.profile.isFetching}
           onPress={() => { void state.access.refresh(); }} />
       </View>
     </SafeAreaView>;
@@ -53,7 +41,10 @@ export function MyTasksScreen() {
       filters={state.filters} loading={state.list.isPending} fetching={state.list.isFetching} error={state.list.error}
       busy={state.mutation.isPending} canManage={state.canManage} notice={state.notice}
       onFilters={state.changeFilters} onRefresh={() => { void state.list.refetch(); }}
-      onWarehouse={() => router.navigate('/')} onAction={state.beginAction}
+      warehouseSelector={<SelectionField label="Kho làm việc" value={state.access.warehouse?.id ?? ''}
+        options={(state.access.snapshot?.warehouses ?? []).map((warehouse) => ({ value: warehouse.id, label: warehouse.warehouseName, description: warehouse.warehouseCode }))}
+        disabled={state.mutation.isPending || state.access.selection.transitioning} onChange={(id) => { void state.access.choose(id); }} />}
+      onAction={state.beginAction}
       onOpenDocument={openDocument} canOpenDocument={canOpenDocument} />
     <TaskActionDialog target={state.target} form={state.form} busy={state.mutation.isPending}
       awaitingRefresh={state.list.isFetching || state.list.isError}

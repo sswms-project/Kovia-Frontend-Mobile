@@ -65,12 +65,6 @@ async function transition(client: QueryClient, snapshot: WarehouseSnapshot, ware
 
 export async function reconcileWarehouseAccess(client: QueryClient, snapshot: WarehouseSnapshot) {
   const state = useWarehouseSelection.getState();
-  if (state.deniedSignature === snapshot.signature) {
-    useWarehouseSelection.setState({ signature: null, transitioning: false,
-      notice: 'Truy cập bị từ chối. Chọn Kiểm tra lại quyền sau khi quyền hoặc môi trường đã được cập nhật.' });
-    await clearWarehouseQueries(client);
-    return;
-  }
   if (state.signature === snapshot.signature) return;
   const warehouseId = state.identity === snapshot.identity && snapshot.compatible && snapshot.activeUser &&
     snapshot.warehouses.some((warehouse) => warehouse.id === state.warehouseId)

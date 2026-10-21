@@ -13,6 +13,6 @@ export function useMe() {
     queryKey: ME_QUERY_KEY,
     queryFn: ({ signal }) => authApi.getMe(signal),
     enabled: signedIn,
-    staleTime: 0,
+    staleTime: 60_000,
   });
 }

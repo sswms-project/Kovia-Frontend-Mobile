@@ -13,6 +13,7 @@ import {
   type TextInputProps,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { KoviaLogo } from '@/components/kovia-logo';
 import { useTheme } from '@/hooks/use-theme';
 
 interface AuthFrameProps {
@@ -30,7 +31,7 @@ export function AuthFrame({ title, description, children }: AuthFrameProps) {
       >
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>
           <View style={styles.content}>
-            <Text style={[styles.brand, { color: colors.textSecondary }]}>KOVIA · KHO VẬN</Text>
+            <KoviaLogo />
             <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
               {title}
             </Text>

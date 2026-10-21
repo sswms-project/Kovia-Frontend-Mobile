@@ -5,16 +5,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
+import { SelectionField } from '@/components/ui/selection-field';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 import { BarcodeCamera, LookupForm, StockCard } from '../components/inventory-results';
 import { useInventoryLookup } from '../hooks/use-inventory-lookup';
 import { inventoryTimestamp } from '../inventory-lookup';
-import type { BarcodeMatch, InventoryStock } from '../inventory-lookup.schema';
+import type { BarcodeMatch, InventoryStock, LookupInput } from '../inventory-lookup.schema';
 
-export function InventoryLookupScreen() {
-  const state = useInventoryLookup();
+export function InventoryLookupScreen({ scanner = false, initialInput }: { readonly scanner?: boolean; readonly initialInput?: LookupInput }) {
+  const state = useInventoryLookup(initialInput);
   const theme = useTheme();
   const select = state.select;
   const renderRow = useCallback(({ item }: { item: InventoryStock | BarcodeMatch }) => 'type' in item
@@ -26,7 +27,7 @@ export function InventoryLookupScreen() {
         : !state.access.warehouse ? 'Chọn kho đang hoạt động được giao để tra cứu.' : 'Bạn không có quyền truy cập nội dung này.'}
         description={state.access.selection.notice ?? undefined} />
       <Button label="Chọn kho làm việc" onPress={() => router.navigate('/')} />
-      <Button label="Kiểm tra lại quyền" variant="outline" loading={state.access.profile.isFetching}
+      <Button label="Tải lại quyền truy cập" variant="outline" loading={state.access.profile.isFetching}
         onPress={() => { void state.access.refresh(); }} />
     </View>
   </SafeAreaView>;
@@ -39,9 +40,11 @@ export function InventoryLookupScreen() {
       <FlatList data={rows} keyExtractor={(item) => `${'type' in item ? item.type : 'Stock'}:${item.id}`} renderItem={renderRow}
         contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
         ListHeaderComponent={<View style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]}>Tra cứu tồn kho</Text>
-          <Text style={[styles.text, { color: theme.textSecondary }]}>{state.access.warehouse?.warehouseName}</Text>
-          <Button label="Đổi kho" variant="ghost" onPress={() => router.navigate('/')} />
+          <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{scanner ? 'Quét & tra cứu' : 'Tồn kho'}</Text>
+          {scanner && <Text style={[styles.text, { color: theme.textSecondary }]}>Quét nhãn hoặc nhập mã để xem đúng sản phẩm, vị trí và số lượng tồn.</Text>}
+          <SelectionField label="Kho làm việc" value={state.access.warehouse?.id ?? ''}
+            options={(state.access.snapshot?.warehouses ?? []).map((warehouse) => ({ value: warehouse.id, label: warehouse.warehouseName, description: warehouse.warehouseCode }))}
+            disabled={state.access.selection.transitioning} onChange={(id) => { void state.access.choose(id); }} />
           <LookupForm form={state.form} busy={!!state.request && state.lookup.isFetching}
             onSearch={() => { void state.search(); }} onCamera={() => { void state.openCamera(); }} onClear={state.clear} />
           {state.cameraError && <AlertBanner title={state.cameraError} />}

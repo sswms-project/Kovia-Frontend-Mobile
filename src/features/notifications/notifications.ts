@@ -13,6 +13,8 @@ export function assertNotificationContext(identity: string | null, signature: st
 // References are document identifiers, never URLs supplied by a notification payload.
 export function notificationDestination(notification: WarehouseNotification, profile: UserProfile | undefined) {
   if (!notification.referenceId || !profile) return null;
+  if (notification.referenceType === 'WarehouseTask' && profile.permissions.includes(P.WAREHOUSE_TASKS_VIEW_OWN))
+    return { pathname: '/(account)/relocation/[id]' as const, params: { id: notification.referenceId } };
   if (notification.referenceType === 'CycleCount' && profile.permissions.includes(P.CYCLE_COUNTS_VIEW))
     return { pathname: '/(account)/cycle-count/[id]' as const, params: { id: notification.referenceId } };
   if (notification.referenceType === 'StockIssueRequest' && profile.permissions.includes(P.STOCK_ISSUE_REQUESTS_VIEW))

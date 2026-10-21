@@ -1,3 +1,4 @@
+import { Baloo2_700Bold } from '@expo-google-fonts/baloo-2';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -22,6 +23,7 @@ export default function RootLayout() {
   const signedIn = useAuth((state) => state.signedIn);
   const restore = useAuth((state) => state.restore);
   const [fontsLoaded, fontError] = useFonts({
+    Baloo2_700Bold,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,

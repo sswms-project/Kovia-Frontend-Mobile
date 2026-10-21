@@ -38,6 +38,7 @@ export function NotificationsScreen() {
       contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" ItemSeparatorComponent={Separator}
       refreshing={state.canView && state.list.isFetching} onRefresh={() => { void state.list.refetch(); }}
       ListHeaderComponent={<View style={styles.header}>
+        <Button label="Về trang chủ" variant="outline" disabled={busy} onPress={() => router.navigate('/')} />
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>Thông báo</Text>
         {!state.canView ? <>
           <AlertBanner title={state.access.validated ? 'Bạn chưa có quyền xem thông báo.' : 'Đang xác minh tài khoản và quyền thông báo.'} />
