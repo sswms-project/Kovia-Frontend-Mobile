@@ -3,6 +3,7 @@ import { History, ScanLine } from 'lucide-react-native';
 import { useState } from 'react';
 
 import { TaskListView, type TaskListHeaderAction } from '../components/task-list-view';
+import { TaskWorkspaceControl, TaskWorkspaceGate } from '../components/task-workspace';
 import {
   flattenTasks,
   useMyWarehouseTasksQuery,
@@ -28,15 +29,18 @@ export function MyTasksScreen() {
   function openTask(task: MyWarehouseTask) {
     router.push({
       pathname: '/tasks/[taskType]/[taskId]',
-      params: { taskType: task.taskType, taskId: task.id },
+      params: { taskType: task.taskType, taskId: task.id, warehouseId: task.warehouseId },
     });
   }
+
+  if (!query.workspace.canView) return <TaskWorkspaceGate workspace={query.workspace} />;
 
   return (
     <TaskListView
       title="Công việc của tôi"
       description="Các nhiệm vụ kho đang chờ bạn thực hiện."
       actions={actions}
+      workspaceControl={<TaskWorkspaceControl workspace={query.workspace} />}
       stats={query.data?.pages[0]?.stats}
       statusOptions={OPEN_STATUS_FILTERS}
       statusFilter={statusFilter}

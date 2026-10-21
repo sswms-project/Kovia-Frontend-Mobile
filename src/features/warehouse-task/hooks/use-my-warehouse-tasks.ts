@@ -1,78 +1,85 @@
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-  type InfiniteData,
-} from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 
-import { isApiErrorResponse, logApiError } from '@/lib/api-error';
+import { useAuth } from '@/features/auth/auth.store';
+import type { UserProfile } from '@/features/auth/auth.types';
+import { assertTaskActionScope, taskScopeMatches } from '@/features/my-tasks/my-tasks';
+import { profileQueryKey, warehouseQueryKey } from '@/features/warehouse-access/warehouse-access';
+import { useWarehouseSelection } from '@/features/warehouse-access/warehouse-access.store';
+import { ApiError } from '@/lib/api';
+import { logApiError } from '@/lib/api-error';
 
 import { warehouseTaskApi } from '../warehouse-task.api';
-import type {
-  MyWarehouseTask,
-  MyWarehouseTaskListResponse,
-  MyWarehouseTaskQuery,
-  WarehouseTaskAction,
-} from '../warehouse-task.types';
+import type { MyWarehouseTask, MyWarehouseTaskListResponse, MyWarehouseTaskQuery, WarehouseTaskAction } from '../warehouse-task.types';
+import { useTaskWorkspace } from './use-task-workspace';
 
 export const WAREHOUSE_TASKS_QUERY_KEY = ['warehouse-tasks'] as const;
-
 const PAGE_SIZE = 20;
-
-export type MyWarehouseTaskFilters = Omit<MyWarehouseTaskQuery, 'pageNumber' | 'pageSize'>;
-
+export type MyWarehouseTaskFilters = Omit<MyWarehouseTaskQuery, 'pageNumber' | 'pageSize' | 'warehouseId' | 'assignedTo'>;
 const getNextPageNumber = (lastPage: MyWarehouseTaskListResponse) =>
   lastPage.pageNumber * lastPage.pageSize < lastPage.totalCount ? lastPage.pageNumber + 1 : undefined;
 
-/** Open tasks (queued, in progress, paused), paged. Cached per filter set. */
-export function useMyWarehouseTasksQuery(filters: MyWarehouseTaskFilters) {
-  return useInfiniteQuery({
-    queryKey: [...WAREHOUSE_TASKS_QUERY_KEY, 'mine', filters],
-    queryFn: ({ pageParam }) =>
-      warehouseTaskApi.getCurrent({ ...filters, pageNumber: pageParam, pageSize: PAGE_SIZE }),
+function useTaskFeed(filters: MyWarehouseTaskFilters, history: boolean) {
+  const workspace = useTaskWorkspace();
+  const { scope, access } = workspace;
+  const userId = access.profile.data?.id;
+  const query = useInfiniteQuery({
+    queryKey: scope ? warehouseQueryKey('warehouse-task-feed', { filters, history }) : ['warehouse-task-feed', 'disabled', history],
+    enabled: !!scope && !!userId,
+    queryFn: ({ pageParam, signal }) => {
+      if (!scope || !userId) throw new ApiError('Chọn kho và xác minh quyền truy cập trước khi tải công việc.', 403);
+      const params = { ...filters, warehouseId: scope.warehouseId, pageNumber: pageParam, pageSize: PAGE_SIZE };
+      return history ? warehouseTaskApi.getHistory(params, userId, signal) : warehouseTaskApi.getCurrent(params, userId, signal);
+    },
     initialPageParam: 1,
     getNextPageParam: getNextPageNumber,
+    staleTime: 15_000,
+    refetchInterval: workspace.canView ? 30_000 : false,
   });
+  return { ...query, workspace };
 }
 
-/** Completed and cancelled tasks, paged. */
-export function useMyWarehouseTaskHistoryQuery(filters: MyWarehouseTaskFilters) {
-  return useInfiniteQuery({
-    queryKey: [...WAREHOUSE_TASKS_QUERY_KEY, 'history', filters],
-    queryFn: ({ pageParam }) =>
-      warehouseTaskApi.getHistory({ ...filters, pageNumber: pageParam, pageSize: PAGE_SIZE }),
-    initialPageParam: 1,
-    getNextPageParam: getNextPageNumber,
-  });
-}
-
-export function flattenTasks(
-  data: InfiniteData<MyWarehouseTaskListResponse> | undefined,
-): readonly MyWarehouseTask[] {
+export function useMyWarehouseTasksQuery(filters: MyWarehouseTaskFilters) { return useTaskFeed(filters, false); }
+export function useMyWarehouseTaskHistoryQuery(filters: MyWarehouseTaskFilters) { return useTaskFeed(filters, true); }
+export function flattenTasks(data: InfiniteData<MyWarehouseTaskListResponse> | undefined): readonly MyWarehouseTask[] {
   return data?.pages.flatMap((page) => page.items) ?? [];
 }
 
 interface ManageTaskVariables {
-  readonly taskType: string;
-  readonly taskId: string;
+  readonly task: MyWarehouseTask;
   readonly action: WarehouseTaskAction;
   readonly reason?: string;
 }
 
 export function useManageMyWarehouseTaskMutation() {
-  const queryClient = useQueryClient();
-
+  const client = useQueryClient();
+  const { scope } = useTaskWorkspace();
+  const invalidate = () => Promise.all([
+    client.invalidateQueries({ queryKey: ['warehouse'] }),
+    client.invalidateQueries({ queryKey: WAREHOUSE_TASKS_QUERY_KEY }),
+    client.invalidateQueries({ queryKey: ['dashboard-overview'] }),
+    client.invalidateQueries({ queryKey: ['notifications'] }),
+  ]);
   return useMutation({
-    mutationFn: ({ taskType, taskId, action, reason }: ManageTaskVariables) =>
-      warehouseTaskApi.action(taskType, taskId, action, reason),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: WAREHOUSE_TASKS_QUERY_KEY }),
-    // The screen shows the message in a toast. 409/404 mean the task changed or was reassigned
-    // meanwhile, so the cached list is stale and must be reloaded (same as the web).
-    onError: (error) => {
-      logApiError(error);
-      if (isApiErrorResponse(error) && (error.statusCode === 409 || error.statusCode === 404)) {
-        void queryClient.invalidateQueries({ queryKey: WAREHOUSE_TASKS_QUERY_KEY });
-      }
+    retry: false,
+    mutationFn: async ({ task, action, reason }: ManageTaskVariables) => {
+      const operationScope = scope;
+      const assertCurrentContext = () => {
+        if (!operationScope || !taskScopeMatches(operationScope, useWarehouseSelection.getState()))
+          throw new ApiError('Kho hoặc phiên làm việc đã thay đổi. Vui lòng mở lại công việc.', 409);
+        assertTaskActionScope(operationScope, task, action, client.getQueryData<UserProfile>(profileQueryKey), useAuth.getState().signedIn);
+      };
+      assertCurrentContext();
+      if (!operationScope) throw new ApiError('Vui lòng chọn kho làm việc.', 403);
+      const current = await warehouseTaskApi.find(operationScope.warehouseId, task.assignedTo ?? '', task.taskType, task.id, false);
+      assertCurrentContext();
+      if (!current.task || current.history || current.task.executionStatus !== task.executionStatus || current.task.updatedAt !== task.updatedAt)
+        throw new ApiError('Dữ liệu công việc đã thay đổi. Vui lòng tải lại trước khi tiếp tục.', 409);
+      await warehouseTaskApi.action(task.taskType, task.id, action, reason, assertCurrentContext);
+      return operationScope;
     },
+    onSuccess: async (operationScope) => {
+      if (taskScopeMatches(operationScope, useWarehouseSelection.getState())) await invalidate();
+    },
+    onError: (error) => { logApiError(error); void invalidate(); },
   });
 }
