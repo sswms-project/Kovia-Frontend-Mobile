@@ -18,6 +18,24 @@ export default function LookupLayout() {
       <Stack.Screen name="products/index" options={{ title: 'Sản phẩm' }} />
       <Stack.Screen name="products/[productId]" options={{ title: 'Chi tiết sản phẩm' }} />
       <Stack.Screen name="products/scan" options={{ headerShown: false, presentation: 'modal' }} />
+      <Stack.Screen name="suppliers/index" options={{ title: 'Nhà cung cấp' }} />
+      <Stack.Screen name="suppliers/[supplierId]" options={{ title: 'Chi tiết nhà cung cấp' }} />
+      <Stack.Screen name="units" options={{ title: 'Đơn vị tính' }} />
+      <Stack.Screen name="categories" options={{ title: 'Loại sản phẩm' }} />
+      <Stack.Screen name="warehouses/index" options={{ title: 'Kho' }} />
+      <Stack.Screen name="warehouses/[warehouseId]" options={{ title: 'Chi tiết kho' }} />
+      <Stack.Screen name="inbound-requests/index" options={{ title: 'Yêu cầu nhập kho' }} />
+      <Stack.Screen name="inbound-requests/[requestId]" options={{ title: 'Chi tiết yêu cầu nhập kho' }} />
+      <Stack.Screen name="stock-issue-requests/index" options={{ title: 'Yêu cầu xuất kho' }} />
+      <Stack.Screen name="stock-issue-requests/[requestId]" options={{ title: 'Chi tiết yêu cầu xuất kho' }} />
+      <Stack.Screen name="stock-recipients/index" options={{ title: 'Đơn vị nhận hàng' }} />
+      <Stack.Screen name="stock-recipients/[recipientId]" options={{ title: 'Chi tiết đơn vị nhận hàng' }} />
+      <Stack.Screen name="goods-returns/index" options={{ title: 'Yêu cầu trả hàng' }} />
+      <Stack.Screen name="goods-returns/[returnId]" options={{ title: 'Chi tiết yêu cầu trả hàng' }} />
+      <Stack.Screen name="damage-cases" options={{ title: 'Hồ sơ hàng hỏng' }} />
+      <Stack.Screen name="reports/index" options={{ title: 'Báo cáo' }} />
+      <Stack.Screen name="reports/[reportType]" options={{ title: 'Báo cáo chi tiết' }} />
+      <Stack.Screen name="audit-logs" options={{ title: 'Hoạt động của tôi' }} />
     </Stack>
   );
 }

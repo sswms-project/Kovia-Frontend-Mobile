@@ -4,6 +4,7 @@ import { SearchX } from 'lucide-react-native';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
+import { ReportDamageAction } from '@/features/damage-cases/components/report-damage-modal';
 
 import { InventoryDetailView } from '../components/inventory-detail-view';
 import {
@@ -60,6 +61,7 @@ export function InventoryDetailScreen({ stockId, productId, slotId }: InventoryD
         }
       }}
       onRetryMovements={() => void movementsQuery.refetch()}
+      headerExtra={<ReportDamageAction stock={stockQuery.data} />}
     />
   );
 }

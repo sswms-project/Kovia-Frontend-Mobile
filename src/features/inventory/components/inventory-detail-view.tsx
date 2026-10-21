@@ -1,4 +1,5 @@
 import { FlashList } from '@shopify/flash-list';
+import type { ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { ErrorState } from '@/components/ui/error-state';
@@ -28,6 +29,8 @@ interface InventoryDetailViewProps {
   readonly onRefresh: () => void;
   readonly onEndReached: () => void;
   readonly onRetryMovements: () => void;
+  /** Extra actions for this line (e.g. reporting damage), shown under the details card. */
+  readonly headerExtra?: ReactNode;
 }
 
 const formatOptionalDate = (value: string | null) =>
@@ -43,6 +46,7 @@ export function InventoryDetailView({
   onRefresh,
   onEndReached,
   onRetryMovements,
+  headerExtra,
 }: InventoryDetailViewProps) {
   const theme = useTheme();
   const unit = stock.unitName ? ` ${stock.unitName}` : '';
@@ -115,6 +119,8 @@ export function InventoryDetailView({
           </View>
         ))}
       </View>
+
+      {headerExtra}
 
       <Text accessibilityRole="header" style={[styles.section, { color: theme.text }]}>
         Lịch sử biến động

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-import { ACTION_LABELS, availableTaskActions, DEADLINE_LABELS, EXECUTION_LABELS,
+import { ACTION_LABELS, availableTaskActions, DEADLINE_LABELS, documentLabel, EXECUTION_LABELS,
   TASK_LABELS, taskDate } from '../../my-tasks';
 import type { TaskActionInput, WarehouseTask } from '../../my-tasks.schema';
 
@@ -22,6 +22,7 @@ export const TaskCard = memo(function TaskCard({ task, history, canManage, busy,
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const actions = availableTaskActions(task, canManage, history);
+  const openLabel = documentLabel(task, history);
   const urgent = task.priority === 'Urgent' || task.deadlineStatus === 'Overdue';
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: urgent ? theme.error : theme.border }]}>
@@ -53,12 +54,11 @@ export const TaskCard = memo(function TaskCard({ task, history, canManage, busy,
         <Text style={[styles.text, { color: theme.textSecondary }]}>Giao lúc: {taskDate(task.assignedAt)}</Text>
         <Text style={[styles.text, { color: theme.textSecondary }]}>Bắt đầu: {taskDate(task.startedAt)} · Kết thúc: {taskDate(task.completedAt)}</Text>
         {task.pauseReason && <Text style={[styles.text, { color: theme.text }]}>Lý do tạm dừng: {task.pauseReason}</Text>}
-        {!(onOpenDocument && (task.taskType === 'PutAway' || (task.taskType === 'Receiving' && !history))) && <Text style={[styles.text, { color: theme.textSecondary }]}>
+        {!(onOpenDocument && openLabel) && <Text style={[styles.text, { color: theme.textSecondary }]}>
           Chưa hỗ trợ ghi nhận {TASK_LABELS[task.taskType].toLocaleLowerCase('vi')} trên mobile. Liên hệ quản lý để xử lý nghiệp vụ.
         </Text>}
       </View>}
-      {onOpenDocument && (task.taskType === 'PutAway' || (task.taskType === 'Receiving' && !history)) && <Button
-        label={task.taskType === 'Receiving' ? 'Mở nhận hàng được giao' : 'Mở phiếu cất hàng'}
+      {onOpenDocument && openLabel && <Button label={openLabel}
         variant="outline" disabled={busy} onPress={() => onOpenDocument(task)} />}
       {actions.map((action) => <Button key={action}
         label={action === 'Start' && task.executionStatus === 'Paused' ? 'Tiếp tục' : ACTION_LABELS[action]}

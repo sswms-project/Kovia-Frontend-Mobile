@@ -14,12 +14,29 @@ import { useMyTasks } from '../hooks/use-my-tasks';
 export function MyTasksScreen() {
   const state = useMyTasks();
   const theme = useTheme();
+  const profile = state.access.profile.data;
   function openDocument(task: WarehouseTask) {
-    if (!state.canView || !state.access.profile.data?.permissions.includes(P.GOODS_RECEIPTS_VIEW) ||
-      task.warehouseId !== state.access.warehouse?.id || task.assignedTo !== state.access.profile.data.id) return;
-    if (task.taskType === 'Receiving') router.push({ pathname: '/(account)/receiving/[id]', params: { id: task.id } });
-    if (task.taskType === 'PutAway') router.push({ pathname: '/(account)/putaway/[id]', params: { id: task.id } });
+    if (!state.canView || !profile || task.warehouseId !== state.access.warehouse?.id ||
+      task.assignedTo !== profile.id) return;
+    const canReceive = profile.permissions.includes(P.GOODS_RECEIPTS_VIEW);
+    if (task.taskType === 'Receiving' && canReceive) router.push({ pathname: '/(account)/receiving/[id]', params: { id: task.id } });
+    if (task.taskType === 'PutAway' && canReceive) router.push({ pathname: '/(account)/putaway/[id]', params: { id: task.id } });
+    if (task.taskType === 'CycleCount' && profile.permissions.includes(P.CYCLE_COUNTS_VIEW))
+      router.push({ pathname: '/(account)/cycle-count/[id]', params: { id: task.id } });
+    if (task.taskType === 'Picking' && profile.permissions.includes(P.STOCK_ISSUE_REQUESTS_PICK))
+      router.push({ pathname: '/(account)/picking/[id]', params: { id: task.id } });
+    if (task.transferId && task.transferShipmentId) {
+      const params = { transferId: task.transferId, shipmentId: task.transferShipmentId };
+      if (task.taskType === 'TransferPick' && profile.permissions.includes(P.TRANSFERS_PICK))
+        router.push({ pathname: '/(account)/transfer-pick/[transferId]/[shipmentId]', params });
+      if (task.taskType === 'TransferReceive' && profile.permissions.includes(P.TRANSFERS_RECEIVE))
+        router.push({ pathname: '/(account)/transfer-receive/[transferId]/[shipmentId]', params });
+    }
   }
+  const openPermissions: readonly string[] = [
+    P.GOODS_RECEIPTS_VIEW, P.CYCLE_COUNTS_VIEW, P.STOCK_ISSUE_REQUESTS_PICK, P.TRANSFERS_PICK, P.TRANSFERS_RECEIVE,
+  ];
+  const canOpenDocuments = !!profile?.permissions.some((code) => openPermissions.includes(code));
   if (!state.canView) {
     const title = !state.access.validated ? 'Đang chờ xác minh kho và quyền truy cập.'
       : !state.access.warehouse ? 'Chọn kho đang hoạt động được giao để xem công việc.'
@@ -39,7 +56,7 @@ export function MyTasksScreen() {
       busy={state.mutation.isPending} canManage={state.canManage} notice={state.notice}
       onFilters={state.changeFilters} onRefresh={() => { void state.list.refetch(); }}
       onWarehouse={() => router.navigate('/')} onAction={state.beginAction}
-      onOpenDocument={state.access.profile.data?.permissions.includes(P.GOODS_RECEIPTS_VIEW) ? openDocument : undefined} />
+      onOpenDocument={canOpenDocuments ? openDocument : undefined} />
     <TaskActionDialog target={state.target} form={state.form} busy={state.mutation.isPending}
       awaitingRefresh={state.list.isFetching || state.list.isError}
       error={state.mutation.error} onConfirm={() => { void state.confirmAction(); }} onCancel={state.closeAction} />

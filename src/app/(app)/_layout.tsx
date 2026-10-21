@@ -8,10 +8,12 @@ import { getRoleLabel } from '@/config/roles';
 import { getAllowedTabs, isMobileSupportedRole } from '@/features/auth/auth.permissions';
 import { useAuth } from '@/features/auth/auth.store';
 import { useMe } from '@/features/auth/hooks/use-me';
+import { useNotificationRealtime } from '@/features/notifications/hooks/use-notification-realtime';
 
 export default function AppLayout() {
   const me = useMe();
   const signOut = useAuth((state) => state.signOut);
+  useNotificationRealtime();
 
   if (me.isPending) return <LoadingState fullScreen message="Đang tải tài khoản…" />;
 

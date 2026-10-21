@@ -1,4 +1,20 @@
-import { ChevronRight, Package, Search, type LucideIcon } from 'lucide-react-native';
+import {
+  ChevronRight,
+  FileBarChart,
+  FolderTree,
+  History,
+  Package,
+  PackageMinus,
+  PackagePlus,
+  Ruler,
+  Search,
+  ShieldAlert,
+  Truck,
+  Undo2,
+  Users,
+  Warehouse,
+  type LucideIcon,
+} from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,7 +30,20 @@ export interface LookupEntry {
 }
 
 // Each lookup screen registers its icon here; unknown keys fall back to the generic search icon.
-const ENTRY_ICONS: Record<string, LucideIcon> = { products: Package };
+const ENTRY_ICONS: Record<string, LucideIcon> = {
+  products: Package,
+  suppliers: Truck,
+  units: Ruler,
+  categories: FolderTree,
+  warehouses: Warehouse,
+  'inbound-requests': PackagePlus,
+  'stock-issue-requests': PackageMinus,
+  'stock-recipients': Users,
+  'goods-returns': Undo2,
+  'damage-cases': ShieldAlert,
+  reports: FileBarChart,
+  'audit-logs': History,
+};
 
 interface LookupViewProps {
   readonly entries: readonly LookupEntry[];
