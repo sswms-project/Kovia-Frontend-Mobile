@@ -1,13 +1,14 @@
 import { onlineManager, QueryClientProvider } from '@tanstack/react-query';
 import * as Network from 'expo-network';
 import type { ReactNode } from 'react';
+import { Platform } from 'react-native';
 
 import { resetWarehouseSelection } from '@/features/warehouse-access/warehouse-access.store';
 import { queryClient } from '@/lib/query-client';
 
 export { queryClient } from '@/lib/query-client';
 
-onlineManager.setEventListener((setOnline) => {
+if (Platform.OS !== 'web' || typeof window !== 'undefined') onlineManager.setEventListener((setOnline) => {
   const subscription = Network.addNetworkStateListener((state) => {
     setOnline(state.isConnected !== false && state.isInternetReachable !== false);
   });

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -25,14 +25,14 @@ interface MyTaskListProps {
   readonly notice: string | null;
   readonly onFilters: (patch: Partial<TaskFilters>) => void;
   readonly onRefresh: () => void;
-  readonly onWarehouse: () => void;
+  readonly warehouseSelector: ReactNode;
   readonly onAction: (task: WarehouseTask, action: TaskActionInput['action']) => void;
   readonly onOpenDocument?: (task: WarehouseTask) => void;
   readonly canOpenDocument?: (task: WarehouseTask) => boolean;
 }
 
 export function MyTaskList({ warehouseName, data, filters, loading, fetching, error, busy, canManage, notice,
-  onFilters, onRefresh, onWarehouse, onAction, onOpenDocument, canOpenDocument }: MyTaskListProps) {
+  onFilters, onRefresh, warehouseSelector, onAction, onOpenDocument, canOpenDocument }: MyTaskListProps) {
   const theme = useTheme();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const renderItem = useCallback(({ item }: { item: WarehouseTask }) => (
@@ -40,6 +40,7 @@ export function MyTaskList({ warehouseName, data, filters, loading, fetching, er
       onOpenDocument={!canOpenDocument || canOpenDocument(item) ? onOpenDocument : undefined} />
   ), [filters.history, canManage, error, busy, fetching, onAction, onOpenDocument, canOpenDocument]);
   const total = data?.totalCount ?? 0;
+  const activeTask = !filters.history ? data?.items.find((task) => task.executionStatus === 'InProgress') : undefined;
   const pageCount = Math.max(1, Math.ceil(total / (data?.pageSize ?? TASK_PAGE_SIZE)));
   return <SafeAreaView edges={['top', 'left', 'right']} style={[styles.root, { backgroundColor: theme.background }]}>
     <FlatList data={error ? [] : data?.items ?? []} keyExtractor={(task) => `${task.taskType}:${task.id}`}
@@ -48,6 +49,7 @@ export function MyTaskList({ warehouseName, data, filters, loading, fetching, er
       ListHeaderComponent={<View style={styles.header}>
         <Text style={[styles.kicker, { color: theme.primary }]}>KOVIA · {warehouseName}</Text>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>Công việc của tôi</Text>
+        {warehouseSelector}
         <View style={styles.row}>
           <Button label="Đang được giao" variant={filters.history ? 'outline' : 'primary'} disabled={busy}
             onPress={() => onFilters({ history: false, executionStatus: undefined, deadlineStatus: undefined })} />
@@ -57,9 +59,12 @@ export function MyTaskList({ warehouseName, data, filters, loading, fetching, er
         {!filters.history && data && !error && <Text style={[styles.summary, { color: theme.textSecondary }]}>
           {data.stats.queuedCount} chờ · {data.stats.inProgressCount} đang làm · {data.stats.pausedCount} tạm dừng · {data.stats.overdueCount} quá hạn
         </Text>}
+        {!!activeTask && !error && <AlertBanner title={`Đang làm: ${activeTask.referenceCode}`}
+          description="Muốn bắt đầu việc khác, mở Chi tiết của việc đang làm và chọn Tạm dừng." />}
         <View style={styles.row}>
           <Button label={filtersOpen ? 'Ẩn bộ lọc' : 'Bộ lọc'} variant="outline" disabled={busy} onPress={() => setFiltersOpen((value) => !value)} />
-          <Button label="Đổi kho" variant="ghost" disabled={busy} onPress={onWarehouse} />
+          {filtersOpen && <Button label="Xóa bộ lọc" variant="ghost" disabled={busy}
+            onPress={() => onFilters({ taskType: undefined, executionStatus: undefined, deadlineStatus: undefined, recentlyAssignedFirst: false })} />}
         </View>
         {filtersOpen && <>
           <TaskFiltersPanel filters={filters} onChange={onFilters} disabled={busy} />

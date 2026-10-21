@@ -15,11 +15,14 @@ import { createScanGate } from '../inventory-lookup';
 import { inventoryLookupApi } from '../inventory-lookup.api';
 import { lookupInputSchema, type BarcodeMatch, type LookupInput } from '../inventory-lookup.schema';
 
-export function useInventoryLookup() {
+export function useInventoryLookup(initialInput?: LookupInput) {
   const access = useWarehouseAccess();
   const canView = access.ready && !!access.profile.data?.permissions.includes(P.INVENTORY_VIEW);
   const warehouseId = access.warehouse?.id ?? '';
-  const [request, setRequest] = useState<{ input: LookupInput; attempt: number } | null>(null);
+  const [request, setRequest] = useState<{ input: LookupInput; attempt: number } | null>(() => {
+    const parsed = lookupInputSchema.safeParse(initialInput);
+    return parsed.success ? { input: parsed.data, attempt: 1 } : null;
+  });
   const [match, setMatch] = useState<BarcodeMatch | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -29,7 +32,7 @@ export function useInventoryLookup() {
   const [permission, requestPermission] = useCameraPermissions();
   const scanGate = useRef(createScanGate());
   const focusGeneration = useRef(0);
-  const form = useForm<LookupInput>({ resolver: zodResolver(lookupInputSchema), defaultValues: { kind: 'Product', code: '' } });
+  const form = useForm<LookupInput>({ resolver: zodResolver(lookupInputSchema), defaultValues: initialInput ?? { kind: 'Product', code: '' } });
   useFocusEffect(useCallback(() => {
     focusGeneration.current += 1;
     setFocused(true);

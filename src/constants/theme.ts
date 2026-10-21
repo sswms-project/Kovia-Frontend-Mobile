@@ -76,6 +76,7 @@ export const Colors = {
 
 // Names registered by useFonts in src/app/_layout.tsx (FE uses Inter + JetBrains Mono).
 export const FontFamily = {
+  logo: 'Baloo2_700Bold',
   regular: 'Inter_400Regular',
   medium: 'Inter_500Medium',
   semibold: 'Inter_600SemiBold',

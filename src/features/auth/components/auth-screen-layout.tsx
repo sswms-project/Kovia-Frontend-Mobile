@@ -1,9 +1,11 @@
-import { ArrowLeft, Warehouse } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { FontFamily, Radius } from '@/constants/theme';
+import { KoviaLogo } from '@/components/kovia-logo';
+
+import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 interface AuthScreenLayoutProps {
@@ -34,12 +36,7 @@ export function AuthScreenLayout({
           showsVerticalScrollIndicator={false}>
           <View style={styles.column}>
             <View style={styles.header}>
-              <View style={styles.brand} accessibilityRole="header">
-                <View style={[styles.brandMark, { backgroundColor: theme.primary }]}>
-                  <Warehouse size={18} color={theme.onPrimary} />
-                </View>
-                <Text style={[styles.brandName, { color: theme.text }]}>KOVIA</Text>
-              </View>
+              <KoviaLogo />
               {headerAction}
             </View>
 
@@ -88,9 +85,6 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: 20, paddingVertical: 12 },
   column: { width: '100%', maxWidth: 440, alignSelf: 'center', gap: 28 },
   header: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  brandMark: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.md },
-  brandName: { fontFamily: FontFamily.bold, fontSize: 18, letterSpacing: 1.2 },
   heading: { gap: 8 },
   kicker: {
     fontFamily: FontFamily.semibold,

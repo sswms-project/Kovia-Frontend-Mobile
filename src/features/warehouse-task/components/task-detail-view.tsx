@@ -21,11 +21,13 @@ interface TaskDetailViewProps {
   readonly availableActions: readonly WarehouseTaskAction[];
   readonly isPending: boolean;
   readonly onAction: (action: WarehouseTaskAction) => void;
+  readonly onOpenDocument?: () => void;
+  readonly openingDocument?: boolean;
 }
 
 const formatTime = (value: string | null) => (value ? formatDisplayDateTime(new Date(value)) : '—');
 
-export function TaskDetailView({ task, availableActions, isPending, onAction }: TaskDetailViewProps) {
+export function TaskDetailView({ task, availableActions, isPending, onAction, onOpenDocument, openingDocument }: TaskDetailViewProps) {
   const theme = useTheme();
   const rows: readonly { label: string; value: string }[] = [
     { label: 'Mã tham chiếu', value: task.referenceCode },
@@ -76,6 +78,8 @@ export function TaskDetailView({ task, availableActions, isPending, onAction }: 
         ) : null}
       </View>
 
+      {onOpenDocument && <Button label="Mở chứng từ và thực hiện" onPress={onOpenDocument}
+        loading={openingDocument} disabled={isPending} />}
       {availableActions.length > 0 ? (
         <View style={styles.actions}>
           {availableActions.includes('Start') ? (

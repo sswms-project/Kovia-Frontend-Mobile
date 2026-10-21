@@ -15,6 +15,7 @@ export default function InventoryLayout() {
         headerShadowVisible: false,
       }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="lookup" options={{ title: 'Tra cứu mã' }} />
       <Stack.Screen name="[stockId]" options={{ title: 'Chi tiết tồn kho' }} />
       <Stack.Screen name="movements" options={{ title: 'Lịch sử biến động' }} />
       <Stack.Screen name="scan" options={{ headerShown: false, presentation: 'modal' }} />

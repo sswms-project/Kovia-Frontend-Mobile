@@ -15,7 +15,7 @@ export default function AppLayout() {
 
   if (me.isPending) return <LoadingState fullScreen message="Đang tải tài khoản…" />;
 
-  if (me.isError) {
+  if (me.isError && !me.data) {
     return (
       <ErrorState
         fullScreen
@@ -26,6 +26,8 @@ export default function AppLayout() {
       />
     );
   }
+
+  if (!me.data) return <LoadingState fullScreen message="Đang tải tài khoản…" />;
 
   if (!isMobileSupportedRole(me.data.role)) {
     const roleLabel = me.data.role ? getRoleLabel(me.data.role) : 'tài khoản này';

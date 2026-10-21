@@ -11,6 +11,8 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { P } from '@/config/permission-codes';
 import { useCan } from '@/features/auth/hooks/use-can';
 import { useMe } from '@/features/auth/hooks/use-me';
+import { getTaskDestination } from '@/features/my-tasks/my-tasks.navigation';
+import { useWarehouseAccess } from '@/features/warehouse-access/hooks/use-warehouse-access';
 import { getApiErrorMessage } from '@/lib/api-error';
 
 import { TaskDetailView } from '../components/task-detail-view';
@@ -61,6 +63,19 @@ export function TaskDetailScreen({ taskType, taskId }: TaskDetailScreenProps) {
   const task = flattenTasks(tasksQuery.data).find(
     (item) => item.id === taskId && item.taskType === taskType,
   );
+  const access = useWarehouseAccess();
+  const [openingDocument, setOpeningDocument] = useState(false);
+  const destination = task ? getTaskDestination(task, me.data, task.warehouseId) : null;
+  async function openDocument() {
+    if (!task || !destination || openingDocument || manageMutation.isPending) return;
+    setOpeningDocument(true);
+    try {
+      if (await access.choose(task.warehouseId)) router.push(destination);
+      else toast.error('Chưa thể xác minh kho của công việc. Vui lòng tải lại quyền truy cập.');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Chưa thể mở chứng từ. Vui lòng thử lại.'));
+    } finally { setOpeningDocument(false); }
+  }
 
   async function runAction(action: WarehouseTaskAction, reason?: string) {
     // A double tap must not send the same action twice.
@@ -109,6 +124,8 @@ export function TaskDetailScreen({ taskType, taskId }: TaskDetailScreenProps) {
         availableActions={getAvailableActions(task, { canManage, currentUserId: me.data?.id })}
         isPending={manageMutation.isPending}
         onAction={handleAction}
+        onOpenDocument={destination && access.validated ? () => { void openDocument(); } : undefined}
+        openingDocument={openingDocument}
       />
       <TaskReasonDialog
         visible={pendingAction !== null}

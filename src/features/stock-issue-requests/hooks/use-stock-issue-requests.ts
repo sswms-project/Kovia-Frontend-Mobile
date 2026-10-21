@@ -26,4 +26,3 @@ export function useStockIssueRequestQuery(id: string) {
     queryFn: () => stockIssueRequestsApi.get(id),
   });
 }
-
