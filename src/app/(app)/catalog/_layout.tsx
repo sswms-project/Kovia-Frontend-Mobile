@@ -2,9 +2,12 @@ import { Stack } from 'expo-router';
 
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useMe } from '@/features/auth/hooks/use-me';
+import { USER_ROLES } from '@/config/roles';
 
 export default function LookupLayout() {
   const theme = useTheme();
+  const staff = useMe().data?.role === USER_ROLES.WarehouseStaff;
 
   return (
     <Stack
@@ -35,7 +38,8 @@ export default function LookupLayout() {
       <Stack.Screen name="damage-cases" options={{ title: 'Hồ sơ hàng hỏng' }} />
       <Stack.Screen name="reports/index" options={{ title: 'Báo cáo' }} />
       <Stack.Screen name="reports/[reportType]" options={{ title: 'Báo cáo chi tiết' }} />
-      <Stack.Screen name="audit-logs" options={{ title: 'Hoạt động của tôi' }} />
+      <Stack.Screen name="audit-logs" options={{ title: staff ? 'Hoạt động của tôi' : 'Nhật ký hoạt động' }} />
+      <Stack.Screen name="warehouse-monitor" options={{ title: 'Giám sát công việc' }} />
     </Stack>
   );
 }

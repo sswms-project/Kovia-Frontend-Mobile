@@ -11,9 +11,10 @@ interface GreetingCardProps {
   readonly subtitle: string;
   readonly onSearch: (query: string) => void;
   readonly onScan: () => void;
+  readonly overview?: boolean;
 }
 
-export function GreetingCard({ name, subtitle, onSearch, onScan }: GreetingCardProps) {
+export function GreetingCard({ name, subtitle, onSearch, onScan, overview = false }: GreetingCardProps) {
   const theme = useTheme();
   const [query, setQuery] = useState('');
 
@@ -27,7 +28,7 @@ export function GreetingCard({ name, subtitle, onSearch, onScan }: GreetingCardP
           {subtitle}
         </Text>
       </View>
-      <View style={styles.searchRow}>
+      {overview ? <Text style={[styles.overviewHint, { color: theme.textSecondary }]}>Theo dõi tồn kho và xử lý các quyết định tại kho đang chọn.</Text> : <View style={styles.searchRow}>
         <View style={[styles.search, { backgroundColor: theme.muted, borderColor: theme.border }]}>
           <Search size={18} color={theme.textSecondary} />
           <TextInput
@@ -53,7 +54,7 @@ export function GreetingCard({ name, subtitle, onSearch, onScan }: GreetingCardP
           style={[styles.scan, { backgroundColor: theme.primary }]}>
           <ScanBarcode size={22} color={theme.onPrimary} />
         </Pressable>
-      </View>
+      </View>}
     </View>
   );
 }
@@ -63,6 +64,7 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 24, lineHeight: 32, fontFamily: FontFamily.bold },
   subtitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   subtitle: { flexShrink: 1, fontSize: 13, fontFamily: FontFamily.medium },
+  overviewHint: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 22 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
   search: {
     flex: 1,

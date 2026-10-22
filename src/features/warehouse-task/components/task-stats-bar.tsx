@@ -21,7 +21,7 @@ export function TaskStatsBar({ stats }: TaskStatsBarProps) {
   ];
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll} contentContainerStyle={styles.row}>
       {metrics.map((metric) => (
         <Metric key={metric.label} {...metric} />
       ))}
@@ -54,7 +54,8 @@ function Metric({ label, value, tone }: { label: string; value: number; tone: Me
 }
 
 const styles = StyleSheet.create({
-  row: { gap: 8, paddingHorizontal: 20 },
+  scroll: { flexGrow: 0, flexShrink: 0 },
+  row: { gap: 8, paddingHorizontal: 20, alignItems: 'flex-start' },
   metric: { minWidth: 92, gap: 2, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderRadius: Radius.lg },
   value: { fontFamily: FontFamily.mono, fontSize: 20, lineHeight: 26 },
   label: { fontFamily: FontFamily.regular, fontSize: 12 },

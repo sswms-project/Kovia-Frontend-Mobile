@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
-import { History, ScanLine } from 'lucide-react-native';
+import { Bell, History } from 'lucide-react-native';
 import { useState } from 'react';
+import { useNotifications } from '@/features/notifications/hooks/use-notifications';
 
 import { TaskListView, type TaskListHeaderAction } from '../components/task-list-view';
 import { TaskWorkspaceControl, TaskWorkspaceGate } from '../components/task-workspace';
@@ -13,6 +14,7 @@ import type { MyWarehouseTask, WarehouseTaskExecutionStatus, WarehouseTaskType }
 
 export function MyTasksScreen() {
   const router = useRouter();
+  const notifications = useNotifications(1);
   const [statusFilter, setStatusFilter] = useState<WarehouseTaskExecutionStatus | null>(null);
   const [typeFilter, setTypeFilter] = useState<WarehouseTaskType | null>(null);
 
@@ -22,8 +24,8 @@ export function MyTasksScreen() {
   });
 
   const actions: readonly TaskListHeaderAction[] = [
-    { label: 'Quét mã', icon: ScanLine, onPress: () => router.push('/scan') },
     { label: 'Lịch sử công việc', icon: History, onPress: () => router.push('/tasks/history') },
+    ...(notifications.allowed ? [{ label: 'Thông báo', icon: Bell, onPress: () => router.push('/notifications') }] : []),
   ];
 
   function openTask(task: MyWarehouseTask) {
@@ -37,7 +39,7 @@ export function MyTasksScreen() {
 
   return (
     <TaskListView
-      title="Công việc của tôi"
+      title="Công việc"
       description="Các nhiệm vụ kho đang chờ bạn thực hiện."
       actions={actions}
       workspaceControl={<TaskWorkspaceControl workspace={query.workspace} />}

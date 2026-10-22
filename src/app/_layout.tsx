@@ -55,6 +55,7 @@ export default function RootLayout() {
                   <Stack.Protected guard={signedIn}>
                     <Stack.Screen name="(app)" />
                     <Stack.Screen name="(account)" />
+                    <Stack.Screen name="notifications" options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }} />
                     <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
                   </Stack.Protected>
                   <Stack.Protected guard={!signedIn}>

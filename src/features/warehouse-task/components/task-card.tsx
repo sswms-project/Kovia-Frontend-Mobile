@@ -41,9 +41,10 @@ interface TaskCardProps {
   readonly task: MyWarehouseTask;
   /** Omit for read-only rows such as history. */
   readonly onPress?: () => void;
+  readonly showAssignee?: boolean;
 }
 
-export function TaskCard({ task, onPress }: TaskCardProps) {
+export function TaskCard({ task, onPress, showAssignee = false }: TaskCardProps) {
   const theme = useTheme();
   const Icon = TASK_TYPE_ICON[task.taskType] ?? ClipboardList;
   const typeLabel = TASK_TYPE_LABEL[task.taskType] ?? task.taskType;
@@ -81,6 +82,7 @@ export function TaskCard({ task, onPress }: TaskCardProps) {
       </View>
 
       <View style={styles.pills}>
+        {showAssignee && <Text style={[styles.meta, { color: theme.textSecondary }]}>Nhân viên: {task.assignedToName ?? 'Chưa phân công'}</Text>}
         <StatusPill label={executionLabel} tone={EXECUTION_STATUS_TONE[task.executionStatus]} />
         {task.priority === 'Urgent' ? <StatusPill label="Khẩn" tone="danger" /> : null}
         <StatusPill

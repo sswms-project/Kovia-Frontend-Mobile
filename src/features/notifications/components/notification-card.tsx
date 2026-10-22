@@ -15,10 +15,11 @@ export const NotificationCard = memo(function NotificationCard({ item, busy, can
     <Text style={[styles.status, { color: theme.primary }]}>{item.isRead ? 'Đã đọc' : 'Chưa đọc'} · {new Date(item.createdAt).toLocaleString('vi-VN')}</Text>
     <Text style={[styles.title, { color: theme.text }]}>{item.title}</Text>
     <Text style={[styles.text, { color: theme.textSecondary }]}>{item.message}</Text>
-    {!item.isRead && <Button label="Đánh dấu đã đọc" variant="outline" disabled={busy} onPress={() => onRead(item.id)} />}
-    {canOpen && <Button label="Mở công việc liên quan" variant="outline" disabled={busy} onPress={() => onOpen(item)} />}
+    <View style={styles.actions}>{!item.isRead && <Button label="Đánh dấu đã đọc" variant="ghost" disabled={busy} onPress={() => onRead(item.id)} />}
+    {canOpen && <Button label="Xem nội dung" variant="ghost" disabled={busy} onPress={() => onOpen(item)} />}
+    </View>
   </View>;
 });
-const styles = StyleSheet.create({ card: { padding: 16, gap: 12, borderWidth: 1, borderRadius: Radius.lg },
+const styles = StyleSheet.create({ actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, card: { padding: 14, gap: 6, borderWidth: 1, borderRadius: Radius.lg },
   status: { fontFamily: FontFamily.medium, fontSize: 12, lineHeight: 20 },
   title: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 24 }, text: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 22 } });

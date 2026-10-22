@@ -64,6 +64,13 @@ export type MobileTab = (typeof MOBILE_TABS)[number];
 // Each lookup feature adds one entry here; the Lookup tab shows those the user has permission for.
 export const LOOKUP_ENTRIES = [
   {
+    key: 'warehouse-monitor',
+    href: '/catalog/warehouse-monitor',
+    title: 'Giám sát công việc',
+    description: 'Tiến độ và lịch sử công việc của nhân viên trong kho',
+    permission: P.WAREHOUSE_TASKS_VIEW_ALL,
+  },
+  {
     key: 'products',
     href: '/catalog/products',
     title: 'Sản phẩm',
@@ -143,8 +150,8 @@ export const LOOKUP_ENTRIES = [
   {
     key: 'audit-logs',
     href: '/catalog/audit-logs',
-    title: 'Hoạt động của tôi',
-    description: 'Nhật ký thao tác bạn đã thực hiện',
+    title: 'Nhật ký hoạt động',
+    description: 'Người thực hiện, thời điểm và thay đổi trong phạm vi được phép',
     permission: P.AUDIT_LOGS_VIEW,
   },
 ] as const;

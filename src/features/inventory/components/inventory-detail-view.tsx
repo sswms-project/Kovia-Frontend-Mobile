@@ -2,6 +2,8 @@ import { FlashList } from '@shopify/flash-list';
 import type { ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
+import { AlertBanner } from '@/components/ui/alert-banner';
+import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
 import { StatusPill } from '@/components/ui/status-pill';
 import { FontFamily, Radius } from '@/constants/theme';
@@ -121,9 +123,12 @@ export function InventoryDetailView({
       </View>
 
       {headerExtra}
+      {!!movementsError && movements.length > 0 && <AlertBanner title="Lịch sử đang hiển thị dữ liệu cũ.">
+        <Button label="Tải lại lịch sử" variant="outline" onPress={onRetryMovements} />
+      </AlertBanner>}
 
       <Text accessibilityRole="header" style={[styles.section, { color: theme.text }]}>
-        Lịch sử biến động
+        Lịch sử sản phẩm tại vị trí
       </Text>
     </View>
   );

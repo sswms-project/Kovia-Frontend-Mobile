@@ -4,6 +4,8 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MOBILE_TABS } from '@/config/mobile-navigation';
+import { USER_ROLES } from '@/config/roles';
+import { useMe } from '@/features/auth/hooks/use-me';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -12,6 +14,11 @@ const TAB_ICONS = { index: House, tasks: ClipboardList, scanner: ScanLine, inven
 export function KoviaTabs({ allowedTabNames }: { readonly allowedTabNames: readonly string[] }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const owner = useMe().data?.role === USER_ROLES.TenantOwner;
+  const tabs = owner
+    ? ['index', 'catalog', 'scanner', 'inventory', 'profile'].map((name) => MOBILE_TABS.find((tab) => tab.name === name)!)
+      .concat(MOBILE_TABS.filter((tab) => tab.name === 'tasks'))
+    : MOBILE_TABS;
   const bottom = Math.max(insets.bottom, 8);
   return <Tabs backBehavior="history" screenOptions={{
     headerShown: false,
@@ -23,12 +30,12 @@ export function KoviaTabs({ allowedTabNames }: { readonly allowedTabNames: reado
     tabBarItemStyle: { minHeight: 56 },
   }}>
     <Tabs.Screen name="lookup" options={{ href: null }} />
-    {MOBILE_TABS.map((tab) => {
+    {tabs.map((tab) => {
       const Icon = TAB_ICONS[tab.name];
       const scanner = tab.name === 'scanner';
       return <Tabs.Screen key={tab.name} name={tab.name} options={{
-        title: tab.title,
-        href: tab.inNavbar && allowedTabNames.includes(tab.name) ? undefined : null,
+        title: owner && tab.name === 'catalog' ? 'Quản lý' : owner && tab.name === 'index' ? 'Tổng quan' : tab.title,
+        href: (owner ? tab.name !== 'tasks' : tab.inNavbar) && allowedTabNames.includes(tab.name) ? undefined : null,
         tabBarAccessibilityLabel: scanner ? 'Quét mã, mở tra cứu bằng camera hoặc nhập mã' : tab.title,
         tabBarIcon: ({ color, focused }) => scanner
           ? <View style={[styles.scan, { backgroundColor: theme.primary, borderColor: theme.card, shadowColor: theme.primary }, focused && { borderColor: theme.secondaryContainer }]}>

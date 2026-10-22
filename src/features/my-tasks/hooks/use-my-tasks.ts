@@ -16,14 +16,14 @@ import { ACTION_LABELS, assertTaskActionScope, taskScopeMatches, type TaskScope 
 import { taskActionSchema, type TaskActionInput, type TaskFilters, type WarehouseTask,
   type WarehouseTaskList } from '../my-tasks.schema';
 
-export function useMyTasks() {
+export function useMyTasks(enabled = true) {
   const access = useWarehouseAccess();
   const client = useQueryClient();
   const [filters, setFilters] = useState<TaskFilters>({ history: false, recentlyAssignedFirst: false, pageNumber: 1 });
   const [target, setTarget] = useState<{ task: WarehouseTask; action: TaskActionInput['action'] } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const submitLock = useRef(false);
-  const canView = access.ready && !!access.profile.data?.permissions.includes(P.WAREHOUSE_TASKS_VIEW_OWN);
+  const canView = enabled && access.ready && !!access.profile.data?.permissions.includes(P.WAREHOUSE_TASKS_VIEW_OWN);
   const canManage = canView && !!access.profile.data?.permissions.includes(P.WAREHOUSE_TASKS_MANAGE_OWN);
   const scope = useMemo<TaskScope | null>(() => {
     const { identity, warehouseId, revision, signature } = access.selection;

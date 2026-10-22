@@ -4,6 +4,10 @@ import { memo, useState } from 'react';
 import type { FilterOption } from '@/components/ui/filter-chips';
 import { ListCard } from '@/components/ui/list-card';
 import { PagedList } from '@/components/ui/paged-list';
+import { AlertBanner } from '@/components/ui/alert-banner';
+import { useMe } from '@/features/auth/hooks/use-me';
+import { USER_ROLES } from '@/config/roles';
+import { WarehouseWorkspaceGate } from '@/components/warehouse-workspace';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { formatDisplayDateTime } from '@/lib/date-format';
 
@@ -32,20 +36,25 @@ const AuditLogRow = memo(function AuditLogRow({ log }: { readonly log: AuditLogI
     <ListCard
       title={`${log.actionLabel} · ${log.entityTypeLabel}`}
       subtitle={log.referenceDisplay}
-      lines={[log.summary, formatDisplayDateTime(new Date(log.createdAt)), log.warehouseName, ...detailLines]}
+      lines={[`Người thực hiện: ${log.actorName}`, log.summary, formatDisplayDateTime(new Date(log.createdAt)), log.warehouseName, ...detailLines]}
       onPress={() => setExpanded((value) => !value)}
     />
   );
 });
 
 export function AuditLogsScreen() {
+  const staff = useMe().data?.role === USER_ROLES.WarehouseStaff;
   const [range, setRange] = useState<AuditRange>('week');
   const [searchText, setSearchText] = useState('');
   const debouncedSearch = useDebouncedValue(searchText.trim(), SEARCH_DEBOUNCE_MS);
-  const query = useAuditLogsQuery(range, debouncedSearch || undefined);
+  const state = useAuditLogsQuery(range, debouncedSearch || undefined);
+  const { query } = state;
+  if (!state.allowed) return <WarehouseWorkspaceGate access={state.access} message="Bạn chưa được cấp quyền xem nhật ký hoạt động." />;
 
   return (
     <PagedList
+      header={<AlertBanner title={staff ? 'Nhật ký thao tác của bạn' : 'Nhật ký hoạt động trong doanh nghiệp'}
+        description={staff ? 'Chỉ hiển thị các thao tác của tài khoản này.' : 'Bao gồm các nhân viên trong phạm vi bạn được phép xem. Đây không phải log quản trị nền tảng.'} />}
       query={query}
       keyExtractor={(log) => log.id}
       renderItem={(log) => <AuditLogRow log={log} />}

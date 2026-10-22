@@ -5,7 +5,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { FilterChips, type FilterOption } from '@/components/ui/filter-chips';
+import type { ReactNode } from 'react';
+
+import { AlertBanner } from '@/components/ui/alert-banner';
+import { Button } from '@/components/ui/button';
+import { isApiErrorResponse } from '@/lib/api-error';
 import { IconButton } from '@/components/ui/icon-button';
 import { LoadingState } from '@/components/ui/loading-state';
 import { SearchField } from '@/components/ui/search-field';
@@ -25,9 +29,7 @@ interface InventoryListViewProps {
   readonly searchText: string;
   readonly onSearchChange: (value: string) => void;
   readonly actions: readonly InventoryHeaderAction[];
-  readonly warehouseOptions: readonly FilterOption<string>[];
-  readonly warehouseId: string | null;
-  readonly onWarehouseChange: (value: string | null) => void;
+  readonly workspaceControl: ReactNode;
   readonly items: readonly InventoryStock[];
   readonly totalCount: number | undefined;
   readonly isLoading: boolean;
@@ -45,9 +47,7 @@ export function InventoryListView({
   searchText,
   onSearchChange,
   actions,
-  warehouseOptions,
-  warehouseId,
-  onWarehouseChange,
+  workspaceControl,
   items,
   totalCount,
   isLoading,
@@ -64,7 +64,7 @@ export function InventoryListView({
 
   function renderBody() {
     if (isLoading) return <LoadingState message="Đang tải tồn kho…" />;
-    if (error && items.length === 0) return <ErrorState error={error} onRetry={onRetry} />;
+    if (error && (items.length === 0 || (isApiErrorResponse(error) && [401, 403, 404].includes(error.statusCode)))) return <ErrorState error={error} onRetry={onRetry} />;
     if (items.length === 0) {
       return (
         <EmptyState
@@ -81,7 +81,7 @@ export function InventoryListView({
       <FlashList
         data={items}
         keyExtractor={(stock) => stock.id}
-        renderItem={({ item }) => <InventoryCard stock={item} onPress={() => onOpenStock(item)} />}
+        renderItem={({ item }) => <InventoryCard stock={item} onPress={!error && !isRefreshing ? () => onOpenStock(item) : undefined} />}
         ItemSeparatorComponent={Separator}
         contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="handled"
@@ -121,15 +121,11 @@ export function InventoryListView({
         ))}
       </View>
 
-      {warehouseOptions.length > 1 ? (
-        <FilterChips
-          accessibilityLabel="Lọc theo kho"
-          options={warehouseOptions}
-          value={warehouseId}
-          onChange={onWarehouseChange}
-          allLabel="Mọi kho"
-        />
-      ) : null}
+      <View style={styles.control}>{workspaceControl}</View>
+      {!!error && items.length > 0 && !(isApiErrorResponse(error) && [401, 403, 404].includes(error.statusCode)) &&
+        <AlertBanner title="Đang hiển thị dữ liệu cũ. Tải lại trước khi mở dòng tồn.">
+          <Button label="Tải lại tồn kho" variant="outline" onPress={onRetry} loading={isRefreshing} />
+        </AlertBanner>}
 
       <View style={styles.body}>{renderBody()}</View>
     </SafeAreaView>
@@ -141,6 +137,7 @@ function Separator() {
 }
 
 const styles = StyleSheet.create({
+  control: { paddingHorizontal: 20 },
   root: { flex: 1, gap: 12, paddingTop: 12 },
   titleBlock: { gap: 2, paddingHorizontal: 20 },
   title: { fontFamily: FontFamily.semibold, fontSize: 26, lineHeight: 32 },
