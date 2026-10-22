@@ -12,6 +12,7 @@ import { getApiErrorMessage } from '@/lib/api-error';
 
 import { CountEditor } from '../components/count-editor';
 import { CountItemCard } from '../components/count-item-card';
+import { CountLineLocator } from '../components/count-line-locator';
 import { canRecordCountItem } from '../cycle-count';
 import { useCycleCount } from '../hooks/use-cycle-count';
 
@@ -45,6 +46,8 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
             {state.actions.data?.denialReasonCode === 'TASK_PAUSED_OR_CANCELLED' && <AlertBanner title="Công việc đang tạm dừng hoặc đã hủy. Mở Công việc để tiếp tục khi đủ điều kiện." />}
             {state.allowed('Start') && <Button label="Bắt đầu kiểm kê" disabled={busy} onPress={() => state.begin('Start')} />}
             {state.allowed('Submit') && <Button label="Gửi kết quả kiểm kê" disabled={busy} onPress={() => state.begin('Submit')} />}
+            {canRecord && state.allowed('Scan') && !busy && <CountLineLocator key={`${state.contextKey}:${document.version}`}
+              document={document} onRecord={state.beginRecord} />}
             {!document.items.length && <AlertBanner title="Phiếu không có dòng kiểm kê." />}
           </>}
         </>}
@@ -53,7 +56,7 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
     <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : state.closeEditor}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>{state.editor && <CountEditor key={`${state.contextKey}:${state.editor.item.id}:${state.editor.version}`}
         item={state.editor.item} form={state.form} busy={busy} canScan={state.allowed('Scan')} notice={state.notice} files={state.files}
-        onPhoto={() => { void state.addPhoto(); }} onReview={() => { void state.reviewRecord(); }} onClose={state.closeEditor} />}
+        onPhoto={(source) => { void state.addPhoto(source); }} onReview={() => { void state.reviewRecord(); }} onClose={state.closeEditor} />}
         <ConfirmationModal visible={state.target?.action === 'Record'} title="Lưu số đếm thực tế?"
           description={`Tổng số đếm ${state.target?.values?.countedQuantity ?? ''}, trong đó hỏng ${state.target?.values?.countedDamagedQuantity ?? ''}. Số lượng tồn chưa thay đổi. Kết quả được giữ để quản lý rà soát.`}
           busy={busy} error={state.mutation.error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />

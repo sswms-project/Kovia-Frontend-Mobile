@@ -8,6 +8,7 @@ import { SelectionField } from '@/components/ui/selection-field';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { ScanCodeButton } from '@/features/scanner/components/scan-code-button';
 import type { useDiscrepancyComposer } from '../hooks/use-discrepancy-composer';
 import { DISCREPANCY_TYPE, discrepancyTypeSchema } from '../discrepancies.schema';
 
@@ -36,6 +37,11 @@ export function DiscrepancyComposer({ state, title, summary, evidenceOnly = fals
             {type === 'WrongLocation' && <Controller control={state.form.control} name="correctSlotCode" render={({ field, fieldState }) => <TextField
               label="Mã vị trí đúng" value={field.value} onChangeText={field.onChange} error={fieldState.error?.message}
               maxLength={512} autoCapitalize="none" editable={!disabled} />} />}
+            {type === 'WrongLocation' && !disabled && <ScanCodeButton label="Quét mã vị trí đúng" title="Quét vị trí lưu hàng đúng trong kho"
+              onScan={(code) => {
+                if (!code.trim() || code.trim().length > 512 || /\p{Cc}/u.test(code)) return false;
+                state.form.setValue('correctSlotCode', code.trim(), { shouldDirty: true, shouldValidate: true }); return true;
+              }} />}
             <Controller control={state.form.control} name="description" render={({ field, fieldState }) => <TextField
               label="Mô tả hiện trường" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur}
               error={fieldState.error?.message} maxLength={1000} multiline editable={!disabled} />} />
