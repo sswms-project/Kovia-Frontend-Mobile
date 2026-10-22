@@ -1,5 +1,14 @@
 import type { CountForm, CountItem, CycleCount } from './cycle-count.schema';
 
+export type CountScanKind = 'Product' | 'Location';
+export function findCountLines(document: CycleCount, kind: CountScanKind, rawCode: string): readonly CountItem[] {
+  const code = rawCode.trim().toLowerCase();
+  if (!code || rawCode.trim().length > (kind === 'Product' ? 100 : 512) || /\p{Cc}/u.test(rawCode)) return [];
+  return document.items.filter((item) => canRecordCountItem(document, item) && (kind === 'Product'
+    ? code === item.productSku.trim().toLowerCase() || code === item.productBarcode?.trim().toLowerCase()
+    : code === item.slotCode.trim().toLowerCase() || code === item.slotBarcode?.trim().toLowerCase()));
+}
+
 export function assertCountScope(document: CycleCount, warehouseId: string, userId: string) {
   if (document.warehouseId !== warehouseId || document.assignedTo !== userId)
     throw new Error('Phiếu kiểm kê không thuộc kho hoặc nhân viên đang được giao.');

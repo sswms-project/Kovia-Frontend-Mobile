@@ -74,11 +74,16 @@ export function useCycleCount(documentId: string) {
     if (!detail.data?.version || !allowed(action) || lock.current) return;
     mutation.reset(); setNotice(null); setTarget({ key: contextKey, version: detail.data.version, action });
   }
-  function beginRecord(item: CountItem) {
-    if (!detail.data?.version || !allowed('Record') || !canRecordCountItem(detail.data, item) || lock.current) return;
+  function beginRecord(item: CountItem, scannedBarcode?: string) {
+    const currentItem = detail.data?.items.find((candidate) => candidate.id === item.id);
+    if (!detail.data?.version || !currentItem || !allowed('Record') || !access.profile.data?.permissions.includes(P.CYCLE_COUNTS_RECORD) || !canRecordCountItem(detail.data, currentItem) || lock.current) return;
+    if (scannedBarcode && (!allowed('Scan') || scannedBarcode.trim().length > 100 ||
+      (scannedBarcode.trim().toLowerCase() !== currentItem.productSku.trim().toLowerCase() &&
+      scannedBarcode.trim().toLowerCase() !== currentItem.productBarcode?.trim().toLowerCase()))) return;
     mutation.reset(); setNotice(null); setDiscard(false); setPhotos(null);
-    form.reset({ countedQuantity: Number.NaN, countedDamagedQuantity: 0, note: '', countMethod: 'Manual', scannedBarcode: '', damageReason: '', damageEvidenceIds: [] });
-    setEditor({ key: contextKey, version: detail.data.version, item });
+    form.reset({ countedQuantity: Number.NaN, countedDamagedQuantity: 0, note: '', countMethod: scannedBarcode ? 'Scanned' : 'Manual',
+      scannedBarcode: scannedBarcode?.trim() ?? '', damageReason: '', damageEvidenceIds: [] });
+    setEditor({ key: contextKey, version: detail.data.version, item: currentItem });
   }
   async function reviewRecord() {
     await form.handleSubmit(values => {
@@ -87,7 +92,7 @@ export function useCycleCount(documentId: string) {
       catch (error) { setNotice({ key: contextKey, message: getApiErrorMessage(error) }); }
     })();
   }
-  async function addPhoto() {
+  async function addPhoto(source: 'camera' | 'library' = 'camera') {
     if (!editor || editor.key !== contextKey || lock.current || !scope) return;
     const currentFiles = photos?.key === contextKey && photos.itemId === editor.item.id && photos.version === editor.version ? photos.files : [];
     if (currentFiles.length + (editor.item.damageEvidence?.length ?? 0) >= 3) return;
@@ -95,7 +100,13 @@ export function useCycleCount(documentId: string) {
     lock.current = true; setPhotoBusy(true); setNotice(null);
     try {
       assertCurrent();
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8, allowsEditing: false, exif: false, base64: false });
+      if (source === 'camera') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        assertCurrent();
+        if (!permission.granted) throw new Error('Cần quyền camera để chụp ảnh. Bạn có thể chọn ảnh có sẵn thay thế.');
+      }
+      const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.8, allowsEditing: false, exif: false, base64: false };
+      const result = source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
       assertCurrent(); if (result.canceled) return;
       const asset = result.assets[0];
       if (!asset?.mimeType || !['image/jpeg', 'image/png'].includes(asset.mimeType)) throw new Error('Vui lòng chọn ảnh JPG hoặc PNG.');

@@ -14,9 +14,10 @@ import type { CountForm, CountItem } from '../cycle-count.schema';
 
 interface Props { readonly item: CountItem; readonly form: UseFormReturn<CountForm>; readonly busy: boolean; readonly canScan: boolean;
   readonly notice: string | null; readonly files: readonly { id: string; fileName: string }[];
-  readonly onPhoto: () => void; readonly onReview: () => void; readonly onClose: () => void }
+  readonly onPhoto: (source: 'camera' | 'library') => void; readonly onReview: () => void; readonly onClose: () => void }
 export function CountEditor({ item, form, busy, canScan, notice, files, onPhoto, onReview, onClose }: Props) {
   const theme = useTheme(); const [scanner, setScanner] = useState(false);
+  const photoCount = files.length + (item.damageEvidence?.length ?? 0);
   return <>
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
@@ -32,8 +33,10 @@ export function CountEditor({ item, form, busy, canScan, notice, files, onPhoto,
           label="Lý do/biểu hiện hỏng" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message}
           editable={!busy} multiline maxLength={501} />} />
         <View style={styles.files}>
+          {item.damageEvidence?.map(file => <Text key={file.id} style={[styles.text, { color: theme.textSecondary }]}>Ảnh đã lưu: {file.fileName}</Text>)}
           {files.map(file => <Text key={file.id} style={[styles.text, { color: theme.textSecondary }]}>Ảnh đã chọn: {file.fileName}</Text>)}
-          <Button label={`Thêm ảnh hàng hỏng (${files.length}/3)`} variant="outline" disabled={busy || files.length >= 3} onPress={onPhoto} />
+          <Button label={`Chụp ảnh hàng hỏng (${photoCount}/3)`} variant="outline" disabled={busy || photoCount >= 3} onPress={() => onPhoto('camera')} />
+          <Button label="Chọn ảnh có sẵn" variant="ghost" disabled={busy || photoCount >= 3} onPress={() => onPhoto('library')} />
         </View>
         {canScan && <Button label="Quét xác nhận sản phẩm kiểm kê" variant="outline" disabled={busy} onPress={() => setScanner(true)} />}
         <Controller control={form.control} name="countMethod" render={({ field }) => <Text style={[styles.text, { color: theme.textSecondary }]}>
