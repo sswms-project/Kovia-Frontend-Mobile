@@ -55,6 +55,7 @@ interface TaskListViewProps {
   readonly onRetry: () => void;
   /** Opens current work or a read-only history detail. */
   readonly onOpenTask?: (task: MyWarehouseTask) => void;
+  readonly showAssignee?: boolean;
 }
 
 export function TaskListView({
@@ -78,46 +79,15 @@ export function TaskListView({
   onEndReached,
   onRetry,
   onOpenTask,
+  showAssignee = false,
 }: TaskListViewProps) {
   const theme = useTheme();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const activeFilters = Number(statusFilter !== null) + Number(typeFilter !== null);
   const hasNativeHeader = title === undefined;
 
-  function renderBody() {
-    if (isLoading) return <LoadingState message="Đang tải công việc…" />;
-    if (error && (tasks.length === 0 || (isApiErrorResponse(error) && [401, 403, 404].includes(error.statusCode))))
-      return <ErrorState error={error} onRetry={onRetry} />;
-    if (tasks.length === 0) {
-      return (
-        <EmptyState icon={ClipboardList} title="Chưa có công việc" description={emptyDescription} />
-      );
-    }
-
-    return (
-      <FlashList
-        data={tasks}
-        keyExtractor={(task) => `${task.taskType}-${task.id}`}
-        renderItem={({ item }) => (
-          <TaskCard task={item} onPress={onOpenTask && !error ? () => onOpenTask(item) : undefined} />
-        )}
-        ItemSeparatorComponent={Separator}
-        contentContainerStyle={styles.listContent}
-        refreshing={isRefreshing}
-        onRefresh={onRefresh}
-        onEndReached={onEndReached}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          isFetchingNextPage ? <ActivityIndicator style={styles.footer} color={theme.primary} /> : null
-        }
-      />
-    );
-  }
-
-  return (
-    <SafeAreaView
-      edges={hasNativeHeader ? [] : ['top']}
-      style={[styles.root, { backgroundColor: theme.background }]}>
+  const blocked = !!error && (tasks.length === 0 || (isApiErrorResponse(error) && [401, 403, 404].includes(error.statusCode)));
+  const header = <View style={styles.header}>
       {title !== undefined ? (
         <View style={styles.titleRow}>
           <View style={styles.titleText}>
@@ -171,7 +141,26 @@ export function TaskListView({
           onChange={(value) => onTypeChange(value ? taskTypeSchema.parse(value) : null)} />
       </View>}
 
-      <View style={styles.body}>{renderBody()}</View>
+    </View>;
+
+  return (
+    <SafeAreaView edges={hasNativeHeader ? [] : ['top']} style={[styles.root, { backgroundColor: theme.background }]}>
+      <FlashList
+        data={blocked || isLoading ? [] : tasks}
+        keyExtractor={(task) => `${task.taskType}-${task.id}`}
+        renderItem={({ item }) => <View style={styles.cardInset}><TaskCard task={item} showAssignee={showAssignee} onPress={onOpenTask && !error ? () => onOpenTask(item) : undefined} /></View>}
+        ListHeaderComponent={header}
+        ItemSeparatorComponent={Separator}
+        contentContainerStyle={styles.listContent}
+        refreshing={isRefreshing}
+        onRefresh={onRefresh}
+        onEndReached={() => { if (!blocked && !isLoading) onEndReached(); }}
+        onEndReachedThreshold={0.5}
+        ListEmptyComponent={isLoading ? <LoadingState message="Đang tải công việc…" /> : blocked
+          ? <ErrorState error={error} onRetry={onRetry} />
+          : <EmptyState icon={ClipboardList} title="Chưa có công việc" description={emptyDescription} />}
+        ListFooterComponent={isFetchingNextPage ? <ActivityIndicator style={styles.footer} color={theme.primary} /> : null}
+      />
     </SafeAreaView>
   );
 }
@@ -181,7 +170,9 @@ function Separator() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, gap: 12, paddingTop: 12 },
+  root: { flex: 1 },
+  header: { gap: 16, paddingTop: 16, paddingBottom: 20 },
+  cardInset: { paddingHorizontal: 20 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20 },
   titleText: { flex: 1, gap: 2 },
   title: { fontFamily: FontFamily.semibold, fontSize: 26, lineHeight: 32 },
@@ -196,9 +187,8 @@ const styles = StyleSheet.create({
     borderRadius: 22,
   },
   pressed: { opacity: 0.7 },
-  chips: { gap: 8 },
-  body: { flex: 1 },
-  listContent: { paddingHorizontal: 20, paddingBottom: 24 },
+  chips: { gap: 8, paddingHorizontal: 20 },
+  listContent: { paddingBottom: 24 },
   separator: { height: 12 },
   footer: { paddingVertical: 16 },
 });

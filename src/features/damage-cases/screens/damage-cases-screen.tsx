@@ -1,3 +1,5 @@
+import { StyleSheet, View } from 'react-native';
+import { WarehouseWorkspaceControl, WarehouseWorkspaceGate } from '@/components/warehouse-workspace';
 import { ShieldAlert } from 'lucide-react-native';
 import { useState } from 'react';
 
@@ -17,9 +19,11 @@ export function DamageCasesScreen() {
   const [status, setStatus] = useState<DamageCaseStatus | null>(null);
   const query = useDamageCasesQuery(status ?? undefined);
 
+  if (!query.workspace.canView) return <WarehouseWorkspaceGate access={query.workspace.access} message="Bạn chưa có quyền xem hàng hỏng tại kho này." />;
   return (
     <PagedList
       query={query}
+      header={<View style={styles.control}><WarehouseWorkspaceControl access={query.workspace.access} /></View>}
       keyExtractor={(damageCase) => damageCase.id}
       renderItem={(damageCase) => <DamageCaseCard damageCase={damageCase} />}
       loadingMessage="Đang tải hồ sơ hàng hỏng…"
@@ -33,3 +37,5 @@ export function DamageCasesScreen() {
     />
   );
 }
+
+const styles = StyleSheet.create({ control: { paddingHorizontal: 20 } });

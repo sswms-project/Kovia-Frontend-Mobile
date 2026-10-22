@@ -62,9 +62,9 @@ export function MetricGrid({ kpis }: { readonly kpis: readonly HomeKpi[] }) {
 
 const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  card: { width: '47.8%', flexGrow: 1, borderWidth: 1, borderRadius: Radius.xl, padding: 14, gap: 8 },
+  card: { flexBasis: '46%', minWidth: 140, flexGrow: 1, borderWidth: 1, borderRadius: Radius.xl, padding: 16, gap: 10 },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  label: { fontSize: 12, fontFamily: FontFamily.semibold },
+  label: { flex: 1, fontSize: 13, lineHeight: 19, fontFamily: FontFamily.medium },
   value: { fontSize: 28, fontFamily: FontFamily.bold, letterSpacing: -0.5 },
   unit: { fontSize: 12, fontFamily: FontFamily.medium },
   chip: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },

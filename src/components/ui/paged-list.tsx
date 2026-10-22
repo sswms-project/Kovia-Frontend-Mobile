@@ -6,7 +6,9 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { FilterChips, type FilterOption } from '@/components/ui/filter-chips';
+import type { FilterOption } from '@/components/ui/filter-chips';
+import { SelectionField } from '@/components/ui/selection-field';
+import { AlertBanner } from '@/components/ui/alert-banner';
 import { LoadingState } from '@/components/ui/loading-state';
 import { SearchField } from '@/components/ui/search-field';
 import { flattenPages, type PageResult } from '@/hooks/use-paged-query';
@@ -30,7 +32,7 @@ interface PagedListProps<TItem, TFilter extends string> {
   readonly header?: ReactElement;
 }
 
-/** Search + chip filter + infinite list shared by the read-only catalog screens. */
+/** Search, accessible dropdown and infinite list for read-only catalogs. */
 export function PagedList<TItem, TFilter extends string = string>({
   query,
   keyExtractor,
@@ -53,8 +55,11 @@ export function PagedList<TItem, TFilter extends string = string>({
 
   function renderBody() {
     if (query.isPending) return <LoadingState message={loadingMessage} />;
-    if (query.isError && items.length === 0) {
-      return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
+    if (query.isError) {
+      return <View style={styles.padded}>
+        {items.length > 0 && <AlertBanner title="Chưa thể tải dữ liệu mới. Tải lại trước khi mở nội dung." />}
+        <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+      </View>;
     }
     if (items.length === 0) {
       return <EmptyState icon={emptyIcon} title={emptyTitle} description={emptyDescription} />;
@@ -94,12 +99,9 @@ export function PagedList<TItem, TFilter extends string = string>({
         </View>
       ) : null}
       {filterOptions && onFilterChange ? (
-        <FilterChips
-          accessibilityLabel={filterLabel ?? 'Bộ lọc'}
-          options={filterOptions}
-          value={filterValue ?? null}
-          onChange={onFilterChange}
-        />
+        <View style={styles.padded}><SelectionField label={filterLabel ?? 'Bộ lọc'} value={filterValue ?? ''}
+          options={[{ value: '', label: 'Tất cả' }, ...filterOptions]}
+          onChange={(value) => onFilterChange(filterOptions.find((option) => option.value === value)?.value ?? null)} /></View>
       ) : null}
       <View style={styles.body}>{renderBody()}</View>
     </View>

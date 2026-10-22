@@ -41,7 +41,7 @@ export function SelectionField({ label, value, options, placeholder = 'Chọn m�
       </View>
       <ChevronDown size={20} color={theme.textSecondary} />
     </Pressable>
-    <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
+    <Modal visible={open && !disabled} transparent animationType="slide" onRequestClose={close}>
       <View style={[styles.overlay, { backgroundColor: theme.scrim }]}>
         <Pressable accessibilityRole="button" accessibilityLabel="Đóng bảng chọn" onPress={close} style={StyleSheet.absoluteFill} />
         <View accessibilityViewIsModal style={[styles.sheet, { backgroundColor: theme.card, paddingBottom: Math.max(insets.bottom, 16) }]}>
@@ -57,7 +57,7 @@ export function SelectionField({ label, value, options, placeholder = 'Chọn m�
           </View>}
           <FlatList style={styles.list} data={filtered} keyExtractor={(option) => option.value} keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => <Pressable accessibilityRole="radio" accessibilityState={{ checked: item.value === value }}
-              onPress={() => { onChange(item.value); close(); }}
+              onPress={() => { if (!disabled) onChange(item.value); close(); }}
               style={({ pressed }) => [styles.option, { backgroundColor: item.value === value ? theme.muted : theme.card }, pressed && styles.dim]}>
               <View style={styles.copy}>
                 <Text style={[styles.value, { color: theme.text }]}>{item.label}</Text>

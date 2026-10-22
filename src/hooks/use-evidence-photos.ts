@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getApiErrorMessage } from '@/lib/api-error';
 
@@ -40,8 +40,11 @@ export function useEvidencePhotos({
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lockRef = useRef(false);
+  const generation = useRef(0);
+  useEffect(() => () => { generation.current += 1; }, []);
 
   const reset = useCallback(() => {
+    generation.current += 1;
     setPhotos([]);
     setError(null);
   }, []);
@@ -58,15 +61,18 @@ export function useEvidencePhotos({
     }
 
     lockRef.current = true;
+    const attempt = generation.current;
+    setIsUploading(true);
     setError(null);
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (attempt !== generation.current) return;
       if (!permission.granted) {
         setError('Cần quyền camera để chụp ảnh bằng chứng.');
         return;
       }
       const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7, exif: false });
-      if (result.canceled) return;
+      if (attempt !== generation.current || result.canceled) return;
 
       const image = result.assets[0];
       if (!image) return;
@@ -80,16 +86,15 @@ export function useEvidencePhotos({
         return;
       }
 
-      setIsUploading(true);
       const evidence = await upload({
         uri: image.uri,
         mimeType,
         fileName: image.fileName ?? `${fileNamePrefix}.${mimeType === 'image/png' ? 'png' : 'jpg'}`,
         file: image.file,
       });
-      setPhotos((current) => [...current, evidence]);
+      if (attempt === generation.current) setPhotos((current) => [...current, evidence]);
     } catch (failure) {
-      setError(getApiErrorMessage(failure, 'Không tải được ảnh. Vui lòng thử lại.'));
+      if (attempt === generation.current) setError(getApiErrorMessage(failure, 'Không tải được ảnh. Vui lòng thử lại.'));
     } finally {
       lockRef.current = false;
       setIsUploading(false);

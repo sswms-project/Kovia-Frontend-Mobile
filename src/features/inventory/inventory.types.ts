@@ -74,6 +74,8 @@ export const STOCK_MOVEMENT_TYPES = {
   opening: 'Opening',
   reclassification: 'Reclassification',
   correction: 'Correction',
+  relocation: 'Relocation',
+  returnOut: 'ReturnOut',
 } as const;
 
 export type StockMovementType = (typeof STOCK_MOVEMENT_TYPES)[keyof typeof STOCK_MOVEMENT_TYPES];

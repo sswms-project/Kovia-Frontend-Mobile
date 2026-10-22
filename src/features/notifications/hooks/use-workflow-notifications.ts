@@ -39,7 +39,7 @@ export function useWorkflowNotifications() {
     }, onError: logApiError, onSuccess: async (_, original) => {
       if (original.originalKey !== key) return;
       setNotice({ key, message: original.id ? 'Đã đánh dấu thông báo là đã đọc.' : 'Đã đánh dấu tất cả thông báo là đã đọc.' });
-      await client.invalidateQueries({ queryKey: ['notifications', identity] });
+      await client.invalidateQueries({ queryKey: ['notifications'] });
     } });
   async function markRead(id: string | null) {
     if (!canView || lock.current) return false;

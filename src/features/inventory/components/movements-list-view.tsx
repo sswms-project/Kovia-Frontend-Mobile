@@ -5,7 +5,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { FilterChips } from '@/components/ui/filter-chips';
+import type { ReactNode } from 'react';
+
+import { AlertBanner } from '@/components/ui/alert-banner';
+import { SelectionField } from '@/components/ui/selection-field';
+import { Button } from '@/components/ui/button';
+import { isApiErrorResponse } from '@/lib/api-error';
+
+import { movementTypeSchema } from '../inventory.schema';
 import { LoadingState } from '@/components/ui/loading-state';
 import { SearchField } from '@/components/ui/search-field';
 import { FontFamily } from '@/constants/theme';
@@ -16,6 +23,7 @@ import type { StockMovement, StockMovementType } from '../inventory.types';
 import { MovementCard } from './movement-card';
 
 interface MovementsListViewProps {
+  readonly workspaceControl: ReactNode;
   readonly searchText: string;
   readonly onSearchChange: (value: string) => void;
   readonly typeFilter: StockMovementType | null;
@@ -32,6 +40,7 @@ interface MovementsListViewProps {
 }
 
 export function MovementsListView({
+  workspaceControl,
   searchText,
   onSearchChange,
   typeFilter,
@@ -50,7 +59,7 @@ export function MovementsListView({
 
   function renderBody() {
     if (isLoading) return <LoadingState message="Đang tải lịch sử biến động…" />;
-    if (error && movements.length === 0) return <ErrorState error={error} onRetry={onRetry} />;
+    if (error && (movements.length === 0 || (isApiErrorResponse(error) && [401, 403, 404].includes(error.statusCode)))) return <ErrorState error={error} onRetry={onRetry} />;
     if (movements.length === 0) {
       return (
         <EmptyState
@@ -97,13 +106,16 @@ export function MovementsListView({
           accessibilityLabel="Tìm trong lịch sử biến động"
         />
       </View>
-      <FilterChips
-        accessibilityLabel="Lọc theo loại biến động"
-        options={MOVEMENT_TYPE_FILTERS}
-        value={typeFilter}
-        onChange={onTypeChange}
-        allLabel="Mọi loại"
-      />
+      <View style={styles.control}>
+        {workspaceControl}
+        <SelectionField label="Loại biến động" value={typeFilter ?? ''}
+          options={[{ value: '', label: 'Tất cả loại biến động' }, ...MOVEMENT_TYPE_FILTERS]}
+          onChange={(value) => onTypeChange(value ? movementTypeSchema.parse(value) : null)} />
+      </View>
+      {!!error && movements.length > 0 && !(isApiErrorResponse(error) && [401, 403, 404].includes(error.statusCode)) &&
+        <AlertBanner title="Đang hiển thị lịch sử cũ. Chưa thể tải dữ liệu mới.">
+          <Button label="Tải lại lịch sử" variant="outline" onPress={onRetry} loading={isRefreshing} />
+        </AlertBanner>}
       <View style={styles.body}>{renderBody()}</View>
     </SafeAreaView>
   );
@@ -114,6 +126,7 @@ function Separator() {
 }
 
 const styles = StyleSheet.create({
+  control: { paddingHorizontal: 20, gap: 12 },
   root: { flex: 1, gap: 12, paddingTop: 8 },
   description: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 19, paddingHorizontal: 20 },
   searchRow: { flexDirection: 'row', paddingHorizontal: 20 },

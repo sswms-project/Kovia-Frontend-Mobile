@@ -3,9 +3,10 @@ import { Bell, ClipboardList, PackageSearch, Warehouse } from 'lucide-react-nati
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { OwnerActions } from '../components/owner-actions';
 import { KoviaLogo } from '@/components/kovia-logo';
 
-import { getRoleLabel } from '@/config/roles';
+import { getRoleLabel, USER_ROLES } from '@/config/roles';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { SelectionField } from '@/components/ui/selection-field';
@@ -21,7 +22,6 @@ import { useOverview } from '@/features/home/hooks/use-overview';
 import { TaskCard } from '@/features/my-tasks/components/task-list/task-card';
 import { useMyTasks } from '@/features/my-tasks/hooks/use-my-tasks';
 import { getTaskDestination } from '@/features/my-tasks/my-tasks.navigation';
-import { NotificationRow } from '@/features/notifications/components/notification-row';
 import { useNotifications } from '@/features/notifications/hooks/use-notifications';
 import { WarehousePicker } from '@/features/warehouse-access/components/warehouse-picker';
 import { useWarehouseAccess } from '@/features/warehouse-access/hooks/use-warehouse-access';
@@ -63,7 +63,8 @@ export function HomeScreen() {
   const access = useWarehouseAccess();
   const overview = useOverview();
   const notifications = useNotifications(ACTIVITY_PREVIEW);
-  const tasks = useMyTasks();
+  const owner = me.data?.role === USER_ROLES.TenantOwner;
+  const tasks = useMyTasks(!owner);
 
   if (!access.warehouse) {
     return (
@@ -86,11 +87,11 @@ export function HomeScreen() {
   const profile = me.data;
   if (!profile) return me.isError ? <ErrorState error={me.error} onRetry={() => void me.refetch()} fullScreen /> : <LoadingState fullScreen />;
 
-  const refreshing = overview.isRefetching || notifications.isRefetching || tasks.list.isRefetching;
+  const refreshing = overview.isRefetching || notifications.isRefetching || (!owner && tasks.list.isRefetching);
   const refresh = () => {
-    void overview.refetch();
-    void notifications.refetch();
-    void tasks.list.refetch();
+    if (overview.allowed) void overview.refetch();
+    if (notifications.allowed) void notifications.refetch();
+    if (tasks.canView) void tasks.list.refetch();
   };
   const roleLabel = profile.role ? getRoleLabel(profile.role) : '';
   const taskItems = tasks.list.data?.items ?? [];
@@ -110,23 +111,25 @@ export function HomeScreen() {
             onPress={() => router.push('/notifications')}
             style={[styles.bell, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <Bell size={20} color={theme.text} />
-            {notifications.unreadCount > 0 ? <View style={[styles.bellDot, { backgroundColor: theme.error }]} /> : null}
+            {(notifications.unreadCount ?? 0) > 0 ? <View style={[styles.bellDot, { backgroundColor: theme.error }]} /> : null}
           </Pressable>
         ) : null}
       </View>
 
       <GreetingCard
+        overview={owner}
         name={profile.fullName}
         subtitle={roleLabel}
         onSearch={(query) => router.push({ pathname: '/inventory/lookup', params: { q: query } })}
         onScan={() => router.push('/scan')}
       />
 
-      <SelectionField label="Kho đang làm việc" value={access.warehouse.id}
+
+      <SelectionField label={owner ? "Kho đang theo dõi" : "Kho đang làm việc"} value={access.warehouse.id}
         options={(access.snapshot?.warehouses ?? []).map((warehouse) => ({ value: warehouse.id, label: warehouse.warehouseName, description: warehouse.warehouseCode }))}
         disabled={access.selection.transitioning} onChange={(id) => { void access.choose(id); }} />
 
-      <View style={styles.shortcuts}>
+      {!owner && <View style={styles.shortcuts}>
         {tasks.canView && <Pressable accessibilityRole="button" onPress={() => router.navigate('/tasks')}
           style={({ pressed }) => [styles.shortcut, { backgroundColor: theme.primary }, pressed && styles.pressed]}>
           <ClipboardList size={24} color={theme.onPrimary} />
@@ -139,7 +142,9 @@ export function HomeScreen() {
           <Text style={[styles.shortcutTitle, { color: theme.text }]}>Tồn kho</Text>
           <Text style={[styles.shortcutHint, { color: theme.textSecondary }]}>Tra mã, xem vị trí</Text>
         </Pressable>}
-      </View>
+      </View>}
+
+      {!owner && <Button label="Danh mục, chứng từ và báo cáo" variant="outline" onPress={() => router.navigate('/catalog')} />}
 
       {overview.allowed ? (
         <View style={styles.section}>
@@ -154,9 +159,11 @@ export function HomeScreen() {
         </View>
       ) : null}
 
-      {access.ready && profile.permissions.includes(P.STOCK_ISSUE_REQUESTS_VIEW) && profile.permissions.includes(P.STOCK_ISSUE_REQUESTS_ASSIGN_PICKER) &&
+      {owner && <OwnerActions profile={profile} ready={access.ready} />}
+
+      {!owner && access.ready && profile.permissions.includes(P.STOCK_ISSUE_REQUESTS_VIEW) && profile.permissions.includes(P.STOCK_ISSUE_REQUESTS_ASSIGN_PICKER) &&
         <Button label="Phân bổ thông minh · FEFO và đi thẳng" variant="outline" onPress={() => router.push('/smart-allocation')} />}
-      {access.ready && profile.permissions.includes(P.GOODS_RECEIPTS_VIEW) && profile.permissions.includes(P.GOODS_RECEIPTS_APPROVE) &&
+      {!owner && access.ready && profile.permissions.includes(P.GOODS_RECEIPTS_VIEW) && profile.permissions.includes(P.GOODS_RECEIPTS_APPROVE) &&
         <Button label="Duyệt hàng đạt tại khu nhận" variant="outline" onPress={() => router.push('/receiving-review')} />}
 
       {tasks.canView ? (
@@ -194,30 +201,6 @@ export function HomeScreen() {
         </View>
       ) : null}
 
-      {notifications.allowed ? (
-        <View style={styles.section}>
-          <SectionHeader title="Hoạt động gần đây" actionLabel="Xem tất cả" onAction={() => router.push('/notifications')} />
-          {notifications.isError ? (
-            <ErrorState error={notifications.error} onRetry={() => void notifications.refetch()} />
-          ) : notifications.isLoading ? (
-            <LoadingState message="Đang tải hoạt động..." />
-          ) : notifications.items.length === 0 ? (
-            <EmptyState icon={Bell} title="Chưa có hoạt động" description="Thông báo mới sẽ hiển thị tại đây." />
-          ) : (
-            <View style={styles.list}>
-              {notifications.items.slice(0, ACTIVITY_PREVIEW).map((item) => (
-                <NotificationRow
-                  key={item.id}
-                  notification={item}
-                  onPress={(n) => {
-                    if (!n.isRead) notifications.markRead.mutate(n.id);
-                  }}
-                />
-              ))}
-            </View>
-          )}
-        </View>
-      ) : null}
     </ScrollView>
   );
 }

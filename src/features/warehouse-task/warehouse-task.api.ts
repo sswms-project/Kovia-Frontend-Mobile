@@ -10,6 +10,14 @@ import type {
 } from './warehouse-task.types';
 
 export const warehouseTaskApi = {
+  getManaged: async (params: MyWarehouseTaskQuery & { warehouseId: string }, history: boolean, signal?: AbortSignal) => {
+    const response = await api.get<ApiResponse<unknown>>(history ? '/warehouse-tasks/history' : '/warehouse-tasks', { params, signal });
+    const data = warehouseTaskListSchema.parse(unwrap(response));
+    if (data.pageNumber !== params.pageNumber || data.pageSize !== params.pageSize ||
+      data.items.some((task) => task.warehouseId.toLowerCase() !== params.warehouseId.toLowerCase()))
+      throw new ApiError('Danh sách giám sát không khớp kho hoặc phân trang đang chọn.', 403);
+    return data;
+  },
   getCurrent: (params: MyWarehouseTaskQuery & { warehouseId: string }, userId: string, signal?: AbortSignal) =>
     readTasks('/my-warehouse-tasks', params, userId, signal),
   getHistory: (params: MyWarehouseTaskQuery & { warehouseId: string }, userId: string, signal?: AbortSignal) =>

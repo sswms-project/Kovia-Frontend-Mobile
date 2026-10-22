@@ -3,6 +3,7 @@ import {
   FileBarChart,
   FolderTree,
   History,
+  ClipboardList,
   Package,
   PackageMinus,
   PackagePlus,
@@ -19,6 +20,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
+import { AlertBanner } from '@/components/ui/alert-banner';
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -27,10 +30,12 @@ export interface LookupEntry {
   readonly title: string;
   readonly description: string;
   readonly onPress: () => void;
+  readonly group?: string;
 }
 
 // Each lookup screen registers its icon here; unknown keys fall back to the generic search icon.
 const ENTRY_ICONS: Record<string, LucideIcon> = {
+  'warehouse-monitor': ClipboardList,
   products: Package,
   suppliers: Truck,
   units: Ruler,
@@ -47,16 +52,21 @@ const ENTRY_ICONS: Record<string, LucideIcon> = {
 
 interface LookupViewProps {
   readonly entries: readonly LookupEntry[];
+  readonly owner?: boolean;
+  readonly refreshing?: boolean;
+  readonly onRefresh?: () => void;
+  readonly refreshFailed?: boolean;
 }
 
-export function LookupView({ entries }: LookupViewProps) {
+export function LookupView({ entries, owner = false, refreshing = false, onRefresh, refreshFailed = false }: LookupViewProps) {
   const theme = useTheme();
 
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: theme.background }]}>
-      <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>
-        Tra cứu
-      </Text>
+      <View style={styles.header}><Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>
+        {owner ? 'Quản lý' : 'Danh mục & chứng từ'}
+      </Text>{onRefresh && <Button label="Làm mới" variant="ghost" loading={refreshing} onPress={onRefresh} />}</View>
+      {refreshFailed && <AlertBanner variant="destructive" title="Chưa thể xác minh quyền. Vui lòng tải lại." />}
 
       {entries.length === 0 ? (
         <EmptyState
@@ -66,11 +76,12 @@ export function LookupView({ entries }: LookupViewProps) {
         />
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
-          {entries.map((entry) => {
+          {entries.map((entry, index) => {
             const Icon = ENTRY_ICONS[entry.key] ?? Search;
             return (
+              <View key={entry.key} style={styles.entry}>
+              {entry.group && entry.group !== entries[index - 1]?.group && <Text accessibilityRole="header" style={[styles.group, { color: theme.textSecondary }]}>{entry.group}</Text>}
               <Pressable
-                key={entry.key}
                 accessibilityRole="button"
                 accessibilityLabel={`${entry.title}. ${entry.description}`}
                 onPress={entry.onPress}
@@ -88,6 +99,7 @@ export function LookupView({ entries }: LookupViewProps) {
                 </View>
                 <ChevronRight size={20} color={theme.textSecondary} />
               </Pressable>
+              </View>
             );
           })}
         </ScrollView>
@@ -98,8 +110,11 @@ export function LookupView({ entries }: LookupViewProps) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, gap: 12, paddingTop: 12 },
-  title: { fontFamily: FontFamily.semibold, fontSize: 26, lineHeight: 32, paddingHorizontal: 20 },
+  header: { paddingHorizontal: 20, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'space-between' },
+  title: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 26, lineHeight: 32 },
   list: { gap: 12, paddingHorizontal: 20, paddingBottom: 24 },
+  entry: { gap: 10 },
+  group: { fontFamily: FontFamily.semibold, fontSize: 13, paddingTop: 12 },
   card: {
     minHeight: 72,
     flexDirection: 'row',

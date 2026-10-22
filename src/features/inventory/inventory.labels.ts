@@ -77,6 +77,8 @@ export const MOVEMENT_TYPE_LABEL: Record<StockMovementType, string> = {
   [STOCK_MOVEMENT_TYPES.opening]: 'Tồn đầu kỳ',
   [STOCK_MOVEMENT_TYPES.reclassification]: 'Phân loại lại',
   [STOCK_MOVEMENT_TYPES.correction]: 'Sửa sai biến động',
+  [STOCK_MOVEMENT_TYPES.relocation]: 'Chuyển vị trí nội bộ',
+  [STOCK_MOVEMENT_TYPES.returnOut]: 'Xuất hàng trả',
 };
 
 export const MOVEMENT_TYPE_FILTERS: readonly FilterOption<StockMovementType>[] = (

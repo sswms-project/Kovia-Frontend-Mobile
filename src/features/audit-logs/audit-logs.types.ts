@@ -1,22 +1,8 @@
-export interface AuditLogChange {
-  readonly label: string;
-  readonly before?: string | null;
-  readonly after?: string | null;
-}
+import type { z } from 'zod';
+import type { auditLogSchema, auditLogChangeSchema } from './audit-logs.schema';
 
-export interface AuditLogItem {
-  readonly id: string;
-  readonly warehouseName?: string | null;
-  readonly actorName: string;
-  readonly actionLabel: string;
-  readonly entityTypeLabel: string;
-  readonly referenceDisplay?: string | null;
-  readonly summary: string;
-  readonly description?: string | null;
-  readonly reason?: string | null;
-  readonly changes: readonly AuditLogChange[];
-  readonly createdAt: string;
-}
+export type AuditLogChange = z.infer<typeof auditLogChangeSchema>;
+export type AuditLogItem = z.infer<typeof auditLogSchema>;
 
 export type AuditRange = 'today' | 'week' | 'month';
 

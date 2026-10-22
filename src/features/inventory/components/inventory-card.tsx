@@ -17,7 +17,7 @@ import type { InventoryStock } from '../inventory.types';
 
 interface InventoryCardProps {
   readonly stock: InventoryStock;
-  readonly onPress: () => void;
+  readonly onPress?: () => void;
 }
 
 export function InventoryCard({ stock, onPress }: InventoryCardProps) {
@@ -35,6 +35,8 @@ export function InventoryCard({ stock, onPress }: InventoryCardProps) {
       accessibilityRole="button"
       accessibilityLabel={`${stock.productName}, mã ${stock.sku}, khả dụng ${formatQuantity(stock.availableQuantity)}${unit}`}
       onPress={onPress}
+      disabled={!onPress}
+      accessibilityState={{ disabled: !onPress }}
       style={({ pressed }) => [
         styles.card,
         { backgroundColor: theme.card, borderColor: theme.border },
