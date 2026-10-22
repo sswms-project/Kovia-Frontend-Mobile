@@ -15,6 +15,8 @@ export function assertNotificationContext(identity: string | null, signature: st
 export function notificationDestination(notification: AppNotification, profile: UserProfile | undefined) {
   if (!profile || !nonEmptyDotNetGuidSchema('Mã thông báo không hợp lệ.').safeParse(notification.referenceId).success) return null;
   if (!notification.referenceId) return null;
+  if (notification.referenceType === 'StockDiscrepancyReport' && profile.permissions.includes(P.INVENTORY_VIEW))
+    return { pathname: '/catalog/discrepancies/[id]' as const, params: { id: notification.referenceId } };
 
   if (notification.referenceType === 'CycleCount' && profile.permissions.includes(P.CYCLE_COUNTS_VIEW))
     return { pathname: '/(account)/cycle-count/[id]' as const, params: { id: notification.referenceId } };

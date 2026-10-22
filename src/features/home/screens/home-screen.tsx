@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OwnerActions } from '../components/owner-actions';
 import { KoviaLogo } from '@/components/kovia-logo';
 
-import { getRoleLabel, USER_ROLES } from '@/config/roles';
+import { getRoleLabel } from '@/config/roles';
+import { isFieldWorkspace } from '@/config/mobile-workspace';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { SelectionField } from '@/components/ui/selection-field';
@@ -63,7 +64,7 @@ export function HomeScreen() {
   const access = useWarehouseAccess();
   const overview = useOverview();
   const notifications = useNotifications(ACTIVITY_PREVIEW);
-  const owner = me.data?.role === USER_ROLES.TenantOwner;
+  const owner = !isFieldWorkspace(me.data?.role);
   const tasks = useMyTasks(!owner);
 
   if (!access.warehouse) {
@@ -144,7 +145,7 @@ export function HomeScreen() {
         </Pressable>}
       </View>}
 
-      {!owner && <Button label="Danh mục, chứng từ và báo cáo" variant="outline" onPress={() => router.navigate('/catalog')} />}
+      {!owner && <Button label="Tra cứu & báo cáo hiện trường" variant="outline" onPress={() => router.navigate('/catalog')} />}
 
       {overview.allowed ? (
         <View style={styles.section}>
@@ -161,10 +162,6 @@ export function HomeScreen() {
 
       {owner && <OwnerActions profile={profile} ready={access.ready} />}
 
-      {!owner && access.ready && profile.permissions.includes(P.STOCK_ISSUE_REQUESTS_VIEW) && profile.permissions.includes(P.STOCK_ISSUE_REQUESTS_ASSIGN_PICKER) &&
-        <Button label="Phân bổ thông minh · FEFO và đi thẳng" variant="outline" onPress={() => router.push('/smart-allocation')} />}
-      {!owner && access.ready && profile.permissions.includes(P.GOODS_RECEIPTS_VIEW) && profile.permissions.includes(P.GOODS_RECEIPTS_APPROVE) &&
-        <Button label="Duyệt hàng đạt tại khu nhận" variant="outline" onPress={() => router.push('/receiving-review')} />}
 
       {tasks.canView ? (
         <View style={styles.section}>

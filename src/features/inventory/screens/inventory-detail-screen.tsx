@@ -7,6 +7,7 @@ import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { WarehouseWorkspaceGate } from '@/components/warehouse-workspace';
 import { ReportDamageAction } from '@/features/damage-cases/components/report-damage-modal';
+import { ReportDiscrepancyAction } from '@/features/discrepancies/screens/report-discrepancy-action';
 import { isApiErrorResponse } from '@/lib/api-error';
 
 import { InventoryDetailView } from '../components/inventory-detail-view';
@@ -45,5 +46,6 @@ export function InventoryDetailScreen(identity: InventoryDetailScreenProps) {
       {stockQuery.isError && <AlertBanner title="Đang hiển thị dữ liệu cũ. Kéo xuống để tải lại trước khi báo hỏng." />}
       <ReportDamageAction disabled={!fresh} key={`${workspace.access.selection.identity}:${workspace.warehouseId}:${workspace.access.selection.revision}:${identity.stockId}`}
         stock={stockQuery.data} />
+      <ReportDiscrepancyAction disabled={!fresh} stock={stockQuery.data} />
     </>} />;
 }

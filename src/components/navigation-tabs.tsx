@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MOBILE_TABS } from '@/config/mobile-navigation';
+import { isFieldWorkspace } from '@/config/mobile-workspace';
 import { USER_ROLES } from '@/config/roles';
 import { useMe } from '@/features/auth/hooks/use-me';
 import { FontFamily } from '@/constants/theme';
@@ -14,7 +15,8 @@ const TAB_ICONS = { index: House, tasks: ClipboardList, scanner: ScanLine, inven
 export function KoviaTabs({ allowedTabNames }: { readonly allowedTabNames: readonly string[] }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const owner = useMe().data?.role === USER_ROLES.TenantOwner;
+  const role = useMe().data?.role;
+  const owner = !isFieldWorkspace(role);
   const tabs = owner
     ? ['index', 'catalog', 'scanner', 'inventory', 'profile'].map((name) => MOBILE_TABS.find((tab) => tab.name === name)!)
       .concat(MOBILE_TABS.filter((tab) => tab.name === 'tasks'))
@@ -34,7 +36,7 @@ export function KoviaTabs({ allowedTabNames }: { readonly allowedTabNames: reado
       const Icon = TAB_ICONS[tab.name];
       const scanner = tab.name === 'scanner';
       return <Tabs.Screen key={tab.name} name={tab.name} options={{
-        title: owner && tab.name === 'catalog' ? 'Quản lý' : owner && tab.name === 'index' ? 'Tổng quan' : tab.title,
+        title: owner && tab.name === 'catalog' ? role === USER_ROLES.TenantOwner ? 'Quản lý' : 'Theo dõi' : owner && tab.name === 'index' ? 'Tổng quan' : tab.title,
         href: (owner ? tab.name !== 'tasks' : tab.inNavbar) && allowedTabNames.includes(tab.name) ? undefined : null,
         tabBarAccessibilityLabel: scanner ? 'Quét mã, mở tra cứu bằng camera hoặc nhập mã' : tab.title,
         tabBarIcon: ({ color, focused }) => scanner
