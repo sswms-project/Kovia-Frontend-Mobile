@@ -28,7 +28,7 @@ export function GreetingCard({ name, subtitle, onSearch, onScan, overview = fals
           {subtitle}
         </Text>
       </View>
-      {overview ? <Text style={[styles.overviewHint, { color: theme.textSecondary }]}>Theo dõi tồn kho và xử lý các quyết định tại kho đang chọn.</Text> : <View style={styles.searchRow}>
+      {overview ? <Text style={[styles.overviewHint, { color: theme.textSecondary }]}>Theo dõi tồn kho, tiến độ và các cập nhật tại kho đang chọn.</Text> : <View style={styles.searchRow}>
         <View style={[styles.search, { backgroundColor: theme.muted, borderColor: theme.border }]}>
           <Search size={18} color={theme.textSecondary} />
           <TextInput

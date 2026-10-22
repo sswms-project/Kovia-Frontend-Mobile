@@ -36,6 +36,7 @@ export interface LookupEntry {
 // Each lookup screen registers its icon here; unknown keys fall back to the generic search icon.
 const ENTRY_ICONS: Record<string, LucideIcon> = {
   'warehouse-monitor': ClipboardList,
+  discrepancies: ClipboardList,
   products: Package,
   suppliers: Truck,
   units: Ruler,
@@ -53,18 +54,19 @@ const ENTRY_ICONS: Record<string, LucideIcon> = {
 interface LookupViewProps {
   readonly entries: readonly LookupEntry[];
   readonly owner?: boolean;
+  readonly title?: string;
   readonly refreshing?: boolean;
   readonly onRefresh?: () => void;
   readonly refreshFailed?: boolean;
 }
 
-export function LookupView({ entries, owner = false, refreshing = false, onRefresh, refreshFailed = false }: LookupViewProps) {
+export function LookupView({ entries, owner = false, title, refreshing = false, onRefresh, refreshFailed = false }: LookupViewProps) {
   const theme = useTheme();
 
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: theme.background }]}>
       <View style={styles.header}><Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>
-        {owner ? 'Quản lý' : 'Danh mục & chứng từ'}
+        {title ?? (owner ? 'Quản lý' : 'Tra cứu & báo cáo')}
       </Text>{onRefresh && <Button label="Làm mới" variant="ghost" loading={refreshing} onPress={onRefresh} />}</View>
       {refreshFailed && <AlertBanner variant="destructive" title="Chưa thể xác minh quyền. Vui lòng tải lại." />}
 

@@ -111,3 +111,10 @@ Scoped static evidence and source fingerprint in outputs/workflow/modules/mobile
 ## P21 — Owner workspace correction (implementation/self-review)
 
 Repaired10Ownerreadgrants only in guarded approved DB test; API profile confirms menu grants, cache cleared by restarting isolated test host. Added VIEW_ALL managed task current/history list with scope/schema/query guards, assignee display and no execution controls. Role-aware audit labels/actor/change details; tenant/user/page validation, identity/revision keys and cancellation; Staff backend self scope preserved. Management refresh refetches profile without navigation, hides menu on refresh error. TypeScript/lint16files/diff exit0; native/new API-list acceptance pending, no full-module completion or delivery. Report/checkpoint under mobile-rollout/p21*. BE source clean.
+
+
+## P22 — Field reporting and role curation (implementation/self-review)
+
+New branch from fetched dev a69c2cd (PR13). Staff entry points focus on assigned work/scan/inventory/field reports; Manager mobile is an oversight companion, configuration/dispatch planning/master CRUD stay web; Owner keeps quick oversight/authorized receiving review. Added shortage/excess/wrong-location observation form from exact stock context with mandatory photo, description, retained command/body retry, scoped location resolution and guard through token awaits. Scoped discrepancy list/detail/status/history/notification; evidence request fulfillment only shown to report author and original version is retained across retry. No stock adjustment/review or return restock mobile flow added. Shared inventory report context preserves damage guard. API DTO/validator/handler/permission traced on BE; source BE/DB unchanged this phase.
+
+TypeScript/lint24file/diff exit0; initial stale Expo route-type failure retained and corrected by regenerating ignored declarations using installed generator. No native/new API/SQL acceptance or test suite run; full UC gate2 due missing source. Bounded detail lookup20x20 explicit422 is a limitation. Evidence/checkpoint: outputs/workflow/modules/mobile-rollout/p22*. No commit/push authorized for P22.

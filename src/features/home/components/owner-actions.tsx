@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
-import { ChevronRight, ClipboardCheck, ClipboardList, History, Layers, FolderOpen } from 'lucide-react-native';
+import { ChevronRight, ClipboardCheck, ClipboardList, History, FolderOpen } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { P } from '@/config/permission-codes';
+import { USER_ROLES } from '@/config/roles';
 import { FontFamily } from '@/constants/theme';
 import type { UserProfile } from '@/features/auth/auth.types';
 import { useTheme } from '@/hooks/use-theme';
@@ -13,15 +14,13 @@ export function OwnerActions({ profile, ready }: { readonly profile: UserProfile
     { title: 'Giám sát công việc', hint: 'Xem tiến độ, nhân viên phụ trách và lịch sử toàn kho', icon: ClipboardList,
       allowed: profile.permissions.includes(P.WAREHOUSE_TASKS_VIEW_ALL), href: '/catalog/warehouse-monitor' as const },
     { title: 'Duyệt hàng nhận', hint: 'Kiểm tra hàng đạt và quyết định nơi lưu', icon: ClipboardCheck,
-      allowed: profile.permissions.includes(P.GOODS_RECEIPTS_VIEW) && profile.permissions.includes(P.GOODS_RECEIPTS_APPROVE), href: '/receiving-review' as const },
-    { title: 'Phân bổ thông minh', hint: 'Ưu tiên FEFO, lấy trực tiếp tại khu nhận', icon: Layers,
-      allowed: profile.permissions.includes(P.STOCK_ISSUE_REQUESTS_VIEW) && profile.permissions.includes(P.STOCK_ISSUE_REQUESTS_ASSIGN_PICKER), href: '/smart-allocation' as const },
+      allowed: profile.role === USER_ROLES.TenantOwner && profile.permissions.includes(P.GOODS_RECEIPTS_VIEW) && profile.permissions.includes(P.GOODS_RECEIPTS_APPROVE), href: '/receiving-review' as const },
     { title: 'Chứng từ & báo cáo', hint: 'Theo dõi nhập, xuất và dữ liệu kho', icon: FolderOpen, allowed: true, href: '/catalog' as const },
     { title: 'Nhật ký hoạt động', hint: 'Tra cứu người thực hiện và lịch sử thay đổi', icon: History,
       allowed: profile.permissions.includes(P.AUDIT_LOGS_VIEW), href: '/catalog/audit-logs' as const },
   ].filter((action) => action.allowed);
   return <View style={styles.section}>
-    <Text accessibilityRole="header" style={[styles.heading, { color: theme.text }]}>Điều hành kho</Text>
+    <Text accessibilityRole="header" style={[styles.heading, { color: theme.text }]}>{profile.role === USER_ROLES.TenantOwner ? 'Theo dõi & quyết định nhanh' : 'Theo dõi khi rời máy tính'}</Text>
     <View style={[styles.group, { backgroundColor: theme.card, borderColor: theme.border }]}>
       {actions.map((action, index) => <Pressable key={action.href} accessibilityRole="button" disabled={!ready}
         accessibilityState={{ disabled: !ready }} onPress={() => router.push(action.href)}
