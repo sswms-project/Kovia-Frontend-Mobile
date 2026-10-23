@@ -1,5 +1,13 @@
 # Mobile operational workflows — 20/10/2026
 
+## 2026-10-23 — P25 notification task navigation
+
+Synced latest `origin/dev` 6b55814 by fast-forward; P24 merged and the new header/profile/notification styling retained. New branch `fix/mobile-notification-task-navigation` starts at that dev revision. Mobile only; no BE/FE changes. User subsequently authorized commit/push; no PR/merge/deploy requested. Delivery reuses the exact verified P25 source fingerprint; device/API acceptance remains pending.
+
+Added resumable, cancellable notification-to-task search, 20-page batches with retained cursor/partial matches, complete-feed selection, current-before-history behavior, scope checks and count-change restart. Progress/retry/cancel controls remain above the scrolling list. Restored unread filtering, explicit search/validation and 44px read actions; marking read stops propagation to the document link. Existing API/permissions retained.
+
+Verification details/fingerprint: canonical P25 checkpoint/report in `outputs/workflow/modules/mobile-rollout`. Static TypeScript and changed-scope lint only; no new tests, live API/DB or device acceptance in P25. Self-review only. Manual acceptance: `MOBILE_NOTIFICATION_ACCEPTANCE.md`. Offset pagination can still change order without a count change; no snapshot consistency claim. Physical camera remains user-deferred; canonical UC rows remain unavailable.
+
 ## 2026-10-23 — P24 recovery, evidence and current-API returns
 
 Implemented on `feat/mobile-drafts-evidence-preview` from freshly fetched `origin/dev` 7eb9ec5. User explicitly chose to retain BE and use its current return API. No BE/FE source changes. User subsequently authorized mobile commit/push; no PR/merge/deploy requested. Implementer self-review only.

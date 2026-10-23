@@ -8,6 +8,11 @@ import type { useNotificationNavigation } from '../hooks/use-notification-naviga
 
 type Navigation = ReturnType<typeof useNotificationNavigation>;
 export function NotificationTaskChoices({ navigation }: { readonly navigation: Navigation }) {
+  if (navigation.searchStatus) return <View style={styles.root}>
+    <AlertBanner title={navigation.searchStatus.active ? 'Đang mở công việc' : 'Tra cứu công việc'} description={navigation.searchStatus.message} />
+    {navigation.searchStatus.canContinue && <Button label={navigation.searchStatus.actionLabel ?? 'Tìm tiếp'} onPress={navigation.continueSearch} />}
+    <Button label={navigation.searchStatus.active ? 'Hủy tìm kiếm' : 'Đóng tra cứu'} variant="ghost" onPress={navigation.cancel} />
+  </View>;
   if (!navigation.choices.length) return null;
   return <View style={styles.root}>
     <AlertBanner title="Phiếu có nhiều công việc tại kho đang chọn. Chọn đúng đợt để mở." />
