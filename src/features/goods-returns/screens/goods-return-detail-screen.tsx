@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { ApprovalActions } from '@/components/ui/approval-actions';
 import { DetailHeading, DetailScroll, InfoRow, Section } from '@/components/ui/detail-sections';
 import { QueryBoundary } from '@/components/ui/query-boundary';
 import { AlertBanner } from '@/components/ui/alert-banner';
@@ -11,6 +12,7 @@ import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDisplayDateTime } from '@/lib/date-format';
 
+import { useReturnDecision } from '../hooks/use-return-decision';
 import { useReturnReceiving } from '../hooks/use-return-receiving';
 import { RETURN_CONDITION_LABEL, RETURN_STATUS_LABEL, RETURN_STATUS_TONE } from '../goods-returns.types';
 
@@ -22,6 +24,7 @@ export function GoodsReturnDetailScreen({ returnId }: GoodsReturnDetailScreenPro
   const theme = useTheme();
   const state = useReturnReceiving(returnId);
   const query = state.query;
+  const decision = useReturnDecision(query.data);
 
   return (
     <><QueryBoundary query={query} loadingMessage="Đang tải yêu cầu trả hàng…">
@@ -36,6 +39,17 @@ export function GoodsReturnDetailScreen({ returnId }: GoodsReturnDetailScreenPro
             tone={RETURN_STATUS_TONE[request.status] ?? 'neutral'}
           />
           <WarehouseWorkspaceControl access={state.access} />
+          <ApprovalActions
+            subject="yêu cầu trả hàng"
+            canApprove={decision.canDecide}
+            canReject={decision.canDecide}
+            approveDescription="Phiếu chuyển sang Đã duyệt để kho nhận lại hàng. Kiểm tra lý do, dòng hàng và tình trạng trước khi xác nhận."
+            busy={decision.busy}
+            error={decision.error}
+            onApprove={decision.approve}
+            onReject={decision.reject}
+            onDismiss={decision.dismiss}
+          />
           <AlertBanner title="Nhận theo toàn bộ phiếu đã duyệt" description="Đối chiếu hàng thực tế với từng dòng, phân loại và vị trí trên phiếu trước khi xác nhận. Nếu khác số lượng hoặc tình trạng, dừng nhận và yêu cầu quản lý xử lý trên web. Luồng hiện tại chưa nhận từng phần." />
           {state.original.data && <InfoRow label="Kho nhận" value={state.original.data.warehouseName} />}
           {state.original.error && <AlertBanner title="Chưa xác minh được kho nhận" description={state.original.error.message} />}

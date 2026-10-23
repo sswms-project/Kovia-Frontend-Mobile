@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { ApprovalActions } from '@/components/ui/approval-actions';
 import { DetailHeading, DetailScroll, InfoRow, Section } from '@/components/ui/detail-sections';
 import { QueryBoundary } from '@/components/ui/query-boundary';
 import { StatusPill } from '@/components/ui/status-pill';
@@ -7,6 +8,7 @@ import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/date-format';
 
+import { useInboundRequestDecision } from '../hooks/use-inbound-decision';
 import { useInboundRequestQuery } from '../hooks/use-inbound-requests';
 import {
   INBOUND_STATUS_LABEL,
@@ -23,6 +25,7 @@ const formatQuantity = (value: number) => value.toLocaleString('vi-VN', { maximu
 export function InboundRequestDetailScreen({ requestId }: InboundRequestDetailScreenProps) {
   const theme = useTheme();
   const query = useInboundRequestQuery(requestId);
+  const decision = useInboundRequestDecision(requestId);
 
   return (
     <QueryBoundary query={query} loadingMessage="Đang tải yêu cầu nhập kho…">
@@ -32,6 +35,18 @@ export function InboundRequestDetailScreen({ requestId }: InboundRequestDetailSc
           <StatusPill
             label={INBOUND_STATUS_LABEL[request.status] ?? request.status}
             tone={INBOUND_STATUS_TONE[request.status] ?? 'neutral'}
+          />
+          <ApprovalActions
+            subject="yêu cầu nhập kho"
+            canApprove={decision.canApprove}
+            canReject={decision.canReject}
+            approveDescription="Yêu cầu nhập kho sẽ chuyển sang trạng thái sẵn sàng nhận hàng. Kiểm tra nguồn hàng, kho nhận và các dòng hàng trước khi xác nhận."
+            selfApprovalRequired={decision.selfApprovalRequired}
+            busy={decision.busy}
+            error={decision.error}
+            onApprove={decision.approve}
+            onReject={decision.reject}
+            onDismiss={decision.dismiss}
           />
 
           <Section title="Tổng quan">
