@@ -35,6 +35,12 @@ export interface DamageHistoryEntry {
 
 export interface DamageCase {
   readonly id: string;
+  readonly warehouseId: string;
+  /** Opaque row versions; echoed back when adding evidence so a stale case or stock is rejected. */
+  readonly version?: string | null;
+  readonly availableQuantity: number;
+  readonly availableStockVersion?: string | null;
+  readonly evidenceRequestedAt?: string | null;
   readonly sku: string;
   readonly productName: string;
   readonly warehouseName: string;

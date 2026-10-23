@@ -4,6 +4,7 @@ import { EvidenceLinks } from '@/components/ui/evidence-preview';
 import type { EvidenceFile } from '@/hooks/use-evidence-preview';
 
 import { ListCard } from '@/components/ui/list-card';
+import { AddDamageEvidenceAction } from './add-evidence-action';
 import { formatDisplayDateTime } from '@/lib/date-format';
 
 import {
@@ -57,6 +58,7 @@ export const DamageCaseCard = memo(function DamageCaseCard({ damageCase, onOpenE
         tone: damageCase.status === 'Open' ? 'warning' : 'success',
       }}
       onPress={() => setExpanded((value) => !value)}
-    />{expanded && <EvidenceLinks files={damageCase.evidence} onOpen={onOpenEvidence} />}</View>
+    />{expanded && <EvidenceLinks files={damageCase.evidence} onOpen={onOpenEvidence} />}
+    {expanded && <AddDamageEvidenceAction damageCase={damageCase} />}</View>
   );
 });

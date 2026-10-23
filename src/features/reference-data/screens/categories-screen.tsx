@@ -31,7 +31,7 @@ export function CategoriesScreen() {
         data={categories}
         keyExtractor={(category) => category.id}
         renderItem={({ item }) => (
-          <View style={{ marginLeft: Math.min(item.level, 4) * 12 }}>
+          <View style={LEVEL_INDENT[Math.min(item.level, LEVEL_INDENT.length - 1)]}>
             <ListCard
               title={item.categoryName}
               subtitle={item.categoryCode}
@@ -65,6 +65,22 @@ export function CategoriesScreen() {
 function Separator() {
   return <View style={styles.separator} />;
 }
+
+// One style per nesting depth (12px steps, capped at 4 levels) so list rows never build style objects.
+const INDENT_STYLES = StyleSheet.create({
+  level0: { marginLeft: 0 },
+  level1: { marginLeft: 12 },
+  level2: { marginLeft: 24 },
+  level3: { marginLeft: 36 },
+  level4: { marginLeft: 48 },
+});
+const LEVEL_INDENT = [
+  INDENT_STYLES.level0,
+  INDENT_STYLES.level1,
+  INDENT_STYLES.level2,
+  INDENT_STYLES.level3,
+  INDENT_STYLES.level4,
+] as const;
 
 const styles = StyleSheet.create({
   root: { flex: 1, gap: 12, paddingTop: 12 },

@@ -40,3 +40,32 @@ export function createReportDamageSchema(availableQuantity: number) {
 }
 
 export type ReportDamageFormValues = z.infer<ReturnType<typeof createReportDamageSchema>>;
+
+/**
+ * Mirrors the BE AddDamageEvidence validator: an observation (no confirmed quantity yet) must
+ * confirm a positive quantity within what is still available; a requested follow-up sends photos only.
+ */
+export function createAddEvidenceSchema(needsQuantity: boolean, availableQuantity: number) {
+  return z
+    .object({ confirmedQuantity: z.string().trim() })
+    .superRefine((values, context) => {
+      if (!needsQuantity) return;
+      if (!QUANTITY_PATTERN.test(values.confirmedQuantity) || parseReportQuantity(values.confirmedQuantity) <= 0) {
+        context.addIssue({
+          code: 'custom',
+          path: ['confirmedQuantity'],
+          message: 'Nhập số lượng lớn hơn 0, tối đa 2 chữ số thập phân',
+        });
+        return;
+      }
+      if (parseReportQuantity(values.confirmedQuantity) > availableQuantity) {
+        context.addIssue({
+          code: 'custom',
+          path: ['confirmedQuantity'],
+          message: `Chỉ có ${availableQuantity} đơn vị chưa được giữ.`,
+        });
+      }
+    });
+}
+
+export type AddEvidenceFormValues = z.infer<ReturnType<typeof createAddEvidenceSchema>>;
