@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as Crypto from 'expo-crypto';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useFormDraft } from '@/hooks/use-form-draft';
 import { toast } from 'sonner-native';
 
 import type { InventoryStock } from '@/features/inventory/inventory.types';
@@ -15,11 +16,12 @@ import { getApiErrorMessage, logApiError } from '@/lib/api-error';
 import { discrepanciesApi } from '../discrepancies.api';
 import { discrepancyCommandSchema, discrepancyFormSchema, type Discrepancy, type DiscrepancyCommand, type DiscrepancyForm } from '../discrepancies.schema';
 
-type Source = Pick<InventoryStock, 'id' | 'warehouseId' | 'productId' | 'slotId' | 'lotId'>;
+type Source = Pick<InventoryStock, 'id' | 'warehouseId' | 'productId' | 'slotId' | 'lotId'> & { version?: string | null };
 export function useDiscrepancyComposer(source: Source, report?: Discrepancy, onReported?: (id: string) => void) {
   const context = useInventoryReportContext(source);
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [draftVersion, setDraftVersion] = useState<string | undefined>();
   const [discard, setDiscard] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,8 +40,11 @@ export function useDiscrepancyComposer(source: Source, report?: Discrepancy, onR
   const form = useForm<DiscrepancyForm>({ resolver: zodResolver(discrepancyFormSchema),
     defaultValues: { type: 'Shortage', quantity: '', description: '', correctSlotCode: '' } });
   const busy = sending || photos.isUploading;
+  const draft = useFormDraft({ form, feature: 'discrepancy', documentId: source.id, version: draftVersion,
+    enabled: open && !report && context.canReport, assertCurrent: assert });
   function close() {
     if (lock.current || photos.isUploading) return;
+    void draft.clear();
     active.current = null; photos.reset(); setOpen(false); setDiscard(false);
   }
   function requestClose() {
@@ -49,6 +54,7 @@ export function useDiscrepancyComposer(source: Source, report?: Discrepancy, onR
   function begin() {
     try {
       context.assertCurrentContext(); active.current = context.assertCurrentContext;
+      setDraftVersion(source.version ?? report?.version ?? undefined);
       command.current = null; evidenceAttempt.current = report ? { ids: [], version: report.version ?? '' } : null;
       photos.reset(); setFrozen(false); setError(null); setDiscard(false);
       form.reset({ type: 'Shortage', quantity: '', description: '', correctSlotCode: '' }); setOpen(true);
@@ -87,6 +93,7 @@ export function useDiscrepancyComposer(source: Source, report?: Discrepancy, onR
             evidenceIds: photos.photos.map((photo) => photo.id), commandId: Crypto.randomUUID(), ...(correctSlotId ? { correctSlotId } : {}) });
         }
         setFrozen(true);
+        await draft.beforeSubmit();
         resultId = await discrepanciesApi.create(command.current, assert);
       }
       assert();
@@ -95,6 +102,7 @@ export function useDiscrepancyComposer(source: Source, report?: Discrepancy, onR
       void client.invalidateQueries({ queryKey: ['notifications'] });
       void client.invalidateQueries({ queryKey: ['audit-logs'] });
       toast.success(report ? 'Đã bổ sung bằng chứng. Báo cáo chờ xem xét lại.' : 'Đã ghi nhận báo cáo sai lệch tồn kho để xem xét. Số lượng tồn chưa thay đổi.');
+      if (!report) await draft.clear();
       active.current = null; photos.reset(); setOpen(false); onReported?.(resultId);
     } catch (failure) {
       logApiError(failure); setError(getApiErrorMessage(failure));

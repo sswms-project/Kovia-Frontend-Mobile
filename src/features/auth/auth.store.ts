@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import { setSessionExpiredHandler } from '@/lib/api';
 import { tokenStorage } from '@/lib/token-storage';
+import { formDraftStorage } from '@/lib/form-draft-storage';
 import { clearSessionQueries } from '@/providers/query-provider';
 
 import { authApi, type SignInResponse } from './auth.api';
@@ -31,6 +32,7 @@ export const useAuth = create<AuthState>((set) => ({
     try {
       await tokenStorage.clear();
     } finally {
+      await formDraftStorage.clear().catch(() => set({ notice: 'Không xóa hết bản nháp trên thiết bị. Vui lòng mở lại app để thử đăng xuất lại.' }));
       await clearSessionQueries();
       set({ signedIn: false, twoFactor: null });
     }
@@ -47,6 +49,7 @@ export const useAuth = create<AuthState>((set) => ({
   applySignIn: async (res) => {
     if (res.requires2FA || !res.accessToken || !res.refreshToken)
       throw new Error('Phản hồi đăng nhập không hợp lệ');
+    await formDraftStorage.clear();
     await tokenStorage.set({ accessToken: res.accessToken, refreshToken: res.refreshToken });
     await clearSessionQueries();
     set({ signedIn: true, twoFactor: null, notice: null });

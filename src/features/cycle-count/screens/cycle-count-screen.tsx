@@ -9,6 +9,9 @@ import { FontFamily } from '@/constants/theme';
 import { P } from '@/config/permission-codes';
 import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { useEvidencePreview } from '@/hooks/use-evidence-preview';
+import { EvidencePreview } from '@/components/ui/evidence-preview';
+import { WarehouseWorkspaceControl } from '@/components/warehouse-workspace';
 
 import { CountEditor } from '../components/count-editor';
 import { CountItemCard } from '../components/count-item-card';
@@ -19,6 +22,7 @@ import { useCycleCount } from '../hooks/use-cycle-count';
 const STATES: Readonly<Record<string, string>> = { Scheduled: 'Đã lên lịch', Counting: 'Đang kiểm đếm', Recount: 'Đang đếm lại', Submitted: 'Đã gửi quản lý', Completed: 'Đã hoàn tất', Cancelled: 'Đã hủy' };
 export function CycleCountScreen({ documentId }: { readonly documentId: string }) {
   const state = useCycleCount(documentId); const theme = useTheme(); const document = state.detail.data;
+  const evidence = useEvidencePreview('cycle-count');
   const busy = state.mutation.isPending || state.photoBusy;
   const canRecord = state.allowed('Record') && !!state.access.profile.data?.permissions.includes(P.CYCLE_COUNTS_RECORD);
   const error = state.detail.error ?? state.actions.error;
@@ -26,10 +30,11 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
     <FlatList data={state.canView ? document?.items ?? [] : []} keyExtractor={item => item.id} contentContainerStyle={styles.content}
       refreshing={state.detail.isFetching || state.actions.isFetching} onRefresh={busy ? undefined : () => { void state.refresh(); }}
       ItemSeparatorComponent={Separator} renderItem={({ item }) => <CountItemCard item={item} busy={busy}
-        canRecord={canRecord && !!document && canRecordCountItem(document, item)} onRecord={state.beginRecord} />}
+        canRecord={canRecord && !!document && canRecordCountItem(document, item)} onRecord={state.beginRecord} onOpenEvidence={file => { void evidence.open(file); }} />}
       ListHeaderComponent={<View style={styles.header}>
         <Button label="Về công việc" variant="outline" disabled={busy} onPress={() => router.back()} />
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{document?.code || 'Kiểm kê được giao'}</Text>
+        {!state.access.ready && <WarehouseWorkspaceControl access={state.access} />}
         {!state.canView ? <AlertBanner title={state.validId ? 'Chọn kho được giao và kiểm tra quyền xem kiểm kê.' : 'Mã kiểm kê không hợp lệ.'} /> : <>
           {state.detail.isPending && <AlertBanner title="Đang tải phiếu kiểm kê…" />}
           {error && <AlertBanner variant="destructive" title="Chưa thể tải dữ liệu mới" description={getApiErrorMessage(error)} />}
@@ -68,6 +73,7 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
       description={state.target?.action === 'Start' ? 'Hệ thống lấy mốc tồn hiện tại trước khi bắt đầu đếm. Vui lòng thực hiện đúng phạm vi được giao.'
         : 'Mọi dòng cần được ghi đếm. Nếu tồn đã biến động sau mốc kiểm kê, hệ thống yêu cầu đối soát hoặc đếm lại. Gửi kết quả không điều chỉnh tồn.'}
       busy={busy} error={state.mutation.error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />
+    <EvidencePreview state={evidence} />
   </SafeAreaView>;
 }
 function Separator() { return <View style={styles.separator} />; }

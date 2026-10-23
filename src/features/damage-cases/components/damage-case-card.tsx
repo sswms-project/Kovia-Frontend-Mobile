@@ -1,4 +1,7 @@
 import { memo, useState } from 'react';
+import { View } from 'react-native';
+import { EvidenceLinks } from '@/components/ui/evidence-preview';
+import type { EvidenceFile } from '@/hooks/use-evidence-preview';
 
 import { ListCard } from '@/components/ui/list-card';
 import { formatDisplayDateTime } from '@/lib/date-format';
@@ -12,11 +15,12 @@ import {
 
 interface DamageCaseCardProps {
   readonly damageCase: DamageCase;
+  readonly onOpenEvidence: (file: EvidenceFile) => void;
 }
 
 const formatQuantity = (value: number) => value.toLocaleString('vi-VN', { maximumFractionDigits: 3 });
 
-export const DamageCaseCard = memo(function DamageCaseCard({ damageCase }: DamageCaseCardProps) {
+export const DamageCaseCard = memo(function DamageCaseCard({ damageCase, onOpenEvidence }: DamageCaseCardProps) {
   const [expanded, setExpanded] = useState(false);
   const location = damageCase.isSystemDefaultSlot && damageCase.rackCode ? damageCase.rackCode : damageCase.slotCode;
   const quantityText = damageCase.isQuantityConfirmed
@@ -35,7 +39,7 @@ export const DamageCaseCard = memo(function DamageCaseCard({ damageCase }: Damag
     : ['Chạm để xem lịch sử'];
 
   return (
-    <ListCard
+    <View><ListCard
       title={damageCase.productName}
       subtitle={damageCase.sku}
       lines={[
@@ -53,6 +57,6 @@ export const DamageCaseCard = memo(function DamageCaseCard({ damageCase }: Damag
         tone: damageCase.status === 'Open' ? 'warning' : 'success',
       }}
       onPress={() => setExpanded((value) => !value)}
-    />
+    />{expanded && <EvidenceLinks files={damageCase.evidence} onOpen={onOpenEvidence} />}</View>
   );
 });

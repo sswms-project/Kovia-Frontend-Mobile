@@ -2,13 +2,15 @@ import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
+import { EvidenceLinks } from '@/components/ui/evidence-preview';
+import type { EvidenceFile } from '@/hooks/use-evidence-preview';
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 import type { CountItem } from '../cycle-count.schema';
 
-interface Props { readonly item: CountItem; readonly canRecord: boolean; readonly busy: boolean; readonly onRecord: (item: CountItem) => void }
-export const CountItemCard = memo(function CountItemCard({ item, canRecord, busy, onRecord }: Props) {
+interface Props { readonly item: CountItem; readonly canRecord: boolean; readonly busy: boolean; readonly onRecord: (item: CountItem) => void; readonly onOpenEvidence: (file: EvidenceFile) => void }
+export const CountItemCard = memo(function CountItemCard({ item, canRecord, busy, onRecord, onOpenEvidence }: Props) {
   const theme = useTheme();
   return <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
     <Text style={[styles.title, { color: theme.text }]}>{item.productSku} · {item.productName}</Text>
@@ -18,7 +20,7 @@ export const CountItemCard = memo(function CountItemCard({ item, canRecord, busy
     {item.systemQuantity !== null && <Text style={[styles.text, { color: theme.textSecondary }]}>Tồn tại mốc kiểm kê: {item.systemQuantity} · Chênh lệch: {item.difference ?? 'Chưa xác định'}</Text>}
     {item.countedByName && <Text style={[styles.text, { color: theme.textSecondary }]}>{item.countedByName} · {item.countedAt ? new Date(item.countedAt).toLocaleString('vi-VN') : ''}</Text>}
     {item.damageReason && <Text style={[styles.text, { color: theme.textSecondary }]}>Ghi nhận hỏng: {item.damageReason}</Text>}
-    {(item.damageEvidence ?? []).map(file => <Text key={file.id} style={[styles.text, { color: theme.textSecondary }]}>Ảnh: {file.fileName}</Text>)}
+    <EvidenceLinks files={item.damageEvidence ?? []} onOpen={onOpenEvidence} />
     {item.countHistory.map(history => <View key={history.id} style={styles.history}>
       <Text style={[styles.text, { color: theme.text }]}>Lần đếm trước vòng {history.recountRound}: {history.countedQuantity} · {history.countedByName ?? 'Nhân viên kiểm đếm'}</Text>
       <Text style={[styles.text, { color: theme.textSecondary }]}>Yêu cầu đếm lại: {history.recountReason}</Text>

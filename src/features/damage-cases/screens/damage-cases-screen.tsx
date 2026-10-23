@@ -2,6 +2,8 @@ import { StyleSheet, View } from 'react-native';
 import { WarehouseWorkspaceControl, WarehouseWorkspaceGate } from '@/components/warehouse-workspace';
 import { ShieldAlert } from 'lucide-react-native';
 import { useState } from 'react';
+import { useEvidencePreview } from '@/hooks/use-evidence-preview';
+import { EvidencePreview } from '@/components/ui/evidence-preview';
 
 import type { FilterOption } from '@/components/ui/filter-chips';
 import { PagedList } from '@/components/ui/paged-list';
@@ -18,14 +20,15 @@ const STATUS_OPTIONS: readonly FilterOption<DamageCaseStatus>[] = [
 export function DamageCasesScreen() {
   const [status, setStatus] = useState<DamageCaseStatus | null>(null);
   const query = useDamageCasesQuery(status ?? undefined);
+  const evidence = useEvidencePreview();
 
   if (!query.workspace.canView) return <WarehouseWorkspaceGate access={query.workspace.access} message="Bạn chưa có quyền xem hàng hỏng tại kho này." />;
   return (
-    <PagedList
+    <><PagedList
       query={query}
       header={<View style={styles.control}><WarehouseWorkspaceControl access={query.workspace.access} /></View>}
       keyExtractor={(damageCase) => damageCase.id}
-      renderItem={(damageCase) => <DamageCaseCard damageCase={damageCase} />}
+      renderItem={(damageCase) => <DamageCaseCard damageCase={damageCase} onOpenEvidence={file => { void evidence.open(file); }} />}
       loadingMessage="Đang tải hồ sơ hàng hỏng…"
       emptyIcon={ShieldAlert}
       emptyTitle="Chưa có hồ sơ hàng hỏng"
@@ -34,7 +37,7 @@ export function DamageCasesScreen() {
       filterOptions={STATUS_OPTIONS}
       filterValue={status}
       onFilterChange={setStatus}
-    />
+    /><EvidencePreview state={evidence} /></>
   );
 }
 

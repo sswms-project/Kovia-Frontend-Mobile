@@ -10,6 +10,7 @@ import { AppState, Platform } from 'react-native';
 import { P } from '@/config/permission-codes';
 import { useWarehouseAccess } from '@/features/warehouse-access/hooks/use-warehouse-access';
 import { warehouseQueryKey } from '@/features/warehouse-access/warehouse-access';
+import { useWarehouseSelection } from '@/features/warehouse-access/warehouse-access.store';
 
 import { createScanGate } from '../inventory-lookup';
 import { inventoryLookupApi } from '../inventory-lookup.api';
@@ -32,6 +33,7 @@ export function useInventoryLookup(initialInput?: LookupInput) {
   const [permission, requestPermission] = useCameraPermissions();
   const scanGate = useRef(createScanGate());
   const focusGeneration = useRef(0);
+  const permissionLock = useRef(false);
   const form = useForm<LookupInput>({ resolver: zodResolver(lookupInputSchema), defaultValues: initialInput ?? { kind: 'Product', code: '' } });
   useFocusEffect(useCallback(() => {
     focusGeneration.current += 1;
@@ -41,7 +43,7 @@ export function useInventoryLookup(initialInput?: LookupInput) {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
       setActive(state === 'active');
-      if (state !== 'active') { focusGeneration.current += 1; setCameraOpen(false); scanGate.current.close(); }
+      if (state !== 'active') { setCameraOpen(false); scanGate.current.close(); }
     });
     return () => subscription.remove();
   }, []);
@@ -63,11 +65,17 @@ export function useInventoryLookup(initialInput?: LookupInput) {
   }
   async function search() { await form.handleSubmit(submit)(); }
   async function openCamera() {
+    if (permissionLock.current || !canView) return;
+    permissionLock.current = true;
     setCameraError(null);
     const generation = focusGeneration.current;
+    const originalSelection = access.selection;
     try {
       const result = permission?.granted ? permission : await requestPermission();
-      if (focusGeneration.current !== generation) return;
+      const currentSelection = useWarehouseSelection.getState();
+      if (focusGeneration.current !== generation || currentSelection.identity !== originalSelection.identity ||
+        currentSelection.signature !== originalSelection.signature || currentSelection.revision !== originalSelection.revision ||
+        currentSelection.warehouseId !== originalSelection.warehouseId) return;
       if (!result.granted) {
         setCameraError(result.canAskAgain ? 'Chưa có quyền camera. Bạn có thể nhập mã bằng tay.'
           : 'Camera đã bị từ chối. Cho phép camera trong cài đặt ứng dụng hoặc nhập mã bằng tay.');
@@ -75,6 +83,7 @@ export function useInventoryLookup(initialInput?: LookupInput) {
       }
       scanGate.current.arm(); setCameraOpen(true);
     } catch { setCameraError('Không thể mở camera. Vui lòng nhập mã bằng tay.'); }
+    finally { permissionLock.current = false; }
   }
   function onScan(code: string) {
     if (!focused || !active || !canView || !scanGate.current.take()) return;

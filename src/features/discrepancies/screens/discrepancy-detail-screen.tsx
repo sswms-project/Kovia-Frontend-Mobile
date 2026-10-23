@@ -12,6 +12,8 @@ import { DISCREPANCY_STATUS, DISCREPANCY_TYPE } from '../discrepancies.schema';
 import { useDiscrepancyDetail } from '../hooks/use-discrepancy-detail';
 import { useDiscrepancyComposer } from '../hooks/use-discrepancy-composer';
 import { DiscrepancyComposer } from '../components/discrepancy-composer';
+import { useEvidencePreview } from '@/hooks/use-evidence-preview';
+import { EvidenceLinks, EvidencePreview } from '@/components/ui/evidence-preview';
 
 export function DiscrepancyDetailScreen({ id }: { readonly id: string }) {
   const selection = useWarehouseSelection();
@@ -21,6 +23,7 @@ function DetailScreen({ id }: { readonly id: string }) {
   const query = useDiscrepancyDetail(id);
   const report = query.data;
   const theme = useTheme();
+  const evidence = useEvidencePreview();
   const composer = useDiscrepancyComposer({ id, warehouseId: report?.warehouseId ?? '', productId: report?.productId ?? '',
     slotId: report?.slotId ?? '', lotId: report?.lotId ?? null }, report, () => { void query.refetch(); });
   if (!query.workspace.canView) return <WarehouseWorkspaceGate access={query.workspace.access} message="Bạn chưa có quyền xem báo cáo tại kho này." />;
@@ -41,7 +44,7 @@ function DetailScreen({ id }: { readonly id: string }) {
       report.duplicateOfReportId ? `Báo cáo trùng với hồ sơ ${report.duplicateOfReportId}` : '',
     ].filter(Boolean).map((line, index) => <Text key={index} style={[styles.text, { color: theme.text }]}>{line}</Text>)}
     <Text style={[styles.heading, { color: theme.text }]}>Bằng chứng ({report.evidence.length})</Text>
-    {report.evidence.map((file) => <Text key={file.id} style={[styles.text, { color: theme.textSecondary }]}>{file.fileName}</Text>)}
+    <EvidenceLinks files={report.evidence} onOpen={file => { void evidence.open(file); }} />
     {canAdd && <Button label="Bổ sung ảnh theo yêu cầu" onPress={composer.begin} />}
     <Text style={[styles.heading, { color: theme.text }]}>Lịch sử xử lý</Text>
     {report.history.map((event, index) => <View key={index} style={[styles.event, { borderColor: theme.border }]}>
@@ -49,7 +52,7 @@ function DetailScreen({ id }: { readonly id: string }) {
       <Text style={[styles.text, { color: theme.textSecondary }]}>{event.reason || 'Đã cập nhật báo cáo'}{event.toState && event.toState in DISCREPANCY_STATUS ? ` · ${DISCREPANCY_STATUS[event.toState as keyof typeof DISCREPANCY_STATUS]}` : ''}</Text>
     </View>)}
     <Button label="Tải lại trạng thái" variant="outline" loading={query.isFetching} disabled={composer.busy} onPress={() => { void query.refetch(); }} />
-  </ScrollView><DiscrepancyComposer state={composer} title="Bổ sung ảnh bằng chứng" summary={report.code} evidenceOnly /></>;
+  </ScrollView><EvidencePreview state={evidence} /><DiscrepancyComposer state={composer} title="Bổ sung ảnh bằng chứng" summary={report.code} evidenceOnly /></>;
 }
 const styles = StyleSheet.create({ content: { padding: 20, gap: 14, maxWidth: 760, width: '100%', alignSelf: 'center', paddingBottom: 36 },
   title: { fontFamily: FontFamily.bold, fontSize: 24 }, heading: { fontFamily: FontFamily.semibold, fontSize: 17 },
