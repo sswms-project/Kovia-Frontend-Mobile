@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
-import * as SecureStore from 'expo-secure-store';
 import { z } from 'zod';
+
+import { SecureStore } from './secure-store';
 
 const options = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
 const indexKey = 'kovia.form-drafts.v1';

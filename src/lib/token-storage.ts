@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import { SecureStore } from './secure-store';
 
 const ACCESS = 'sswms.access';
 const REFRESH = 'sswms.refresh';
