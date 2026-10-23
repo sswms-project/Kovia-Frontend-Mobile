@@ -24,16 +24,20 @@ export function useTransferReceiptExecution(state: ReturnType<typeof useTransfer
   const memory = useRef<WarehouseCommandMemory | null>(null);
   const enabled = state.canView && !!state.data && !state.detail.isError && !state.detail.isFetching &&
     !!state.data.receipt.version && !state.data.document.isLegacyWorkflow && !!state.access.profile.data?.permissions.includes(P.TRANSFERS_RECEIVE);
-  const mutation = useMutation<unknown, Error, TransferExecutionTarget & { scopeKey: string }>({ retry: false, mutationFn: async original => {
-    const check = () => {
+  function assertCurrent(expectedVersion: string) {
       const profile = client.getQueryData<UserProfile>(profileQueryKey);
       const snapshot = profile ? warehouseSnapshot(profile) : null;
-      if (!enabled || !identity || !warehouseId || !signature || original.scopeKey !== key || !useAuth.getState().signedIn ||
+      if (!enabled || !identity || !warehouseId || !signature || !useAuth.getState().signedIn ||
         !taskScopeMatches({ identity, warehouseId, revision, signature }, useWarehouseSelection.getState()) ||
         !snapshot?.activeUser || !snapshot.compatible || snapshot.signature !== signature ||
         !profile?.permissions.includes(P.TRANSFERS_RECEIVE) || !profile.permissions.includes(P.TRANSFERS_VIEW) ||
-        state.data?.receipt.version !== original.body.expectedVersion)
+        state.data?.receipt.version !== expectedVersion)
         throw new Error('Phiếu, kho hoặc quyền đã thay đổi. Vui lòng mở lại công việc.');
+  }
+  const mutation = useMutation<unknown, Error, TransferExecutionTarget & { scopeKey: string }>({ retry: false, mutationFn: async original => {
+    const check = () => {
+      if (original.scopeKey !== key) throw new Error('Kho đã thay đổi.');
+      assertCurrent(original.body.expectedVersion);
     };
     check();
     return transferReceivingApi.execute(transferId, shipmentId, original, check);
@@ -49,7 +53,7 @@ export function useTransferReceiptExecution(state: ReturnType<typeof useTransfer
     memory.current = warehouseCommand(memory.current, { transferId, shipmentId, ...value });
     mutation.reset(); setTarget({ ...value, body: { ...value.body, commandId: memory.current.commandId }, scopeKey: key } as TransferExecutionTarget & { scopeKey: string });
   }
-  return { enabled, key, target: target?.scopeKey === key ? target : null, mutation, notice, prepare,
+  return { enabled, key, assertCurrent, target: target?.scopeKey === key ? target : null, mutation, notice, prepare,
     confirm: async () => { if (!target || lock.current) return false; lock.current = true; try { await mutation.mutateAsync(target); return true; } catch { return false; } finally { lock.current = false; } },
     cancel: () => { if (!lock.current) setTarget(null); },
   };

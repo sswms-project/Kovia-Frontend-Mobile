@@ -10,6 +10,8 @@ import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { TextField } from '@/components/ui/text-field';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useFormDraft } from '@/hooks/use-form-draft';
+import { P } from '@/config/permission-codes';
 
 import type { useTransferReceiving } from '../hooks/use-transfer-receiving';
 import { useTransferReceiptExecution } from '../hooks/use-transfer-receipt-execution';
@@ -48,6 +50,9 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode }: {
   const setNote = (value: string) => form.setValue('note', value, { shouldDirty: true });
   const [error, setError] = useState<string | null>(null);
   const data = state.data;
+  const draft = useFormDraft({ form, feature: putRow ? 'transfer-putaway' : 'transfer-receipt', documentId: `${transferId}:${shipmentId}`,
+    lineId: putRow ? countKey(putRow.lineId, putRow.lotId) : undefined, version,
+    enabled: open && state.canView && !!state.access.profile.data?.permissions.includes(P.TRANSFERS_RECEIVE), assertCurrent: () => execution.assertCurrent(version) });
   const busy = execution.mutation.isPending;
   const lots = data?.receipt.lines.flatMap(line => line.lots.map(lot => ({ line, lot, key: countKey(line.lineId, lot.lotId) }))) ?? [];
   const hasDamage = lots.some(row => actual(counts[row.key]?.damaged ?? '0') > 0);
@@ -150,9 +155,9 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode }: {
           </View>} />
         <ConfirmationModal visible={!!execution.target && execution.target.action !== 'Start'} title="Xác nhận đã thực hiện thực tế?"
           description={putRow ? 'Chỉ xác nhận số lượng đã cất đúng vị trí, lô và mã sản phẩm.' : keep ? 'Xác nhận số thực nhận đã kiểm. Hàng đạt ở khu nhận có thể được phân bổ FEFO ngay; hàng hỏng đã đặt cách biệt và vẫn bị Hold.' : 'Xác nhận số thực nhận đã kiểm. Hàng đạt tiếp tục chờ cất; hàng hỏng đã cách biệt và vẫn bị Hold.'}
-          busy={busy} error={execution.mutation.error} onConfirm={() => { void execution.confirm().then(success => { if (success) setOpen(false); }); }} onCancel={execution.cancel} />
+          busy={busy} error={execution.mutation.error} onConfirm={() => { void draft.beforeSubmit().then(() => execution.confirm()).then(async success => { if (success) { await draft.clear(); setOpen(false); } }).catch(failure => setError(failure instanceof Error ? failure.message : 'Chưa lưu được trạng thái gửi.')); }} onCancel={execution.cancel} />
         <ConfirmationModal visible={discard} title="Bỏ thay đổi chưa lưu?" description="Dữ liệu nhập trong biểu mẫu chưa được lưu. Bạn có muốn đóng?"
-          busy={busy} onConfirm={() => { setOpen(false); setDiscard(false); execution.cancel(); }} onCancel={() => setDiscard(false)} />
+          busy={busy} onConfirm={() => { void draft.clear(); setOpen(false); setDiscard(false); execution.cancel(); }} onCancel={() => setDiscard(false)} />
       </SafeAreaView>
     </Modal>
     <ConfirmationModal visible={!open && execution.target?.action === 'Start'} title="Xác nhận bắt đầu nhận hàng?"

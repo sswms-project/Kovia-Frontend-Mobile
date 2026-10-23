@@ -2,6 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getApiErrorMessage } from '@/lib/api-error';
+import { captureEvidence } from '@/lib/evidence-camera';
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png'];
@@ -53,7 +54,7 @@ export function useEvidencePhotos({
     setPhotos((current) => current.filter((photo) => photo.id !== id));
   }, []);
 
-  const add = useCallback(async () => {
+  const add = useCallback(async (source: 'camera' | 'library') => {
     if (lockRef.current) return;
     if (savedCount + photos.length >= maxPhotos) {
       setError(`Tối đa ${maxPhotos} ảnh.`);
@@ -65,13 +66,16 @@ export function useEvidencePhotos({
     setIsUploading(true);
     setError(null);
     try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (attempt !== generation.current) return;
-      if (!permission.granted) {
-        setError('Cần quyền camera để chụp ảnh bằng chứng.');
-        return;
+      if (source === 'camera') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (attempt !== generation.current) return;
+        if (!permission.granted) {
+          setError('Cần quyền camera để chụp ảnh bằng chứng. Bạn có thể chọn ảnh có sẵn.');
+          return;
+        }
       }
-      const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7, exif: false });
+      const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.7, exif: false };
+      const result = source === 'camera' ? await captureEvidence(options) : await ImagePicker.launchImageLibraryAsync(options);
       if (attempt !== generation.current || result.canceled) return;
 
       const image = result.assets[0];
@@ -101,5 +105,5 @@ export function useEvidencePhotos({
     }
   }, [upload, maxPhotos, savedCount, photos.length, fileNamePrefix]);
 
-  return { photos, isUploading, error, add, remove, reset };
+  return { photos, isUploading, error, add: () => add('camera'), choose: () => add('library'), remove, reset };
 }

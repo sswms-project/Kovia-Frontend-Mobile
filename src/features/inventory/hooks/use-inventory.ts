@@ -1,4 +1,6 @@
 import { useInfiniteQuery, useQuery, type InfiniteData } from '@tanstack/react-query';
+import { useRef } from 'react';
+import type { RecordSearchCursor } from '@/lib/paged-record-search';
 
 import { warehouseQueryKey } from '@/features/warehouse-access/warehouse-access';
 import { ApiError } from '@/lib/api';
@@ -42,6 +44,8 @@ export function useInventoryStockQuery(identity: StockIdentity) {
   const workspace = useInventoryWorkspace();
   const parsed = stockIdentitySchema.safeParse(identity);
   const { canView, warehouseId } = workspace;
+  const cursor = useRef<{ key: string; value: RecordSearchCursor }>({ key: '', value: { page: 1 } });
+  const cursorKey = JSON.stringify([workspace.access.selection.identity, workspace.access.selection.signature, workspace.access.selection.revision, warehouseId, identity]);
   const query = useQuery({
     queryKey: canView ? warehouseQueryKey('inventory-detail', identity) : ['inventory-detail', 'disabled'],
     enabled: canView && parsed.success,
@@ -49,7 +53,8 @@ export function useInventoryStockQuery(identity: StockIdentity) {
       if (!parsed.success) throw new ApiError('Mã tồn kho không hợp lệ.', 400);
       if (identity.warehouseId && identity.warehouseId.toLowerCase() !== warehouseId.toLowerCase())
         throw new ApiError('Dòng tồn thuộc kho khác. Vui lòng mở lại từ kho đang chọn.', 403);
-      return inventoryApi.findStock(warehouseId, identity.stockId, identity.productId, identity.slotId, signal);
+      if (cursor.current.key !== cursorKey) cursor.current = { key: cursorKey, value: { page: 1 } };
+      return inventoryApi.findStock(warehouseId, identity.stockId, identity.productId, identity.slotId, signal, cursor.current.value);
     },
     staleTime: 0, refetchOnMount: 'always', retry: false,
   });

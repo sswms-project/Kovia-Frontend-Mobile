@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useFormDraft } from '@/hooks/use-form-draft';
 
 import { P } from '@/config/permission-codes';
 import { useAuth } from '@/features/auth/auth.store';
@@ -54,9 +55,14 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
       original.version !== data?.sheet.version || (original.action === 'Complete' && !canComplete))
       throw new Error('Kho, quyền hoặc đợt xuất đã thay đổi. Vui lòng tải lại công việc.');
   }
+  const draft = useFormDraft({ form, feature: 'transfer-pick', documentId: `${transferId}:${shipmentId}`,
+    lineId: editor ? `${editor.line.lineId}:${form.getValues('inventoryStockId')}` : undefined, version: editor?.version,
+    enabled: editor?.key === contextKey && canView && !!access.profile.data?.permissions.includes(P.TRANSFERS_PICK),
+    assertCurrent: () => assertCurrent({ key: contextKey, action: 'Pick', version: editor?.version ?? '' }) });
   const mutation = useMutation<unknown, Error, Target>({ retry: false, mutationFn: async original => {
     const guard = () => assertCurrent(original); guard();
     if (original.action === 'Pick') {
+      await draft.beforeSubmit();
       const values = transferPickFormSchema.parse(original.values);
       assertTransferPick(values, data!.sheet);
       const body = { transferId, shipmentId, ...values };
@@ -66,6 +72,7 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
     return transferPickingApi.complete({ transferId, shipmentId, expectedVersion: original.version }, guard);
   }, onError: logApiError, onSuccess: async (_, original) => {
     if (original.key !== contextKey) return;
+    if (original.action === 'Pick') await draft.clear();
     setTarget(null); setEditor(null); form.reset();
     setNotice({ key: contextKey, message: original.action === 'Pick' ? 'Đã ghi nhận số lượng thực tế lấy. Tổng tồn kho chưa giảm.'
       : 'Đã hoàn tất lấy hàng. Hàng chờ người có quyền xác nhận xuất thực tế.' });
@@ -101,6 +108,6 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
     notice: notice?.key === contextKey ? notice.message : null, discard: discard && !!activeEditor, setDiscard,
     refresh: async () => { if (lock.current) return; setTarget(null); setEditor(null); await access.refresh(); await detail.refetch(); },
     closeEditor: () => { if (!lock.current) { if (form.formState.isDirty) setDiscard(true); else setEditor(null); } },
-    discardChanges: () => { if (!lock.current) { setEditor(null); setDiscard(false); form.reset(); } },
+    discardChanges: () => { if (!lock.current) { void draft.clear(); setEditor(null); setDiscard(false); form.reset(); } },
     cancelConfirmation: () => { if (!lock.current) setTarget(null); } };
 }

@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useFormDraft } from '@/hooks/use-form-draft';
 
 import { P, type PermissionCode } from '@/config/permission-codes';
 import { useAuth } from '@/features/auth/auth.store';
@@ -53,6 +54,9 @@ export function useStockIssue(documentId: string) {
       !profile?.permissions.includes(P.STOCK_ISSUE_REQUESTS_VIEW) || !profile.permissions.includes(permissionCode))
       throw new Error('Kho, tài khoản hoặc quyền đã thay đổi. Vui lòng mở lại công việc.');
   }
+  const draft = useFormDraft({ form, feature: 'issue-pick', documentId, lineId: editor ? `${editor.item.id}:${form.getValues('inventoryStockId')}` : undefined,
+    version: editor?.version, enabled: editor?.key === contextKey && permission(P.STOCK_ISSUE_REQUESTS_PICK),
+    assertCurrent: () => { assertCurrent(P.STOCK_ISSUE_REQUESTS_PICK); if (detail.data?.version !== editor?.version) throw new Error('Phiếu xuất đã thay đổi.'); } });
   const mutation = useMutation<unknown, Error, Target>({ retry: false, mutationFn: async (original: Target) => {
     const permissionCode = original.action === 'Pick' ? P.STOCK_ISSUE_REQUESTS_PICK : P.STOCK_ISSUE_REQUESTS_DISPATCH;
     const assertCurrentContext = () => {
@@ -62,6 +66,7 @@ export function useStockIssue(documentId: string) {
     };
     assertCurrentContext();
     if (original.action === 'Pick') {
+      await draft.beforeSubmit();
       const values = pickFormSchema.parse(original.values);
       assertPick(values, detail.data!);
       const body = { items: [values], expectedVersion: original.version };
@@ -73,6 +78,7 @@ export function useStockIssue(documentId: string) {
     return stockIssueApi.dispatch(documentId, { ...body, commandId: command.current.commandId }, assertCurrentContext);
   }, onError: logApiError, onSuccess: async (_, original) => {
     if (original.key !== contextKey) return;
+    if (original.action === 'Pick') await draft.clear();
     setTarget(null); setEditor(null); form.reset();
     setNotice(original.action === 'Pick' ? 'Đã ghi nhận lấy hàng vào khu chờ xuất. Tổng tồn kho không đổi.'
       : 'Đã xác nhận phần hàng thực tế rời kho. Phần còn lại tiếp tục được theo dõi.');
@@ -127,6 +133,6 @@ export function useStockIssue(documentId: string) {
     discard, setDiscard, beginPick, reviewPick, beginDispatch, confirm,
     refresh: async () => { await client.invalidateQueries({ queryKey: prefix }); },
     closeEditor: () => { if (!lock.current) { if (form.formState.isDirty) setDiscard(true); else setEditor(null); } },
-    discardChanges: () => { if (!lock.current) { setEditor(null); setDiscard(false); form.reset(); } },
+    discardChanges: () => { if (!lock.current) { void draft.clear(); setEditor(null); setDiscard(false); form.reset(); } },
     cancelConfirmation: () => { if (!lock.current) setTarget(null); } };
 }

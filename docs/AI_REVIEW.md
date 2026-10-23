@@ -1,5 +1,15 @@
 # Mobile operational workflows — 20/10/2026
 
+## 2026-10-23 — P24 recovery, evidence and current-API returns
+
+Implemented on `feat/mobile-drafts-evidence-preview` from freshly fetched `origin/dev` 7eb9ec5. User explicitly chose to retain BE and use its current return API. No BE/FE source changes. User subsequently authorized mobile commit/push; no PR/merge/deploy requested. Implementer self-review only.
+
+Added scoped SecureStore drafts, interrupted-write banks, explicit version-checked recovery, cleared physical scans/temporary evidence on recovery and pending-send markers; wired field operation forms. Added authenticated, bounded, memory-only image preview. Feed searches can continue beyond their first 20 pages. Added whole-document Approved return receiving with scoped original issue/location validation, explicit confirmation, preflight fingerprint and no automatic network retry; current BE still lacks server commandId/expectedVersion on this endpoint.
+
+Native LDPlayer/API/SQL evidence covers force-stop count draft10/note recovery, persisted evidence display, count record/submission without stock change, and Owner return Good1+Damaged1: OnHand8→10, DamageHold1 at Q01, sequential replay409 leaves inventory unchanged, correct role/tenant denials. Test Approved return header/lines were seeded in the isolated test DB; creation/approval UIs were not exercised. 47 focused logic/contract tests passed; no full-suite claim. Exact final static checks/fingerprint in canonical P24 checkpoint/report.
+
+Device acceptance remains partial: emulator preview is green and no camera capture Activity exists; optical barcode and real photo capture are explicitly deferred by the user until a physical phone is available. Gallery selection/upload and saved-image viewing passed native. Other form recoveries are implemented/static-checked, not individually native-verified. Canonical UC source remains empty, coverage script exit2. Guide: `MOBILE_RECOVERY_ACCEPTANCE.md`. Dossier: `D:\LEARN\capstone\Kovia\outputs\workflow\modules\mobile-rollout`.
+
 State: READY_FOR_CODEX_REVIEW. Implementer: Codex; self-verification only, no independent review or approval claimed.
 
 Branch `feat/mobile-operational-workflows`, from freshly fetched origin/dev a041f3b. P06 assigned picking/actual dispatch, P07 blind counts with versioned commands/snapshot/recounts, P08 notifications and safe document navigation. Backend implementation is in `SSWMS-Backend-Mobile` branch `fix/mobile-operational-command-safety`; original checkouts preserved.

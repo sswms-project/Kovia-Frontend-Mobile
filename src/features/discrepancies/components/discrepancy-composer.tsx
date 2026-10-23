@@ -53,6 +53,8 @@ export function DiscrepancyComposer({ state, title, summary, evidenceOnly = fals
           </View>)}
           <Button label="Chụp ảnh bằng chứng" variant="outline" disabled={disabled || state.photos.photos.length >= 3}
             loading={state.photos.isUploading} onPress={() => { void state.photos.add(); }} />
+          <Button label="Chọn ảnh có sẵn" variant="outline" disabled={disabled || state.photos.isUploading || state.photos.photos.length >= 3}
+            onPress={() => { void state.photos.choose(); }} />
           {state.photos.error && <AlertBanner variant="destructive" title={state.photos.error} />}
           {state.error && <AlertBanner variant="destructive" title={state.error} />}
           {state.frozen && <AlertBanner title={evidenceOnly ? 'Nội dung gửi được giữ nguyên' : 'Giữ nguyên nội dung và mã thao tác khi thử lại'}

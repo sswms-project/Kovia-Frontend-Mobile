@@ -1,8 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
+import { captureEvidence } from '@/lib/evidence-camera';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useFormDraft } from '@/hooks/use-form-draft';
 
 import { P } from '@/config/permission-codes';
 import { useAuth } from '@/features/auth/auth.store';
@@ -50,9 +52,12 @@ export function useCycleCount(documentId: string) {
       !profile.permissions.includes(P.CYCLE_COUNTS_RECORD) || !allowed(action) || detail.data?.version !== version)
       throw new Error('Kho, quyền, phân công hoặc phiên bản kiểm kê đã thay đổi. Vui lòng tải lại.');
   }
+  const draft = useFormDraft({ form, feature: 'cycle-count', documentId, lineId: editor?.item.id, version: editor?.version,
+    enabled: editor?.key === contextKey && canView, assertCurrent: () => assertAction('Record', editor?.version ?? '') });
   const mutation = useMutation<unknown, Error, Target>({ retry: false, mutationFn: async original => {
     const assertCurrent = () => { if (original.key !== contextKey) throw new Error('Phiếu kiểm kê đã thay đổi.'); assertAction(original.action, original.version); };
     assertCurrent();
+    if (original.action === 'Record') await draft.beforeSubmit();
     const payload = { documentId, action: original.action, version: original.version, itemId: original.itemId, values: original.values };
     command.current = warehouseCommand(command.current, payload);
     const body = { expectedVersion: original.version, commandId: command.current.commandId };
@@ -65,6 +70,7 @@ export function useCycleCount(documentId: string) {
     return cycleCountApi.record(documentId, item.id, values, body, assertCurrent);
   }, onError: logApiError, onSuccess: async (_, original) => {
     if (original.key !== contextKey) return;
+    if (original.action === 'Record') await draft.clear();
     setEditor(null); setTarget(null); setPhotos(null); form.reset();
     setNotice({ key: contextKey, message: original.action === 'Start' ? 'Đã bắt đầu kiểm kê và chốt mốc tồn.'
       : original.action === 'Record' ? 'Đã ghi nhận số đếm. Số lượng tồn kho chưa thay đổi.' : 'Đã gửi kết quả kiểm kê để quản lý rà soát. Số lượng tồn kho chưa thay đổi.' });
@@ -106,7 +112,7 @@ export function useCycleCount(documentId: string) {
         if (!permission.granted) throw new Error('Cần quyền camera để chụp ảnh. Bạn có thể chọn ảnh có sẵn thay thế.');
       }
       const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.8, allowsEditing: false, exif: false, base64: false };
-      const result = source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
+      const result = source === 'camera' ? await captureEvidence(options) : await ImagePicker.launchImageLibraryAsync(options);
       assertCurrent(); if (result.canceled) return;
       const asset = result.assets[0];
       if (!asset?.mimeType || !['image/jpeg', 'image/png'].includes(asset.mimeType)) throw new Error('Vui lòng chọn ảnh JPG hoặc PNG.');
@@ -131,6 +137,6 @@ export function useCycleCount(documentId: string) {
     begin, beginRecord, reviewRecord, addPhoto, confirm,
     refresh: async () => { await client.invalidateQueries({ queryKey: prefix }); },
     closeEditor: () => { if (!lock.current) { if (form.formState.isDirty) setDiscard(true); else setEditor(null); } },
-    discardChanges: () => { if (!lock.current) { setEditor(null); setPhotos(null); setDiscard(false); form.reset(); } },
+    discardChanges: () => { if (!lock.current) { void draft.clear(); setEditor(null); setPhotos(null); setDiscard(false); form.reset(); } },
     cancelConfirmation: () => { if (!lock.current) setTarget(null); } };
 }

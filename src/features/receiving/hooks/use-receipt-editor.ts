@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
+import { useFormDraft } from '@/hooks/use-form-draft';
 
 import { P } from '@/config/permission-codes';
 import { ApiError } from '@/lib/api';
@@ -21,6 +22,12 @@ export function useReceiptEditor(context: ReceiptContext) {
   const form = useForm<ReceiptForm>({ resolver: zodResolver(target?.receiptId ? updateReceiptFormSchema : createReceiptFormSchema),
     defaultValues: { receiptCode: '', lines: [] } });
   const fields = useFieldArray({ control: form.control, name: 'lines' });
+  const draft = useFormDraft({ form, feature: 'receipt', documentId: context.documentId, lineId: target?.receiptId ?? 'new', version: target?.version,
+    enabled: visible && context.permission(P.GOODS_RECEIPTS_CREATE), assertCurrent: () => {
+      context.assertCurrent(P.GOODS_RECEIPTS_CREATE);
+      const currentVersion = target?.receiptId ? context.receipt.data?.version : context.task.data?.version;
+      if (currentVersion !== target?.version) throw new Error('Phiếu nhận đã thay đổi.');
+    } });
   const mutation = useMutation<string, Error, ReceiptForm>({ retry: false,
     mutationFn: async (values: ReceiptForm) => {
       if (!target || target.key !== context.contextKey) throw new Error('Công việc đã thay đổi.');
@@ -33,6 +40,7 @@ export function useReceiptEditor(context: ReceiptContext) {
           throw new Error('Yêu cầu nhận hoặc phân công đã thay đổi. Vui lòng tải lại.');
       };
       assertCurrentContext();
+      await draft.beforeSubmit();
       if (original.task && !original.correction) assertReceiptQuantities(values, original.task);
       if (original.correction && context.receipt.data) assertReceiptCorrection(values, context.receipt.data);
       if (original.receiptId) {
@@ -46,7 +54,7 @@ export function useReceiptEditor(context: ReceiptContext) {
       return receivingApi.create({ ...body, commandId: command.current.commandId }, assertCurrentContext);
     },
     onError: logApiError,
-    onSuccess: async (id) => { context.rememberReceipt(id); setTarget(null); form.reset(); await context.refreshWarehouse(); },
+    onSuccess: async (id) => { await draft.clear(); context.rememberReceipt(id); setTarget(null); form.reset(); await context.refreshWarehouse(); },
   });
   function begin() {
     if (lock.current || !context.permission(P.GOODS_RECEIPTS_CREATE)) return;
@@ -81,5 +89,5 @@ export function useReceiptEditor(context: ReceiptContext) {
   }
   function close() { if (!lock.current) { if (form.formState.isDirty) setDiscard(true); else setTarget(null); } }
   return { form, fields, target: visible ? target : null, mutation, discard, setDiscard, begin, addLine, save, close,
-    discardChanges: () => { if (!lock.current) { setDiscard(false); setTarget(null); form.reset(); } } };
+    discardChanges: () => { if (!lock.current) { void draft.clear(); setDiscard(false); setTarget(null); form.reset(); } } };
 }

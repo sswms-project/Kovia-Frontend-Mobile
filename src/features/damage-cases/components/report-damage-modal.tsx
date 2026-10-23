@@ -22,6 +22,7 @@ import { TextField } from '@/components/ui/text-field';
 import { FontFamily } from '@/constants/theme';
 import type { InventoryStock } from '@/features/inventory/inventory.types';
 import { useEvidencePhotos } from '@/hooks/use-evidence-photos';
+import { useFormDraft } from '@/hooks/use-form-draft';
 import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
 
@@ -53,6 +54,7 @@ function ReportDamageForm({ stock, disabled = false }: ReportDamageActionProps) 
   const commandLock = useRef(false);
   const formContext = useRef<(() => void) | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [draftVersion, setDraftVersion] = useState<string | undefined>();
   const [photoRequired, setPhotoRequired] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const attemptRef = useRef<{ key: string; body: ReportDamageBody } | null>(null);
@@ -72,11 +74,14 @@ function ReportDamageForm({ stock, disabled = false }: ReportDamageActionProps) 
     defaultValues: { mode: 'Confirmed', quantity: '', reason: '' },
   });
   const mode = useWatch({ control: form.control, name: 'mode' });
+  const draft = useFormDraft({ form, feature: 'damage-report', documentId: stock.id, version: draftVersion,
+    enabled: isOpen && canReport && !disabled, assertCurrent: assertCurrentContext });
 
   if (!canReport) return null;
 
   function close() {
     if (commandLock.current) return;
+    void draft.clear();
     formContext.current = null;
     photos.reset();
     setIsOpen(false);
@@ -85,6 +90,7 @@ function ReportDamageForm({ stock, disabled = false }: ReportDamageActionProps) 
     if (disabled || commandLock.current) return;
     try { assertCurrentContext(); } catch (error) { toast.error(getApiErrorMessage(error)); return; }
     formContext.current = assertCurrentContext;
+    setDraftVersion(stock.version ?? undefined);
     form.reset({ mode: 'Confirmed', quantity: '', reason: '' });
     photos.reset();
     setPhotoRequired(false);
@@ -126,8 +132,10 @@ function ReportDamageForm({ stock, disabled = false }: ReportDamageActionProps) 
       const assertOriginalContext = formContext.current;
       assertOriginalContext();
       commandLock.current = true;
+      await draft.beforeSubmit();
       await mutation.mutateAsync({ body, assertCurrentContext: assertOriginalContext });
       assertOriginalContext();
+      await draft.clear();
       toast.success(
         isConfirmed
           ? 'Đã ghi nhận hàng hỏng và chuyển số lượng xác nhận sang trạng thái giữ.'
@@ -255,6 +263,8 @@ function ReportDamageForm({ stock, disabled = false }: ReportDamageActionProps) 
                   renderIcon={(color) => <Camera size={18} color={color} />}
                   onPress={() => void photos.add()}
                 />
+                <Button label="Chọn ảnh có sẵn" variant="outline" disabled={disabled || mutation.isPending || photos.isUploading || photos.photos.length >= MAX_REPORT_PHOTOS}
+                  onPress={() => { void photos.choose(); }} />
                 {photos.error ? <AlertBanner variant="destructive" title={photos.error} /> : null}
                 {photoRequired ? (
                   <AlertBanner variant="destructive" title="Cần ít nhất một ảnh bằng chứng." />
