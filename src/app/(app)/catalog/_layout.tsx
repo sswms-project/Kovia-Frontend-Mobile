@@ -27,6 +27,7 @@ export default function LookupLayout() {
       <Stack.Screen name="categories" options={{ title: 'Loại sản phẩm' }} />
       <Stack.Screen name="warehouses/index" options={{ title: 'Kho' }} />
       <Stack.Screen name="warehouses/[warehouseId]" options={{ title: 'Chi tiết kho' }} />
+      <Stack.Screen name="warehouses/locations" options={{ title: 'Vị trí kho' }} />
       <Stack.Screen name="inbound-requests/index" options={{ title: 'Yêu cầu nhập kho' }} />
       <Stack.Screen name="inbound-requests/[requestId]" options={{ title: 'Chi tiết yêu cầu nhập kho' }} />
       <Stack.Screen name="stock-issue-requests/index" options={{ title: 'Yêu cầu xuất kho' }} />

@@ -19,7 +19,7 @@ import { toast } from 'sonner-native';
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
-import { FontFamily } from '@/constants/theme';
+import { FontFamily, Radius } from '@/constants/theme';
 import type { InventoryStock } from '@/features/inventory/inventory.types';
 import { useEvidencePhotos } from '@/hooks/use-evidence-photos';
 import { useFormDraft } from '@/hooks/use-form-draft';
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   title: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 20 },
   close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   content: { gap: 16, padding: 20, paddingBottom: 40 },
-  summary: { gap: 4, padding: 14, borderWidth: 1, borderRadius: 12 },
+  summary: { gap: 4, padding: 14, borderWidth: 1, borderRadius: Radius.xl },
   name: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 22 },
   meta: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 18 },
   modeRow: { flexDirection: 'row', gap: 8 },
