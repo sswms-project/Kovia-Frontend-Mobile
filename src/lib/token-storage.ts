@@ -1,19 +1,7 @@
-import * as NativeSecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+import { SecureStore } from './secure-store';
 
 const ACCESS = 'sswms.access';
 const REFRESH = 'sswms.refresh';
-
-// expo-secure-store has no web implementation. A browser build is only used for local testing, so
-// there the session lives in sessionStorage and disappears with the tab; native keeps the keychain.
-const SecureStore =
-  Platform.OS === 'web'
-    ? {
-        getItemAsync: async (key: string) => window.sessionStorage.getItem(key),
-        setItemAsync: async (key: string, value: string) => window.sessionStorage.setItem(key, value),
-        deleteItemAsync: async (key: string) => window.sessionStorage.removeItem(key),
-      }
-    : NativeSecureStore;
 
 export type Tokens = { accessToken: string; refreshToken: string };
 
