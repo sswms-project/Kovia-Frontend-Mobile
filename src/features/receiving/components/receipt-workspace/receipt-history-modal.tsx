@@ -3,6 +3,8 @@ import { FlatList, Modal, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
+import { EvidenceLinks } from '@/components/ui/evidence-preview';
+import type { EvidenceFile } from '@/hooks/use-evidence-preview';
 import { FontFamily, Radius } from '@/constants/theme';
 import { taskDate } from '@/features/my-tasks/my-tasks';
 import { useTheme } from '@/hooks/use-theme';
@@ -10,7 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 import type { Receipt } from '../../receiving.schema';
 import { receiptHistoryTransition } from '../../receiving';
 
-interface ReceiptHistoryModalProps { readonly visible: boolean; readonly receipt?: Receipt; readonly onClose: () => void }
+interface ReceiptHistoryModalProps { readonly visible: boolean; readonly receipt?: Receipt; readonly onClose: () => void; readonly onOpenEvidence: (file: EvidenceFile) => void }
 const ACTIONS: Readonly<Record<string, string>> = {
   Create: 'Lập phiếu nhận', Update: 'Sửa phiếu nháp', ConfirmPhysicalArrival: 'Xác nhận thực nhận vào tồn chờ kiểm',
   ApproveInspection: 'Duyệt phân loại kiểm hàng', SelfApproveInspection: 'Tự duyệt phân loại kiểm hàng',
@@ -22,21 +24,22 @@ const ACTIONS: Readonly<Record<string, string>> = {
   StartWarehouseTask: 'Bắt đầu công việc', PauseWarehouseTask: 'Tạm dừng công việc', ReturnWarehouseTask: 'Trả việc về quản lý',
   SavePutAwayPlan: 'Lưu kế hoạch cất hàng',
 };
-interface HistoryRow { key: string; title: string; detail: string; at: string }
-export function ReceiptHistoryModal({ visible, receipt, onClose }: ReceiptHistoryModalProps) {
+interface HistoryRow { key: string; title: string; detail: string; at: string; evidence?: readonly EvidenceFile[] }
+export function ReceiptHistoryModal({ visible, receipt, onClose, onOpenEvidence }: ReceiptHistoryModalProps) {
   const theme = useTheme();
   const rows: HistoryRow[] = [
     ...(receipt?.history.map((event, index) => ({ key: `audit:${index}`, title: ACTIONS[event.action] ?? 'Cập nhật phiếu nhận',
       detail: [event.actorName, receiptHistoryTransition(event.fromState, event.toState), event.reason].filter(Boolean).join(' · '), at: event.createdAt })) ?? []),
     ...(receipt?.items.flatMap(item => item.putAwayDetails.map(detail => ({ key: `placement:${detail.id}`,
       title: `${item.productSKU} · ${detail.quantity} ${item.baseUnitName} → ${detail.rackCode}-${detail.slotCode}`,
-      detail: `${detail.performedByName}${detail.deviationReason ? ` · ${detail.deviationReason}` : ''}`, at: detail.putAwayAt }))) ?? []),
+      detail: `${detail.performedByName}${detail.deviationReason ? ` · ${detail.deviationReason}` : ''}`, at: detail.putAwayAt, evidence: detail.deviationEvidence }))) ?? []),
   ].sort((a,b) => b.at.localeCompare(a.at));
   const renderItem = useCallback(({ item }: { item: HistoryRow }) => <View style={[styles.card, { borderColor: theme.border }]}>
     <Text style={[styles.name, { color: theme.text }]}>{item.title}</Text>
     <Text style={[styles.text, { color: theme.textSecondary }]}>{item.detail}</Text>
     <Text style={[styles.text, { color: theme.textSecondary }]}>{taskDate(item.at)}</Text>
-  </View>, [theme]);
+    <EvidenceLinks files={item.evidence ?? []} onOpen={onOpenEvidence} />
+  </View>, [theme, onOpenEvidence]);
   return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
     <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
       <FlatList data={rows} renderItem={renderItem} keyExtractor={item => item.key} contentContainerStyle={styles.content}

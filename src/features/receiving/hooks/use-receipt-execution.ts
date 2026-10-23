@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useFormDraft } from '@/hooks/use-form-draft';
 
 import { P } from '@/config/permission-codes';
 import { logApiError } from '@/lib/api-error';
@@ -25,6 +26,10 @@ export function useReceiptExecution(context: ReceiptContext, selected: SelectedR
   const command = useRef<ReceiptCommandMemory | null>(null);
   const form = useForm<PutAwayForm>({ resolver: zodResolver(putAwayFormSchema),
     defaultValues: { goodsReceiptItemId: '', slotId: '', quantity: Number.NaN, confirmedSlotCode: '', overrideReason: '' } });
+  const draft = useFormDraft({ form, feature: editor?.isolation ? 'isolate-damage' : 'putaway', documentId: context.receiptId ?? context.documentId,
+    lineId: editor ? `${form.getValues('goodsReceiptItemId')}:${editor.destination.id}` : undefined, version: editor?.version,
+    enabled: editor?.key === context.contextKey && context.permission(P.GOODS_RECEIPTS_PUTAWAY),
+    assertCurrent: () => context.assertAction(editor?.isolation ? 'IsolateDamage' : 'PutAway', editor?.version ?? '', P.GOODS_RECEIPTS_PUTAWAY) });
   const mutation = useMutation<unknown, Error, ExecutionTarget>({ retry: false,
     mutationFn: async (original: ExecutionTarget) => {
       if (original.key !== context.contextKey) throw new Error('Công việc đã thay đổi.');
@@ -38,6 +43,7 @@ export function useReceiptExecution(context: ReceiptContext, selected: SelectedR
         return receivingApi.submit(original.receiptId, { ...body, commandId: command.current.commandId }, assertCurrentContext);
       }
       if (!original.placement) throw new Error('Chưa có phân bổ cất hàng.');
+      await draft.beforeSubmit();
       const placement = putAwayFormSchema.parse(original.placement);
       if (!context.receipt.data) throw new Error('Chưa tải phiếu nhận.');
       if (original.action === 'IsolateDamage') {
@@ -61,6 +67,7 @@ export function useReceiptExecution(context: ReceiptContext, selected: SelectedR
     onError: logApiError,
     onSuccess: async (_, original) => {
       if (original.key !== context.contextKey) return;
+      if (original.action !== 'Submit') await draft.clear();
       setTarget(null); setEditor(null); form.reset();
       setNotice(original.action === 'Submit' ? 'Đã ghi nhận kết quả nhận hàng. Chỉ phần chấp nhận được ghi tồn; phần từ chối không vào kho. Gửi lại không nhận thêm hàng.'
         : original.action === 'IsolateDamage' ? 'Đã xác nhận cách biệt hàng hỏng. Tổng tồn không đổi; hàng vẫn không khả dụng.'
@@ -122,6 +129,6 @@ export function useReceiptExecution(context: ReceiptContext, selected: SelectedR
   return { form, editor: editor?.key === context.contextKey ? editor : null, target: target?.key === context.contextKey ? target : null,
     discard, setDiscard, notice, mutation, suggestions, beginArrival, beginPlacement, reviewPlacement, confirm, closeEditor,
     cancelConfirmation: () => { if (!lock.current) setTarget(null); },
-    discardChanges: () => { if (!lock.current) { setEditor(null); setDiscard(false); form.reset(); } },
+    discardChanges: () => { if (!lock.current) { void draft.clear(); setEditor(null); setDiscard(false); form.reset(); } },
   };
 }

@@ -9,8 +9,9 @@ export const profileQueryKey = ['auth', 'profile'] as const;
 export type AssignedWarehouse = UserProfile['assignedWarehouses'][number];
 
 export function warehouseSnapshot(profile: UserProfile) {
+  const accessible = profile.accessibleWarehouses ?? profile.assignedWarehouses;
   const warehouses = [...new Map(
-    profile.assignedWarehouses
+    accessible
       .filter((warehouse) => warehouse.status === 'Active')
       .map((warehouse) => [warehouse.id, warehouse]),
   ).values()];
@@ -18,14 +19,15 @@ export function warehouseSnapshot(profile: UserProfile) {
   const signature = JSON.stringify([
     identity,
     profile.status,
+    profile.role,
     [...new Set(profile.permissions)].sort(),
-    profile.assignedWarehouses.map((warehouse) => `${warehouse.id}:${warehouse.status}`).sort(),
+    accessible.map((warehouse) => `${warehouse.id}:${warehouse.status}`).sort(),
   ]);
   return {
     identity,
     signature,
     warehouses,
-    compatible: profile.assignedWarehouses.every(
+    compatible: accessible.every(
       (warehouse) => warehouse.status === 'Active' || warehouse.status === 'Inactive',
     ),
     activeUser: profile.status === 'Active',
@@ -63,12 +65,6 @@ async function transition(client: QueryClient, snapshot: WarehouseSnapshot, ware
 
 export async function reconcileWarehouseAccess(client: QueryClient, snapshot: WarehouseSnapshot) {
   const state = useWarehouseSelection.getState();
-  if (state.deniedSignature === snapshot.signature) {
-    useWarehouseSelection.setState({ signature: null, transitioning: false,
-      notice: 'Truy cập bị từ chối. Chọn Kiểm tra lại quyền sau khi quyền hoặc môi trường đã được cập nhật.' });
-    await clearWarehouseQueries(client);
-    return;
-  }
   if (state.signature === snapshot.signature) return;
   const warehouseId = state.identity === snapshot.identity && snapshot.compatible && snapshot.activeUser &&
     snapshot.warehouses.some((warehouse) => warehouse.id === state.warehouseId)

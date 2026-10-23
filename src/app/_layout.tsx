@@ -1,3 +1,4 @@
+import { Baloo2_700Bold } from '@expo-google-fonts/baloo-2';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -22,6 +23,7 @@ export default function RootLayout() {
   const signedIn = useAuth((state) => state.signedIn);
   const restore = useAuth((state) => state.restore);
   const [fontsLoaded, fontError] = useFonts({
+    Baloo2_700Bold,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
@@ -47,20 +49,21 @@ export default function RootLayout() {
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <BottomSheetModalProvider>
             <WarehouseSessionProvider signedIn={signedIn}>
-            <View style={styles.root}>
-            <OfflineBanner />
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Protected guard={signedIn}>
-                <Stack.Screen name="(app)" />
-                <Stack.Screen name="(account)" />
-                <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
-              </Stack.Protected>
-              <Stack.Protected guard={!signedIn}>
-                <Stack.Screen name="(auth)" />
-              </Stack.Protected>
-              <Stack.Screen name="auth" />
-            </Stack>
-            </View>
+              <View style={styles.root}>
+                <OfflineBanner />
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Protected guard={signedIn}>
+                    <Stack.Screen name="(app)" />
+                    <Stack.Screen name="(account)" />
+                    <Stack.Screen name="notifications" options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }} />
+                    <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
+                  </Stack.Protected>
+                  <Stack.Protected guard={!signedIn}>
+                    <Stack.Screen name="(auth)" />
+                  </Stack.Protected>
+                  <Stack.Screen name="auth" />
+                </Stack>
+              </View>
             </WarehouseSessionProvider>
           </BottomSheetModalProvider>
           <Toaster />

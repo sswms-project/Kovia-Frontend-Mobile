@@ -1,4 +1,4 @@
-import { ChevronDown, ScanBarcode, Search, Warehouse } from 'lucide-react-native';
+import { ScanBarcode, Search } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -11,10 +11,10 @@ interface GreetingCardProps {
   readonly subtitle: string;
   readonly onSearch: (query: string) => void;
   readonly onScan: () => void;
-  readonly onChangeWarehouse: () => void;
+  readonly overview?: boolean;
 }
 
-export function GreetingCard({ name, subtitle, onSearch, onScan, onChangeWarehouse }: GreetingCardProps) {
+export function GreetingCard({ name, subtitle, onSearch, onScan, overview = false }: GreetingCardProps) {
   const theme = useTheme();
   const [query, setQuery] = useState('');
 
@@ -23,19 +23,13 @@ export function GreetingCard({ name, subtitle, onSearch, onScan, onChangeWarehou
       <Text style={[styles.greeting, { color: theme.text }]} numberOfLines={1}>
         Xin chào, {name}
       </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Đổi kho làm việc"
-        onPress={onChangeWarehouse}
-        style={styles.subtitleRow}>
-        <Warehouse size={14} color={theme.textSecondary} />
+      <View style={styles.subtitleRow}>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]} numberOfLines={1}>
           {subtitle}
         </Text>
-        <ChevronDown size={14} color={theme.textSecondary} />
-      </Pressable>
-      <View style={styles.searchRow}>
-        <View style={[styles.search, { backgroundColor: theme.input, borderColor: theme.border }]}>
+      </View>
+      {overview ? <Text style={[styles.overviewHint, { color: theme.textSecondary }]}>Theo dõi tồn kho, tiến độ và các cập nhật tại kho đang chọn.</Text> : <View style={styles.searchRow}>
+        <View style={[styles.search, { backgroundColor: theme.muted, borderColor: theme.border }]}>
           <Search size={18} color={theme.textSecondary} />
           <TextInput
             value={query}
@@ -45,7 +39,10 @@ export function GreetingCard({ name, subtitle, onSearch, onScan, onChangeWarehou
               if (trimmed) onSearch(trimmed);
             }}
             returnKeyType="search"
-            placeholder="Tìm SKU, mã phiếu, vị trí..."
+            placeholder="Tìm SKU hoặc mã vạch"
+            accessibilityLabel="Tìm sản phẩm theo SKU hoặc mã vạch"
+            autoCapitalize="none"
+            autoCorrect={false}
             placeholderTextColor={theme.textSecondary}
             style={[styles.input, { color: theme.text }]}
           />
@@ -57,16 +54,17 @@ export function GreetingCard({ name, subtitle, onSearch, onScan, onChangeWarehou
           style={[styles.scan, { backgroundColor: theme.primary }]}>
           <ScanBarcode size={22} color={theme.onPrimary} />
         </Pressable>
-      </View>
+      </View>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { borderWidth: 1, borderRadius: Radius.xl, padding: 16, gap: 8 },
-  greeting: { fontSize: 20, fontFamily: FontFamily.bold },
+  card: { borderWidth: 1, borderRadius: 20, padding: 20, gap: 10 },
+  greeting: { fontSize: 24, lineHeight: 32, fontFamily: FontFamily.bold },
   subtitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   subtitle: { flexShrink: 1, fontSize: 13, fontFamily: FontFamily.medium },
+  overviewHint: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 22 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
   search: {
     flex: 1,

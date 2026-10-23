@@ -10,6 +10,8 @@ import { FontFamily, MaxContentWidth } from '@/constants/theme';
 import { taskDate } from '@/features/my-tasks/my-tasks';
 import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { useEvidencePreview } from '@/hooks/use-evidence-preview';
+import { EvidenceLinks, EvidencePreview } from '@/components/ui/evidence-preview';
 
 import { ConfirmationModal, LocationPicker, PutAwayEditorModal, ReceiptEditorModal, ReceiptItemCard, ReceiptHistoryModal, PutAwaySuggestionsModal, RefusalEvidencePanel } from '../components/receipt-workspace';
 import { useReceiptContext } from '../hooks/use-receipt-context';
@@ -26,6 +28,7 @@ const STATUS_LABELS: Readonly<Record<string, string>> = {
 };
 export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
   const context = useReceiptContext(mode, documentId);
+  const evidence = useEvidencePreview();
   const locations = useReceivingLocations(context);
   const editor = useReceiptEditor(context);
   const refusal = useRefusalEvidence(context);
@@ -101,7 +104,7 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
             </>}
           </>}
           <Button label="Lịch sử phiếu và các lần cất" variant="ghost" disabled={busy} onPress={() => setHistoryKey(context.contextKey)} />
-          {receipt.refusalEvidence.map(file => <Text key={file.id} style={[styles.text, { color: theme.textSecondary }]}>Bằng chứng từ chối: {file.fileName}</Text>)}
+          <EvidenceLinks files={receipt.refusalEvidence} onOpen={file => { void evidence.open(file); }} />
         </>}
         {!loading && !error && !receipt && task && <>
           <Text style={[styles.code, { color: theme.text }]}>{task.inboundRequestCode}</Text>
@@ -122,10 +125,11 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
       description={receipt?.arrivalConfirmedAt ? 'Gửi lại phiên bản phân loại để người có quyền duyệt. Hàng đã nhận vẫn được tạm giữ và không được cộng thêm.'
         : 'Chỉ phần chấp nhận sau kiểm được ghi tồn. Phần từ chối đã được bên giao giữ/mang về và không ghi vào kho. Chỉ xác nhận sau khi kiểm và đối chiếu bằng chứng.'}
       busy={busy} error={execution.mutation.error} onConfirm={() => { void execution.confirm(); }} onCancel={execution.cancelConfirmation} />}
-    <ReceiptHistoryModal visible={historyKey === context.contextKey} receipt={receipt} onClose={() => setHistoryKey(null)} />
+    <ReceiptHistoryModal visible={historyKey === context.contextKey} receipt={receipt} onClose={() => setHistoryKey(null)} onOpenEvidence={file => { void evidence.open(file); }} />
     <PutAwaySuggestionsModal visible={suggestionsKey === context.contextKey} data={suggestions} receipt={receipt}
       busy={execution.suggestions.isPending} error={execution.suggestions.error} onClose={() => setSuggestionsKey(null)}
       onChoose={id => { locations.chooseSuggested(execution.suggestions.data, id); setSuggestionsKey(null); }} />
+    <EvidencePreview state={evidence} />
   </SafeAreaView>;
 }
 

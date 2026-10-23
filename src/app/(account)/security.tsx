@@ -40,12 +40,13 @@ export default function SecurityScreen() {
   const busy = setup.isPending || confirm.isPending || disable.isPending;
   if (profile.isPending)
     return (
-      <AuthFrame title="Bảo mật">
+      <AuthFrame title="Bảo mật" backLabel="Hồ sơ" onBack={() => router.replace('/profile')}>
         <Feedback message="Đang kiểm tra trạng thái bảo mật…" />
       </AuthFrame>
     );
   return (
-    <AuthFrame title="Bảo mật" description="Bảo vệ tài khoản bằng mã từ ứng dụng xác thực.">
+    <AuthFrame title="Bảo mật" backLabel="Hồ sơ" onBack={() => router.replace('/profile')}
+      description="Bảo vệ tài khoản bằng mã từ ứng dụng xác thực.">
       {!profile.data ? (
         <>
           <Feedback error={profile.error} />
@@ -114,7 +115,7 @@ export default function SecurityScreen() {
             </>
           ) : null}
           <ActionButton
-            secondary
+            secondary={!!setup.data}
             label={setup.data ? 'Tải lại thiết lập' : 'Thiết lập xác thực hai bước'}
             busy={setup.isPending}
             disabled={confirm.isPending}
@@ -129,12 +130,6 @@ export default function SecurityScreen() {
       <Feedback
         error={setup.error ?? confirm.error ?? disable.error}
         message={confirm.isSuccess ? 'Đã bật xác thực hai bước.' : undefined}
-      />
-      <ActionButton
-        secondary
-        label="Về hồ sơ"
-        disabled={busy}
-        onPress={() => router.replace('/profile')}
       />
     </AuthFrame>
   );

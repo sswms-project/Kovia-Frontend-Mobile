@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import { authApi } from '@/features/auth/auth.api';
@@ -11,12 +11,12 @@ import { suspendWarehouseAccess, useWarehouseSelection } from '../warehouse-acce
 
 export function useWarehouseAccessState(enabled = true) {
   const client = useQueryClient();
+  const refreshing = useRef<Promise<void> | null>(null);
   const profile = useQuery({
     queryKey: profileQueryKey,
     enabled,
     queryFn: ({ signal }) => authApi.profile(signal),
-    staleTime: 0,
-    refetchOnMount: 'always',
+    staleTime: 60_000,
     refetchInterval: 60_000,
   });
   const snapshot = useMemo(() => profile.data ? warehouseSnapshot(profile.data) : null, [profile.data]);
@@ -32,19 +32,28 @@ export function useWarehouseAccessState(enabled = true) {
     }
   }, [client, enabled, profile.isError]);
 
-  const refresh = useCallback(async (accessDenied = false) => {
+  const refresh = useCallback(async () => {
     if (!enabled) return;
-    const current = useWarehouseSelection.getState();
-    useWarehouseSelection.setState({ deniedSignature: accessDenied
-      ? current.signature ?? current.deniedSignature : null });
-    suspendWarehouseAccess('Đang xác minh lại kho và quyền truy cập…');
-    await clearWarehouseQueries(client);
-    await client.resetQueries({ queryKey: profileQueryKey, exact: true });
+    if (refreshing.current) return refreshing.current;
+    // Keep the navigator and selected warehouse mounted. Reconciliation clears scoped
+    // data only when the server actually changes membership, permissions or assignments.
+    const request = client.fetchQuery({ queryKey: profileQueryKey,
+      queryFn: ({ signal }) => authApi.profile(signal), staleTime: 0 })
+      .then(async (updated) => {
+        if (client.getQueryData(profileQueryKey) !== updated) return;
+        await reconcileWarehouseAccess(client, warehouseSnapshot(updated));
+      }).catch(() => {
+        if (client.getQueryState(profileQueryKey)?.status !== 'error') return;
+        suspendWarehouseAccess('Chưa thể xác minh quyền. Kết nối lại và thử tải lại.');
+        return clearWarehouseQueries(client);
+      }).finally(() => { refreshing.current = null; });
+    refreshing.current = request;
+    return request;
   }, [client, enabled]);
 
   useEffect(() => {
     if (!enabled) return;
-    const unsubscribe = subscribeAccessDenied(() => { void refresh(true); });
+    const unsubscribe = subscribeAccessDenied(() => { void refresh(); });
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') void refresh();
     });
