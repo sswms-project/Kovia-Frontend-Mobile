@@ -3,6 +3,8 @@ import { PackageSearch, type LucideIcon } from 'lucide-react-native';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppHeader } from '@/components/app-header';
+
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import type { ReactNode } from 'react';
@@ -98,16 +100,14 @@ export function InventoryListView({
 
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: theme.background }]}>
-      <View style={styles.titleBlock}>
-        <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>
-          Tồn kho
-        </Text>
-        {totalCount !== undefined ? (
+      <AppHeader title="Tồn kho" />
+      {totalCount !== undefined ? (
+        <View style={styles.titleBlock}>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
             {totalCount.toLocaleString('vi-VN')} dòng tồn
           </Text>
-        ) : null}
-      </View>
+        </View>
+      ) : null}
 
       <View style={styles.searchRow}>
         <SearchField
@@ -138,8 +138,8 @@ function Separator() {
 
 const styles = StyleSheet.create({
   control: { paddingHorizontal: 20 },
-  root: { flex: 1, gap: 12, paddingTop: 12 },
-  titleBlock: { gap: 2, paddingHorizontal: 20 },
+  root: { flex: 1, gap: 12 },
+  titleBlock: { gap: 2, paddingHorizontal: 20, paddingTop: 4 },
   title: { fontFamily: FontFamily.semibold, fontSize: 26, lineHeight: 32 },
   subtitle: { fontFamily: FontFamily.regular, fontSize: 13 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20 },

@@ -19,6 +19,8 @@ import {
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppHeader } from '@/components/app-header';
+
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { AlertBanner } from '@/components/ui/alert-banner';
@@ -65,9 +67,8 @@ export function LookupView({ entries, owner = false, title, refreshing = false, 
 
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: theme.background }]}>
-      <View style={styles.header}><Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>
-        {title ?? (owner ? 'Quản lý' : 'Tra cứu & báo cáo')}
-      </Text>{onRefresh && <Button label="Làm mới" variant="ghost" loading={refreshing} onPress={onRefresh} />}</View>
+      <AppHeader title={title ?? (owner ? 'Quản lý' : 'Tra cứu & báo cáo')} />
+      {onRefresh && <View style={styles.header}><Button label="Làm mới" variant="ghost" loading={refreshing} onPress={onRefresh} /></View>}
       {refreshFailed && <AlertBanner variant="destructive" title="Chưa thể xác minh quyền. Vui lòng tải lại." />}
 
       {entries.length === 0 ? (
@@ -112,7 +113,7 @@ export function LookupView({ entries, owner = false, title, refreshing = false, 
 
 const styles = StyleSheet.create({
   root: { flex: 1, gap: 12, paddingTop: 12 },
-  header: { paddingHorizontal: 20, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'space-between' },
+  header: { paddingHorizontal: 20, paddingTop: 4, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'space-between' },
   title: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 26, lineHeight: 32 },
   list: { gap: 12, paddingHorizontal: 20, paddingBottom: 24 },
   entry: { gap: 10 },

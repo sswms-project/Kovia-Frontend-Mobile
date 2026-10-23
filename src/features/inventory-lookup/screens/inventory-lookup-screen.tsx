@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppHeader } from '@/components/app-header';
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
 import { SelectionField } from '@/components/ui/selection-field';
@@ -35,12 +36,12 @@ export function InventoryLookupScreen({ scanner = false, initialInput }: { reado
   const rows: (InventoryStock | BarcodeMatch)[] = ready && state.inventory.isSuccess ? state.inventory.data.items
     : state.request && state.lookup.isSuccess && !state.resolved ? state.lookup.data.matches : [];
   const pages = Math.max(1, Math.ceil((state.inventory.data?.totalCount ?? 0) / 20));
-  return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+  return <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: theme.background }]}>
+    <AppHeader title={scanner ? 'Quét & tra cứu' : 'Tồn kho'} />
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <FlatList data={rows} keyExtractor={(item) => `${'type' in item ? item.type : 'Stock'}:${item.id}`} renderItem={renderRow}
         contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
         ListHeaderComponent={<View style={styles.header}>
-          <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{scanner ? 'Quét & tra cứu' : 'Tồn kho'}</Text>
           {scanner && <Text style={[styles.text, { color: theme.textSecondary }]}>Quét nhãn hoặc nhập mã để xem đúng sản phẩm, vị trí và số lượng tồn.</Text>}
           <SelectionField label="Kho làm việc" value={state.access.warehouse?.id ?? ''}
             options={(state.access.snapshot?.warehouses ?? []).map((warehouse) => ({ value: warehouse.id, label: warehouse.warehouseName, description: warehouse.warehouseCode }))}
@@ -86,6 +87,6 @@ export function InventoryLookupScreen({ scanner = false, initialInput }: { reado
   </SafeAreaView>;
 }
 const styles = StyleSheet.create({ root: { flex: 1 }, content: { padding: 20, gap: 16, paddingBottom: 40 },
-  header: { gap: 14, marginBottom: 16 }, title: { fontFamily: FontFamily.bold, fontSize: 24, lineHeight: 32 },
+  header: { gap: 14, marginBottom: 16 }, title: { fontFamily: FontFamily.semibold, fontSize: 26, lineHeight: 32 },
   text: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 21 }, empty: { gap: 12 },
   footer: { gap: 10, marginTop: 16, alignItems: 'stretch' } });

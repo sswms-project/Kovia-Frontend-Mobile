@@ -1,7 +1,9 @@
 import { FlashList } from '@shopify/flash-list';
 import { ClipboardList, type LucideIcon } from 'lucide-react-native';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { AppHeader } from '@/components/app-header';
 
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
@@ -61,7 +63,6 @@ interface TaskListViewProps {
 export function TaskListView({
   title,
   description,
-  actions = [],
   workspaceControl,
   stats,
   statusOptions,
@@ -88,33 +89,7 @@ export function TaskListView({
 
   const blocked = !!error && (tasks.length === 0 || (isApiErrorResponse(error) && [401, 403, 404].includes(error.statusCode)));
   const header = <View style={styles.header}>
-      {title !== undefined ? (
-        <View style={styles.titleRow}>
-          <View style={styles.titleText}>
-            <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>
-              {title}
-            </Text>
-            {description ? (
-              <Text style={[styles.description, { color: theme.textSecondary }]}>{description}</Text>
-            ) : null}
-          </View>
-          {actions.map((action) => (
-            <Pressable
-              key={action.label}
-              accessibilityRole="button"
-              accessibilityLabel={action.label}
-              hitSlop={4}
-              onPress={action.onPress}
-              style={({ pressed }) => [
-                styles.iconButton,
-                { backgroundColor: theme.card, borderColor: theme.border },
-                pressed && styles.pressed,
-              ]}>
-              <action.icon size={20} color={theme.text} />
-            </Pressable>
-          ))}
-        </View>
-      ) : description ? (
+      {title === undefined && description ? (
         <Text style={[styles.description, styles.standaloneDescription, { color: theme.textSecondary }]}>
           {description}
         </Text>
@@ -145,6 +120,7 @@ export function TaskListView({
 
   return (
     <SafeAreaView edges={hasNativeHeader ? [] : ['top']} style={[styles.root, { backgroundColor: theme.background }]}>
+      {hasNativeHeader ? null : <AppHeader title={title} />}
       <FlashList
         data={blocked || isLoading ? [] : tasks}
         keyExtractor={(task) => `${task.taskType}-${task.id}`}
@@ -173,20 +149,9 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   header: { gap: 16, paddingTop: 16, paddingBottom: 20 },
   cardInset: { paddingHorizontal: 20 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20 },
-  titleText: { flex: 1, gap: 2 },
   title: { fontFamily: FontFamily.semibold, fontSize: 26, lineHeight: 32 },
   description: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 19 },
   standaloneDescription: { paddingHorizontal: 20 },
-  iconButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderRadius: 22,
-  },
-  pressed: { opacity: 0.7 },
   chips: { gap: 8, paddingHorizontal: 20 },
   listContent: { paddingBottom: 24 },
   separator: { height: 12 },
