@@ -106,3 +106,15 @@ export interface InboundRequestDetail {
   readonly lines: readonly InboundRequestLine[];
   readonly history: readonly InboundRequestHistoryEvent[];
 }
+
+export interface InboundAllowedActions {
+  readonly allowedActions: readonly string[];
+  readonly selfApprovalRequired: boolean;
+  readonly currentVersion: string;
+  readonly denialReasonCode?: string | null;
+}
+
+export interface InboundDecisionBody {
+  readonly expectedVersion: string;
+  readonly selfApprovalAcknowledged: boolean;
+}

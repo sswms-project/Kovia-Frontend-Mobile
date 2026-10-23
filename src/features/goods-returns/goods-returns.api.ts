@@ -1,6 +1,7 @@
 import type { PageResult } from '@/hooks/use-paged-query';
 import type { AxiosRequestConfig } from 'axios';
 import { ApiError, api, unwrap, type ApiResponse } from '@/lib/api';
+import { rejectReasonSchema } from '@/features/approvals/approvals.schema';
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
 import { goodsReturnSchema, returnLocationPageSchema } from './goods-returns.schema';
 
@@ -35,6 +36,16 @@ export const goodsReturnsApi = {
       if (!page.items.length) throw new Error('Danh sách vị trí đã thay đổi. Vui lòng tải lại.');
     }
     throw new Error('Chưa xác minh đủ vị trí nhận. Liên hệ quản lý kiểm tra trên web.');
+  },
+  approve: (id: string, assertCurrentContext: () => void) => {
+    nonEmptyDotNetGuidSchema('Mã phiếu trả không hợp lệ.').parse(id);
+    const config: AxiosRequestConfig & { assertCurrentContext: () => void } = { assertCurrentContext };
+    return api.post<ApiResponse<unknown>>(`/goods-return-requests/${id}/approve`, undefined, config).then(unwrap);
+  },
+  reject: (id: string, reason: string, assertCurrentContext: () => void) => {
+    nonEmptyDotNetGuidSchema('Mã phiếu trả không hợp lệ.').parse(id);
+    const config: AxiosRequestConfig & { assertCurrentContext: () => void } = { assertCurrentContext };
+    return api.post<ApiResponse<unknown>>(`/goods-return-requests/${id}/reject`, { reason: rejectReasonSchema.parse(reason) }, config).then(unwrap);
   },
   restock: (id: string, assertCurrentContext: () => void) => {
     nonEmptyDotNetGuidSchema('Mã phiếu trả không hợp lệ.').parse(id);

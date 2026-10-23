@@ -36,6 +36,8 @@ export default function LookupLayout() {
       <Stack.Screen name="stock-recipients/[recipientId]" options={{ title: 'Chi tiết đơn vị nhận hàng' }} />
       <Stack.Screen name="goods-returns/index" options={{ title: 'Yêu cầu trả hàng' }} />
       <Stack.Screen name="goods-returns/[returnId]" options={{ title: 'Chi tiết yêu cầu trả hàng' }} />
+      <Stack.Screen name="stock-adjustments/index" options={{ title: 'Điều chỉnh tồn kho' }} />
+      <Stack.Screen name="stock-adjustments/[adjustmentId]" options={{ title: 'Chi tiết phiếu điều chỉnh' }} />
       <Stack.Screen name="damage-cases" options={{ title: 'Hồ sơ hàng hỏng' }} />
       <Stack.Screen name="reports/index" options={{ title: 'Báo cáo' }} />
       <Stack.Screen name="reports/[reportType]" options={{ title: 'Báo cáo chi tiết' }} />

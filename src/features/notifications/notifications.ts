@@ -22,7 +22,9 @@ export function notificationDestination(notification: AppNotification, profile: 
     return { pathname: '/(account)/cycle-count/[id]' as const, params: { id: notification.referenceId } };
   if (notification.referenceType === 'GoodsReturnRequest' && profile.permissions.includes(P.GOODS_RETURN_REQUESTS_VIEW))
     return { pathname: '/catalog/goods-returns/[returnId]' as const, params: { returnId: notification.referenceId } };
-  if (notification.referenceType === 'Product' && profile.permissions.includes(P.PRODUCTS_VIEW))
+  if (notification.referenceType === 'StockAdjustmentVoucher' && profile.permissions.includes(P.STOCK_ADJUSTMENTS_VIEW))
+    return { pathname: '/catalog/stock-adjustments/[adjustmentId]' as const, params: { adjustmentId: notification.referenceId } };
+  if (notification.referenceType === 'Product' &&profile.permissions.includes(P.PRODUCTS_VIEW))
     return { pathname: '/catalog/products/[productId]' as const, params: { productId: notification.referenceId } };
   if (notification.referenceType === 'StockIssueRequest' && profile.permissions.includes(P.STOCK_ISSUE_REQUESTS_VIEW))
     return { pathname: '/(account)/stock-issue/[id]' as const, params: { id: notification.referenceId } };

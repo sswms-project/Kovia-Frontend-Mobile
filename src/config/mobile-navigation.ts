@@ -141,6 +141,13 @@ export const LOOKUP_ENTRIES = [
     permission: P.GOODS_RETURN_REQUESTS_VIEW,
   },
   {
+    key: 'stock-adjustments',
+    href: '/catalog/stock-adjustments',
+    title: 'Điều chỉnh tồn kho',
+    description: 'Duyệt hoặc từ chối phiếu điều chỉnh sau kiểm kê',
+    permission: P.STOCK_ADJUSTMENTS_VIEW,
+  },
+  {
     key: 'damage-cases',
     href: '/catalog/damage-cases',
     title: 'Hồ sơ hàng hỏng',
