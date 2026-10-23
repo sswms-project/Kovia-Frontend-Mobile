@@ -11,7 +11,7 @@ export default function ScanRoute() {
   return (
     <ScannerScreen
       title="Quét mã"
-      onClose={() => router.back()}
+      onClose={() => router.dismissTo('/')}
       onScan={(code) => {
         toast.success(`Đã quét: ${code}`);
         return true;

@@ -35,7 +35,9 @@ export function MetricGrid({ kpis }: { readonly kpis: readonly HomeKpi[] }) {
             ]}>
             <View style={styles.top}>
               <Text style={[styles.label, { color: danger ? theme.error : theme.textSecondary }]}>{kpi.label}</Text>
-              <Icon size={18} color={danger ? theme.error : theme.primary} />
+              <View style={[styles.iconWrap, { backgroundColor: danger ? theme.card : theme.muted }]}>
+                <Icon size={16} color={danger ? theme.error : theme.primary} />
+              </View>
             </View>
             <Text style={[styles.value, { color: danger ? theme.error : theme.text }]}>
               {kpi.value}
@@ -62,7 +64,8 @@ export function MetricGrid({ kpis }: { readonly kpis: readonly HomeKpi[] }) {
 
 const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  card: { width: '47.8%', flexGrow: 1, borderWidth: 1, borderRadius: Radius.xl, padding: 14, gap: 8 },
+  card: { width: '47.8%', flexGrow: 1, borderWidth: 1, borderRadius: 16, padding: 14, gap: 8 },
+  iconWrap: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   label: { fontSize: 12, fontFamily: FontFamily.semibold },
   value: { fontSize: 28, fontFamily: FontFamily.bold, letterSpacing: -0.5 },

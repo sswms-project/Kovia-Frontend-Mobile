@@ -53,7 +53,7 @@ export default function RootLayout() {
               <Stack.Protected guard={signedIn}>
                 <Stack.Screen name="(app)" />
                 <Stack.Screen name="(account)" />
-                <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="scan" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
               </Stack.Protected>
               <Stack.Protected guard={!signedIn}>
                 <Stack.Screen name="(auth)" />

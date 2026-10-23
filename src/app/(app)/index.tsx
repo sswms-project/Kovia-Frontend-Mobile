@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Bell, Warehouse } from 'lucide-react-native';
+import { Bell, Boxes, Map, ScanBarcode, SquareCheckBig, Warehouse } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +18,7 @@ import { TaskCard } from '@/features/my-tasks/components/task-list/task-card';
 import { useMyTasks } from '@/features/my-tasks/hooks/use-my-tasks';
 import { NotificationRow } from '@/features/notifications/components/notification-row';
 import { useNotifications } from '@/features/notifications/hooks/use-notifications';
+import { openNotificationTarget } from '@/features/notifications/notification-route';
 import { WarehousePicker } from '@/features/warehouse-access/components/warehouse-picker';
 import { useWarehouseAccess } from '@/features/warehouse-access/hooks/use-warehouse-access';
 import { useTheme } from '@/hooks/use-theme';
@@ -50,6 +51,13 @@ function SectionHeader({ title, count, actionLabel, onAction }: {
     </View>
   );
 }
+
+const QUICK_ACTIONS = [
+  { label: 'Quét mã', icon: ScanBarcode, go: () => router.push('/scan') },
+  { label: 'Sản phẩm', icon: Boxes, go: () => router.push('/products') },
+  { label: 'Sơ đồ kho', icon: Map, go: () => router.push('/locations') },
+  { label: 'Nhiệm vụ', icon: SquareCheckBig, go: () => router.navigate('/tasks') },
+] as const;
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -109,7 +117,7 @@ export default function HomeScreen() {
           </View>
           <Text style={[styles.brandText, { color: theme.text }]}>KOVIA WMS</Text>
         </View>
-        {notifications.allowed ? (
+        {(
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Thông báo"
@@ -118,7 +126,7 @@ export default function HomeScreen() {
             <Bell size={20} color={theme.text} />
             {notifications.unreadCount > 0 ? <View style={[styles.bellDot, { backgroundColor: theme.error }]} /> : null}
           </Pressable>
-        ) : null}
+        )}
       </View>
 
       <GreetingCard
@@ -129,9 +137,20 @@ export default function HomeScreen() {
         onChangeWarehouse={() => setPicking(true)}
       />
 
+      <View style={styles.quickRow}>
+        {QUICK_ACTIONS.map(({ label, icon: Icon, go }) => (
+          <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} onPress={go} style={styles.quick}>
+            <View style={[styles.quickIcon, { backgroundColor: theme.primaryContainer }]}>
+              <Icon size={22} color={theme.onPrimaryContainer} />
+            </View>
+            <Text style={[styles.quickLabel, { color: theme.text }]} numberOfLines={1}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
       {overview.allowed ? (
         <View style={styles.section}>
-          <SectionHeader title="Chỉ số kho" />
+          <SectionHeader title="Chỉ số hôm nay" />
           {overview.data ? (
             <MetricGrid kpis={buildKpis(overview.data)} />
           ) : overview.isError ? (
@@ -190,6 +209,7 @@ export default function HomeScreen() {
                   notification={item}
                   onPress={(n) => {
                     if (!n.isRead) notifications.markRead.mutate(n.id);
+                    openNotificationTarget(n);
                   }}
                 />
               ))}
@@ -217,4 +237,8 @@ const styles = StyleSheet.create({
   countChip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
   countText: { fontSize: 12, fontFamily: FontFamily.semibold },
   list: { gap: 10 },
+  quickRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  quick: { flex: 1, alignItems: 'center', gap: 6 },
+  quickIcon: { width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  quickLabel: { fontSize: 12, fontFamily: FontFamily.medium },
 });

@@ -39,15 +39,6 @@ export const MOBILE_TABS = [
     icon: { sf: 'shippingbox', md: 'inventory_2' },
   },
   {
-    name: 'notifications',
-    href: '/notifications',
-    title: 'Thông báo',
-    permission: P.NOTIFICATIONS_VIEW,
-    // Mở từ chuông ở trang chủ; navbar chỉ giữ 5 mục để nút quét nằm giữa.
-    inNavbar: false,
-    icon: { sf: 'bell', md: 'notifications' },
-  },
-  {
     name: 'profile',
     href: '/profile',
     title: 'Hồ sơ',
