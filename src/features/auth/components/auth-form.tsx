@@ -1,3 +1,4 @@
+import { ChevronLeft } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Controller, type FieldValues, type Path, type UseFormReturn } from 'react-hook-form';
 import {
@@ -19,9 +20,11 @@ import { useTheme } from '@/hooks/use-theme';
 interface AuthFrameProps {
   title: string;
   description?: string;
+  backLabel?: string;
+  onBack?: () => void;
   children: ReactNode;
 }
-export function AuthFrame({ title, description, children }: AuthFrameProps) {
+export function AuthFrame({ title, description, backLabel, onBack, children }: AuthFrameProps) {
   const colors = useTheme();
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
@@ -31,6 +34,13 @@ export function AuthFrame({ title, description, children }: AuthFrameProps) {
       >
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>
           <View style={styles.content}>
+            {onBack ? (
+              <Pressable accessibilityRole="button" accessibilityLabel={backLabel ?? 'Quay lại'} hitSlop={8}
+                onPress={onBack} style={styles.back}>
+                <ChevronLeft size={22} color={colors.primary} />
+                <Text style={[styles.backText, { color: colors.primary }]}>{backLabel ?? 'Quay lại'}</Text>
+              </Pressable>
+            ) : null}
             <KoviaLogo />
             <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
               {title}
@@ -160,6 +170,8 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { flexGrow: 1, padding: 24, paddingBottom: 100 },
   content: { width: '100%', maxWidth: 480, alignSelf: 'center', gap: 16 },
+  back: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginLeft: -4 },
+  backText: { fontSize: 16, fontWeight: '600' },
   brand: { fontSize: 13, fontWeight: '700', letterSpacing: 2, marginTop: 16 },
   title: { fontSize: 28, fontWeight: '700' },
   body: { fontSize: 16, lineHeight: 24 },

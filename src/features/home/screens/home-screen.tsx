@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Bell, ClipboardList, PackageSearch, Warehouse } from 'lucide-react-native';
+import { Bell, User, ClipboardList, PackageSearch, Warehouse } from 'lucide-react-native';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -105,16 +105,22 @@ export function HomeScreen() {
       keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <KoviaLogo />
+        <View style={styles.actions}>
         {notifications.allowed ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Thông báo"
             onPress={() => router.push('/notifications')}
-            style={[styles.bell, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            style={({ pressed }) => [styles.bell, pressed && styles.pressed]}>
             <Bell size={20} color={theme.text} />
             {(notifications.unreadCount ?? 0) > 0 ? <View style={[styles.bellDot, { backgroundColor: theme.error }]} /> : null}
           </Pressable>
         ) : null}
+          <Pressable accessibilityRole="button" accessibilityLabel="Hồ sơ" onPress={() => router.push('/profile')}
+            style={({ pressed }) => [styles.avatar, { backgroundColor: theme.primary }, pressed && styles.pressed]}>
+            <User size={20} color={theme.onPrimary} />
+          </Pressable>
+        </View>
       </View>
 
       <GreetingCard
@@ -206,8 +212,10 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 32, gap: 24, maxWidth: MaxContentWidth, width: '100%', alignSelf: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  bell: { width: 48, height: 48, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  bellDot: { position: 'absolute', top: 9, right: 10, width: 8, height: 8, borderRadius: 4 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  bell: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  bellDot: { position: 'absolute', top: 8, right: 9, width: 10, height: 10, borderRadius: 5 },
   section: { gap: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
