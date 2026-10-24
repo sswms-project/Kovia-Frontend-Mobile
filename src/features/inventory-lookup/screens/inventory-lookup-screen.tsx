@@ -81,7 +81,7 @@ export function InventoryLookupScreen({ scanner = false, initialInput }: { reado
           <Text style={[styles.text, { color: theme.text }]}>Trang {state.pageNumber}/{pages}</Text>
           <Button label="Trang sau" variant="outline" disabled={state.pageNumber >= pages || state.inventory.isFetching}
             onPress={() => state.setPageNumber((page) => page + 1)} />
-        </View> : null} />
+        </View> : undefined} />
     </KeyboardAvoidingView>
     <BarcodeCamera visible={state.cameraVisible} onScan={state.onScan} onClose={state.closeCamera} onFailure={state.failCamera} />
   </SafeAreaView>;

@@ -9,6 +9,7 @@ import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
 
+import { TransferPickActionDialog } from '../components/transfer-pick-action-dialog';
 import { TransferPickEditor } from '../components/transfer-pick-editor';
 import { TransferPickLineCard } from '../components/transfer-pick-line-card';
 import { useTransferPicking } from '../hooks/use-transfer-picking';
@@ -19,8 +20,11 @@ export function TransferPickingScreen({ transferId, shipmentId }: { readonly tra
   const theme = useTheme();
   const busy = state.mutation.isPending;
   const sheet = state.detail.data?.sheet;
+  const { canPick, beginPick, openDialog } = state;
   const renderLine = useCallback(({ item }: { item: TransferPickLine }) => <TransferPickLineCard
-    line={item} canPick={state.canPick} busy={busy} onPick={state.beginPick} />, [state.canPick, state.beginPick, busy]);
+    line={item} canPick={canPick} busy={busy} onPick={beginPick} onSwitch={line => openDialog('Switch', line)}
+    onEscalate={line => openDialog('Escalate', line)} onReturn={(line, pickId) => openDialog('Return', line, pickId)} />,
+  [canPick, beginPick, openDialog, busy]);
   return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
     <FlatList data={state.canView ? sheet?.lines ?? [] : []} keyExtractor={line => line.lineId} renderItem={renderLine}
       contentContainerStyle={styles.content} ItemSeparatorComponent={Separator} refreshing={state.detail.isFetching}
@@ -43,7 +47,6 @@ export function TransferPickingScreen({ transferId, shipmentId }: { readonly tra
           {state.canComplete && <Button label="Hoàn tất lấy hàng, chuyển chờ xuất" disabled={busy} onPress={state.beginComplete} />}
         </>}
         {state.notice && <AlertBanner title={state.notice} />}
-        <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
       </View>} />
     <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : state.closeEditor}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>{state.editor && <TransferPickEditor
@@ -55,6 +58,14 @@ export function TransferPickingScreen({ transferId, shipmentId }: { readonly tra
           busy={busy} error={state.mutation.error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />
         <ConfirmationModal visible={state.discard} title="Bỏ thay đổi chưa lưu?" description="Dữ liệu đang nhập sẽ bị bỏ."
           busy={busy} onConfirm={state.discardChanges} onCancel={() => state.setDiscard(false)} />
+      </SafeAreaView>
+    </Modal>
+    <Modal visible={!!state.dialog} animationType="slide" onRequestClose={busy ? undefined : state.closeDialog}>
+      <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>{state.dialog && <TransferPickActionDialog
+        key={`${state.dialog.kind}:${state.dialog.line.lineId}:${state.dialog.pickDetailId ?? ''}`}
+        kind={state.dialog.kind} line={state.dialog.line} pickDetailId={state.dialog.pickDetailId}
+        alternatives={{ data: state.alternatives.data, isPending: state.alternatives.isPending, error: state.alternatives.error }}
+        busy={busy} error={state.mutation.error} onSubmit={values => { void state.submitDialog(values); }} onClose={state.closeDialog} />}
       </SafeAreaView>
     </Modal>
     <ConfirmationModal visible={state.target?.action === 'Complete'} title="Đã lấy đủ hàng của đợt?"

@@ -1,5 +1,5 @@
 import { Eye, EyeOff } from 'lucide-react-native';
-import { useState, type ReactNode, type Ref } from 'react';
+import { useState, type ComponentRef, type ReactNode, type Ref } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { FontFamily, Radius } from '@/constants/theme';
@@ -13,7 +13,7 @@ interface TextFieldProps extends Omit<TextInputProps, 'style' | 'secureTextEntry
   readonly isPassword?: boolean;
   /** Shown on the label row's right side, e.g. a "Forgot password?" link. */
   readonly labelAccessory?: ReactNode;
-  readonly inputRef?: Ref<TextInput>;
+  readonly inputRef?: Ref<ComponentRef<typeof TextInput>>;
 }
 
 export function TextField({

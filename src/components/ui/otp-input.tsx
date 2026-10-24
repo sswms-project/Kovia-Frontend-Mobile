@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ComponentRef } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { FontFamily, Radius } from '@/constants/theme';
@@ -14,7 +14,7 @@ interface OtpInputProps {
 
 export function OtpInput({ value, onChangeText, length = 6, invalid = false, disabled = false }: OtpInputProps) {
   const theme = useTheme();
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const [isFocused, setIsFocused] = useState(false);
   const activeIndex = Math.min(value.length, length - 1);
 

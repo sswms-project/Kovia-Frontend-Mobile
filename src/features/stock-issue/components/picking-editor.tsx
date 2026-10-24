@@ -12,25 +12,24 @@ import { useTheme } from '@/hooks/use-theme';
 
 import type { PickForm, StockIssueItem } from '../stock-issue.schema';
 
-interface Props { readonly item: StockIssueItem; readonly slotCode: string; readonly destinationPath: string; readonly form: UseFormReturn<PickForm>;
+interface Props { readonly item: StockIssueItem; readonly slotCode: string; readonly form: UseFormReturn<PickForm>;
   readonly busy: boolean; readonly notice: string | null; readonly onReview: () => void; readonly onClose: () => void }
-export function PickingEditor({ item, slotCode, destinationPath, form, busy, notice, onReview, onClose }: Props) {
+export function PickingEditor({ item, slotCode, form, busy, notice, onReview, onClose }: Props) {
   const theme = useTheme();
-  const [scan, setScan] = useState<'scannedBarcode' | 'scannedSlotCode' | 'scannedStagingSlotCode' | null>(null);
+  const [scan, setScan] = useState<'scannedBarcode' | 'scannedSlotCode' | null>(null);
   return <>
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>Lấy hàng thực tế</Text>
         <Text style={[styles.text, { color: theme.text }]}>{item.sku} · {item.productName}</Text>
-        <AlertBanner title={`Nguồn: ${slotCode}`} description="Nhập số thực tế lấy theo đơn vị cơ sở. Hàng chuyển tới khu chờ xuất, vẫn được giữ cho phiếu này. Chỉ xác nhận sau khi đã di chuyển hàng." />
-        <AlertBanner title={`Đích chờ xuất: ${destinationPath}`} description="Đưa hàng đến đúng vị trí này và xác nhận mã đích. Nếu vị trí bị chặn hoặc đầy, dừng và liên hệ quản lý; không tự chuyển sang đích khác." />
+        <AlertBanner title={`Nguồn: ${slotCode}`} description="Nhập số thực tế lấy theo đơn vị cơ sở. Chỉ xác nhận sau khi đã di chuyển hàng." />
         {notice && <AlertBanner title={notice} />}
         <Controller control={form.control} name="pickedQuantity" render={({ field, fieldState }) => <TextField label="Số lượng thực tế lấy (đơn vị cơ sở)"
           value={Number.isFinite(field.value) ? String(field.value) : ''} keyboardType="decimal-pad" editable={!busy}
           onChangeText={value => field.onChange(value.trim() ? Number(value.replace(',', '.')) : Number.NaN)}
           onBlur={field.onBlur} error={fieldState.error?.message} />} />
-        {(['scannedBarcode', 'scannedSlotCode', 'scannedStagingSlotCode'] as const).map(name => <Controller key={name} control={form.control} name={name}
-          render={({ field, fieldState }) => <TextField label={name === 'scannedBarcode' ? 'Mã sản phẩm' : name === 'scannedSlotCode' ? 'Mã vị trí nguồn' : 'Mã vị trí chờ xuất đích'}
+        {(['scannedBarcode', 'scannedSlotCode'] as const).map(name => <Controller key={name} control={form.control} name={name}
+          render={({ field, fieldState }) => <TextField label={name === 'scannedBarcode' ? 'Mã sản phẩm' : 'Mã vị trí nguồn'}
             value={field.value ?? ''} autoCapitalize="none" autoCorrect={false} editable={!busy} maxLength={201}
             onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message}
             labelAccessory={<Button label="Quét" variant="outline" disabled={busy} onPress={() => setScan(name)} />} />} />)}
@@ -39,7 +38,7 @@ export function PickingEditor({ item, slotCode, destinationPath, form, busy, not
       </ScrollView>
     </KeyboardAvoidingView>
     <Modal visible={!!scan} onRequestClose={() => setScan(null)}>
-      <SafeAreaView style={styles.root}>{scan && <ScannerScreen title={scan === 'scannedBarcode' ? 'Quét mã sản phẩm' : scan === 'scannedSlotCode' ? 'Quét mã vị trí nguồn' : 'Quét mã vị trí chờ xuất đích'}
+      <SafeAreaView style={styles.root}>{scan && <ScannerScreen title={scan === 'scannedBarcode' ? 'Quét mã sản phẩm' : 'Quét mã vị trí nguồn'}
         onClose={() => setScan(null)} onScan={code => {
           if (scan === 'scannedBarcode' && item.barcode && code.trim().toLowerCase() !== item.barcode.trim().toLowerCase()) return false;
           form.setValue(scan, code, { shouldDirty: true, shouldValidate: true }); setScan(null); return true;

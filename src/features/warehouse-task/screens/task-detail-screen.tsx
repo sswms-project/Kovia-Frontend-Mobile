@@ -70,6 +70,7 @@ export function TaskDetailScreen({ taskType, taskId, history = false, warehouseI
       toast.success(ACTION_SUCCESS_MESSAGE[action]);
       setPendingAction(null);
       if (action === 'Return') back();
+      else if (action === 'Start' && destination) router.push(destination);
     } catch (error) {
       if (taskScopeMatches(startingScope, useWarehouseSelection.getState()))
         toast.error(getApiErrorMessage(error, 'Không thể cập nhật công việc. Vui lòng thử lại.'));

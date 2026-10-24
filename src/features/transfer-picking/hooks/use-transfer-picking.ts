@@ -17,9 +17,15 @@ import { warehouseCommand, type WarehouseCommandMemory } from '@/lib/warehouse-c
 
 import { assertTransferPick, transferPickingComplete } from '../transfer-picking';
 import { transferPickingApi } from '../transfer-picking.api';
-import { transferPickFormSchema, type TransferPickForm, type TransferPickLine } from '../transfer-picking.schema';
+import { transferEscalateFormSchema, transferPickFormSchema, transferReturnFormSchema, transferSwitchFormSchema,
+  type TransferEscalateForm, type TransferPickForm, type TransferPickLine, type TransferReturnForm, type TransferSwitchForm } from '../transfer-picking.schema';
 
-type Target = { key: string; version: string; action: 'Pick' | 'Complete'; values?: TransferPickForm };
+export type TransferDialogKind = 'Switch' | 'Escalate' | 'Return';
+export type TransferDialogValues = { kind: 'Switch'; values: TransferSwitchForm } | { kind: 'Escalate'; values: TransferEscalateForm }
+  | { kind: 'Return'; values: TransferReturnForm };
+type Target = { key: string; version: string; action: 'Pick' | 'Complete' | TransferDialogKind; values?: TransferPickForm;
+  lineId?: string; dialog?: TransferDialogValues };
+type Dialog = { key: string; version: string; kind: TransferDialogKind; line: TransferPickLine; pickDetailId?: string };
 export function useTransferPicking(transferId: string, shipmentId: string) {
   const access = useWarehouseAccess();
   const client = useQueryClient();
@@ -35,6 +41,7 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
   const [target, setTarget] = useState<Target | null>(null);
   const [notice, setNotice] = useState<{ key: string; message: string } | null>(null);
   const [discard, setDiscard] = useState(false);
+  const [dialog, setDialog] = useState<Dialog | null>(null);
   const lock = useRef(false);
   const command = useRef<WarehouseCommandMemory | null>(null);
   const form = useForm<TransferPickForm>({ resolver: zodResolver(transferPickFormSchema), defaultValues: {
@@ -69,12 +76,35 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
       command.current = warehouseCommand(command.current, { ...body, contextKey, version: original.version });
       return transferPickingApi.pick({ ...body, commandId: command.current.commandId }, guard);
     }
+    if (original.action === 'Switch' || original.action === 'Escalate' || original.action === 'Return') {
+      const input = original.dialog;
+      if (!input || input.kind !== original.action) throw new Error('Dữ liệu chưa hợp lệ.');
+      if (input.kind === 'Switch') {
+        const values = transferSwitchFormSchema.parse(input.values);
+        const body = { transferId, shipmentId, lineId: original.lineId!, ...values };
+        command.current = warehouseCommand(command.current, { action: 'Switch', ...body, contextKey, version: original.version });
+        return transferPickingApi.switchPick({ ...body, commandId: command.current.commandId }, guard);
+      }
+      if (input.kind === 'Escalate') {
+        const values = transferEscalateFormSchema.parse(input.values);
+        const body = { transferId, shipmentId, lineId: original.lineId!, ...values };
+        command.current = warehouseCommand(command.current, { action: 'Escalate', ...body, contextKey, version: original.version });
+        return transferPickingApi.escalate({ ...body, commandId: command.current.commandId }, guard);
+      }
+      const values = transferReturnFormSchema.parse(input.values);
+      const body = { transferId, shipmentId, ...values };
+      command.current = warehouseCommand(command.current, { action: 'Return', ...body, contextKey, version: original.version });
+      return transferPickingApi.returnPick({ ...body, commandId: command.current.commandId }, guard);
+    }
     return transferPickingApi.complete({ transferId, shipmentId, expectedVersion: original.version }, guard);
   }, onError: logApiError, onSuccess: async (_, original) => {
     if (original.key !== contextKey) return;
     if (original.action === 'Pick') await draft.clear();
-    setTarget(null); setEditor(null); form.reset();
+    setTarget(null); setEditor(null); setDialog(null); form.reset();
     setNotice({ key: contextKey, message: original.action === 'Pick' ? 'Đã ghi nhận số lượng thực tế lấy. Tổng tồn kho chưa giảm.'
+      : original.action === 'Switch' ? 'Đã đổi vị trí/lô lấy hàng.'
+      : original.action === 'Escalate' ? 'Đã báo quản lý xử lý dòng hàng.'
+      : original.action === 'Return' ? 'Đã ghi nhận trả hàng về vị trí.'
       : 'Đã hoàn tất lấy hàng. Hàng chờ người có quyền xác nhận xuất thực tế.' });
     await client.invalidateQueries({ queryKey: ['warehouse', identity, warehouseId, revision] });
   } });
@@ -96,6 +126,21 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
     if (!canComplete || !data?.sheet.version || lock.current) return;
     mutation.reset(); setTarget({ key: contextKey, version: data.sheet.version, action: 'Complete' });
   }
+  const alternatives = useQuery({ queryKey: [...prefix, 'alternatives', dialog?.line.lineId ?? '', signature],
+    enabled: !!scope && canPick && dialog?.kind === 'Switch' && dialog.key === contextKey, retry: false,
+    queryFn: ({ signal }) => transferPickingApi.alternatives(transferId, shipmentId, dialog!.line.lineId, signal) });
+  function openDialog(kind: TransferDialogKind, line: TransferPickLine, pickDetailId?: string) {
+    if (!canPick || !data?.sheet.version || lock.current) return;
+    mutation.reset(); setNotice(null); command.current = null;
+    setDialog({ key: contextKey, version: data.sheet.version, kind, line, pickDetailId });
+  }
+  async function submitDialog(input: TransferDialogValues) {
+    if (!dialog || dialog.key !== contextKey || lock.current) return;
+    lock.current = true;
+    try { await mutation.mutateAsync({ key: contextKey, version: dialog.version, action: input.kind, lineId: dialog.line.lineId, dialog: input }); }
+    catch { /* The dialog stays open so the error can be shown; the same command is reused on retry. */ }
+    finally { lock.current = false; }
+  }
   async function confirm() {
     if (!target || lock.current) return;
     lock.current = true;
@@ -103,7 +148,9 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
     finally { lock.current = false; }
   }
   const activeEditor = editor?.key === contextKey && canPick && editor.version === data?.sheet.version ? editor : null;
+  const activeDialog = dialog?.key === contextKey && canPick && dialog.version === data?.sheet.version ? dialog : null;
   return { access, validId, canView, detail, canPick, canComplete, form, mutation, contextKey, beginPick, review, beginComplete, confirm,
+    dialog: activeDialog, alternatives, openDialog, submitDialog, closeDialog: () => { if (!lock.current) setDialog(null); },
     editor: activeEditor, target: target?.key === contextKey && canPick && target.version === data?.sheet.version ? target : null,
     notice: notice?.key === contextKey ? notice.message : null, discard: discard && !!activeEditor, setDiscard,
     refresh: async () => { if (lock.current) return; setTarget(null); setEditor(null); await access.refresh(); await detail.refetch(); },

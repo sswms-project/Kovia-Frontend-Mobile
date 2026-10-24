@@ -80,7 +80,7 @@ export function MyTaskList({ warehouseName, data, filters, loading, fetching, er
       </View>}
       ListEmptyComponent={!loading && !error ? <Text style={[styles.summary, { color: theme.textSecondary }]}>
         {filters.history ? 'Chưa có công việc trong lịch sử theo bộ lọc này.' : 'Chưa có công việc được giao theo bộ lọc này.'}
-      </Text> : null}
+      </Text> : undefined}
       ListFooterComponent={!loading && !error ? <View style={styles.footer}>
         {filters.pageNumber > pageCount && <Text style={[styles.summary, { color: theme.textSecondary }]}>Danh sách đã thay đổi. Hãy quay về trang đầu.</Text>}
         <View style={styles.row}>
@@ -90,7 +90,7 @@ export function MyTaskList({ warehouseName, data, filters, loading, fetching, er
             onPress={() => onFilters({ pageNumber: filters.pageNumber + 1 })} />
           {filters.pageNumber > pageCount && <Button label="Trang đầu" variant="outline" disabled={busy || fetching} onPress={() => onFilters({ pageNumber: 1 })} />}
         </View>
-      </View> : null}
+      </View> : undefined}
     />
   </SafeAreaView>;
 }

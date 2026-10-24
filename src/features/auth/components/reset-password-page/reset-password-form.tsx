@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { AlertCircle, CheckCircle2 } from 'lucide-react-native';
-import { useRef } from 'react';
+import { useRef, type ComponentRef } from 'react';
 import { Controller, useWatch, type UseFormReturn } from 'react-hook-form';
 import { StyleSheet, Text, View, type TextInput } from 'react-native';
 
@@ -36,7 +36,7 @@ export function ResetPasswordForm({
   onGoToForgotPassword,
 }: ResetPasswordFormProps) {
   const theme = useTheme();
-  const confirmRef = useRef<TextInput>(null);
+  const confirmRef = useRef<ComponentRef<typeof TextInput>>(null);
   const password = useWatch({ control: form.control, name: 'password' }) ?? '';
   const confirmPassword = useWatch({ control: form.control, name: 'confirmPassword' }) ?? '';
   const submit = form.handleSubmit(onSubmit, () => {
@@ -112,7 +112,7 @@ export function ResetPasswordForm({
                   autoComplete="new-password"
                   textContentType="newPassword"
                   returnKeyType="go"
-                  onSubmitEditing={submit}
+                  onSubmitEditing={() => void submit()}
                 />
                 {confirmPassword ? (
                   <View accessibilityLiveRegion="polite" style={styles.hint}>

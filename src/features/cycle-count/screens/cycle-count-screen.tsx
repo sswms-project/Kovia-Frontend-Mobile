@@ -56,7 +56,6 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
             {!document.items.length && <AlertBanner title="Phiếu không có dòng kiểm kê." />}
           </>}
         </>}
-        <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
       </View>} />
     <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : state.closeEditor}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>{state.editor && <CountEditor key={`${state.contextKey}:${state.editor.item.id}:${state.editor.version}`}

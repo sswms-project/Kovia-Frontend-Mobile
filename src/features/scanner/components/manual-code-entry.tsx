@@ -34,11 +34,11 @@ export function ManualCodeEntry({ form, onSubmit, isBusy }: ManualCodeEntryProps
             autoComplete="off"
             returnKeyType="done"
             editable={!isBusy}
-            onSubmitEditing={submit}
+            onSubmitEditing={() => void submit()}
           />
         )}
       />
-      <Button label="Xác nhận mã" loading={isBusy} onPress={submit} />
+      <Button label="Xác nhận mã" loading={isBusy} onPress={() => void submit()} />
     </View>
   );
 }
