@@ -35,10 +35,14 @@ interface ScannerScreenProps {
   readonly onClose: () => void;
   readonly repeatGuardMs?: number;
   readonly onCameraFailure?: () => void;
+  /** Live progress line for continuous scanning, e.g. a running count. */
+  readonly status?: string;
+  /** Primary action that finishes a continuous scan session, e.g. applying the counted quantity. */
+  readonly confirm?: { readonly label: string; readonly disabled?: boolean; readonly onPress: () => void };
 }
 
 /** Shared scanner for inbound, outbound and stocktake flows. The owning feature supplies `onScan`. */
-export function ScannerScreen({ title, onScan, onClose, repeatGuardMs, onCameraFailure }: ScannerScreenProps) {
+export function ScannerScreen({ title, onScan, onClose, repeatGuardMs, onCameraFailure, status, confirm }: ScannerScreenProps) {
   const theme = useTheme();
   const isFocused = useIsFocused();
   const [permission, requestPermission] = useCameraPermissions();
@@ -115,7 +119,9 @@ export function ScannerScreen({ title, onScan, onClose, repeatGuardMs, onCameraF
           style={styles.panel}
           contentContainerStyle={styles.panelContent}
           keyboardShouldPersistTaps="handled">
+          {status ? <Text accessibilityLiveRegion="polite" style={[styles.status, { color: theme.text }]}>{status}</Text> : null}
           <ScanStatus isProcessing={isProcessing} lastScan={lastScan} />
+          {confirm ? <Button label={confirm.label} disabled={confirm.disabled || isProcessing} onPress={confirm.onPress} /> : null}
           {isManualVisible ? (
             <ManualCodeEntry
               form={manualForm}
@@ -146,4 +152,5 @@ const styles = StyleSheet.create({
   body: { flex: 1, marginHorizontal: 20 },
   panel: { flexGrow: 0, maxHeight: '45%' },
   panelContent: { gap: 14, padding: 20 },
+  status: { fontFamily: FontFamily.semibold, fontSize: 18, textAlign: 'center' },
 });

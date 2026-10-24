@@ -37,7 +37,7 @@ export function KoviaTabs({ allowedTabNames }: { readonly allowedTabNames: reado
       const scanner = tab.name === 'scanner';
       return <Tabs.Screen key={tab.name} name={tab.name} options={{
         title: owner && tab.name === 'catalog' ? role === USER_ROLES.TenantOwner ? 'Quản lý' : 'Theo dõi' : owner && tab.name === 'index' ? 'Tổng quan' : tab.title,
-        href: (owner ? tab.name !== 'tasks' : tab.inNavbar) && allowedTabNames.includes(tab.name) ? undefined : null,
+        href: (owner ? tab.name !== 'tasks' : tab.inNavbar) && (allowedTabNames.includes(tab.name) || 'showWithoutPermission' in tab) ? undefined : null,
         tabBarAccessibilityLabel: scanner ? 'Quét mã, mở tra cứu bằng camera hoặc nhập mã' : tab.title,
         tabBarIcon: ({ color, focused }) => scanner
           ? <View style={[styles.scan, { backgroundColor: theme.primary, borderColor: theme.card, shadowColor: theme.primary }, focused && { borderColor: theme.secondaryContainer }]}>

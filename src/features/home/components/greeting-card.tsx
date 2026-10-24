@@ -20,9 +20,10 @@ export function GreetingCard({ name, subtitle, onSearch, onScan, overview = fals
 
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-      <Text style={[styles.greeting, { color: theme.text }]} numberOfLines={1}>
-        Xin chào, {name}
-      </Text>
+      <View>
+        <Text style={[styles.hello, { color: theme.textSecondary }]}>Xin chào,</Text>
+        <Text style={[styles.greeting, { color: theme.text }]} numberOfLines={2}>{name}</Text>
+      </View>
       <View style={styles.subtitleRow}>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]} numberOfLines={1}>
           {subtitle}
@@ -61,7 +62,8 @@ export function GreetingCard({ name, subtitle, onSearch, onScan, overview = fals
 
 const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 20, padding: 20, gap: 10 },
-  greeting: { fontSize: 24, lineHeight: 32, fontFamily: FontFamily.bold },
+  hello: { fontSize: 14, lineHeight: 20, fontFamily: FontFamily.medium },
+  greeting: { fontSize: 20, lineHeight: 28, fontFamily: FontFamily.bold },
   subtitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   subtitle: { flexShrink: 1, fontSize: 13, fontFamily: FontFamily.medium },
   overviewHint: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 22 },
