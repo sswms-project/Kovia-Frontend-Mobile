@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { FlatList, Modal, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,7 @@ export function PutAwaySuggestionsModal({ visible, data, receipt, busy, error, o
     <Button label={`Chọn vị trí ${item.slot.slotCode}`} variant="outline" disabled={busy || item.slot.slotId === receipt?.receivingSlotId} onPress={() => onChoose(item.slot.slotId)} />
   </View>, [theme, busy, receipt?.receivingSlotId, onChoose]);
   return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-    <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+    <SafeAreaProvider><SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
       <FlatList data={rows} renderItem={renderItem} keyExtractor={item => item.key} contentContainerStyle={styles.content}
         ListHeaderComponent={<View style={styles.group}>
           <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>Gợi ý vị trí cất</Text>
@@ -42,8 +42,8 @@ export function PutAwaySuggestionsModal({ visible, data, receipt, busy, error, o
           {error && <AlertBanner title="Chưa thể tải gợi ý. Bạn vẫn có thể chọn vị trí hợp lệ bằng tay." description={getApiErrorMessage(error)} />}
           <Button label="Đóng gợi ý và chọn bằng tay" variant="outline" onPress={onClose} />
         </View>}
-        ListEmptyComponent={!busy && !error ? <Text style={[styles.text, { color: theme.textSecondary }]}>Chưa có vị trí gợi ý phù hợp. Hãy chọn vị trí hợp lệ khác hoặc để công việc chờ xử lý.</Text> : null} />
-    </SafeAreaView>
+        ListEmptyComponent={!busy && !error ? <Text style={[styles.text, { color: theme.textSecondary }]}>Chưa có vị trí gợi ý phù hợp. Hãy chọn vị trí hợp lệ khác hoặc để công việc chờ xử lý.</Text> : undefined} />
+    </SafeAreaView></SafeAreaProvider>
   </Modal>;
 }
 const styles = StyleSheet.create({ root: { flex: 1 }, content: { padding: 20, gap: 14, maxWidth: 640, width: '100%', alignSelf: 'center' }, group: { gap: 12 },

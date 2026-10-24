@@ -36,6 +36,8 @@ export const MOBILE_TABS = [
     title: 'Tồn kho',
     permission: P.INVENTORY_VIEW,
     inNavbar: true,
+    // Stays in the navbar without the permission; the screen then explains access is missing.
+    showWithoutPermission: true,
     icon: { sf: 'shippingbox', md: 'inventory_2' },
   },
   {
@@ -139,6 +141,13 @@ export const LOOKUP_ENTRIES = [
     title: 'Yêu cầu trả hàng',
     description: 'Trạng thái các yêu cầu trả hàng',
     permission: P.GOODS_RETURN_REQUESTS_VIEW,
+  },
+  {
+    key: 'stock-adjustments',
+    href: '/catalog/stock-adjustments',
+    title: 'Điều chỉnh tồn kho',
+    description: 'Duyệt hoặc từ chối phiếu điều chỉnh sau kiểm kê',
+    permission: P.STOCK_ADJUSTMENTS_VIEW,
   },
   {
     key: 'damage-cases',

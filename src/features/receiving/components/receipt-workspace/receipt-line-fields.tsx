@@ -1,10 +1,11 @@
-import { memo } from 'react';
-import { Controller, type UseFormReturn } from 'react-hook-form';
-import { StyleSheet, Text, View } from 'react-native';
+import { memo, useRef, useState } from 'react';
+import { Controller, useWatch, type UseFormReturn } from 'react-hook-form';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
 import { FontFamily, Radius } from '@/constants/theme';
+import { ScanCodeButton } from '@/features/scanner/components/scan-code-button';
 import { useTheme } from '@/hooks/use-theme';
 
 import type { ReceiptForm } from '../../receiving.schema';
@@ -22,43 +23,96 @@ export function parseQuantity(value: string) { return value.trim() ? Number(valu
 export function quantityInput(value: number) { return Number.isFinite(value) ? String(value) : ''; }
 export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, item, correction, legacy, busy, onRemove }: ReceiptLineFieldsProps) {
   const theme = useTheme();
+  const sku = item.productSKU;
+  const receivedQty = useWatch({ control: form.control, name: `lines.${index}.receivedQty` });
+  const baseQty = Number.isFinite(receivedQty) ? receivedQty : 0;
+  // Scans in the open session stay pending until the worker confirms them; the ref keeps rapid scans from reading a stale count.
+  const [scanned, setScanned] = useState(0);
+  const scanCount = useRef(0);
+  function setScanCount(value: number) { scanCount.current = value; setScanned(value); }
+  const units = item.enteredUnitId === item.baseUnitId ? [{ id: item.baseUnitId, name: item.baseUnitName }]
+    : [{ id: item.baseUnitId, name: item.baseUnitName }, { id: item.enteredUnitId, name: item.enteredUnitName }];
+  const unitName = useWatch({ control: form.control, name: `lines.${index}.enteredUnitId` }) === item.enteredUnitId ? item.enteredUnitName : item.baseUnitName;
   return <View style={[styles.card, { borderColor: theme.border, backgroundColor: theme.card }]}>
-    <Text style={[styles.name, { color: theme.text }]}>{item.productSKU} · {item.productName}</Text>
-    {!correction && <Text style={[styles.text, { color: theme.textSecondary }]}>Còn được nhận: {item.remainingQuantity} {item.baseUnitName}</Text>}
-    <Controller control={form.control} name={`lines.${index}.enteredUnitId`} render={({ field }) => <View style={styles.group}>
-      <Button label={`Đơn vị: ${item.baseUnitName}`} variant={field.value === item.baseUnitId ? 'primary' : 'outline'} disabled={busy || correction}
-        onPress={() => { field.onChange(item.baseUnitId); form.setValue(`lines.${index}.receivedQty`, Number.NaN); form.setValue(`lines.${index}.damagedQty`, 0); }} />
-      {item.enteredUnitId !== item.baseUnitId && <Button label={`Đơn vị: ${item.enteredUnitName}`}
-        variant={field.value === item.enteredUnitId ? 'primary' : 'outline'} disabled={busy || correction}
-        onPress={() => { field.onChange(item.enteredUnitId); form.setValue(`lines.${index}.receivedQty`, Number.NaN); form.setValue(`lines.${index}.damagedQty`, 0); }} />}
-    </View>} />
-    <Controller control={form.control} name={`lines.${index}.receivedQty`} render={({ field, fieldState }) => <TextField
-      label={`${legacy ? 'Số thực nhận lịch sử' : 'Số chấp nhận nhận'} ${item.productSKU}`} value={quantityInput(field.value)} onChangeText={value => field.onChange(parseQuantity(value))}
-      onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy && !correction} keyboardType="decimal-pad"
-      hint={correction ? 'Hàng đã nhận được giữ nguyên; chỉ sửa phân loại.' : 'Nhập số đã kiểm đếm thực tế theo đơn vị đang chọn.'} />} />
-    {!correction && !legacy && <Controller control={form.control} name={`lines.${index}.rejectedQty`} render={({ field, fieldState }) => <TextField
-      label={`Số từ chối trước nhận ${item.productSKU}`} value={quantityInput(field.value)} onChangeText={value => field.onChange(parseQuantity(value))}
-      onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy} keyboardType="decimal-pad"
-      hint="Phần bên giao giữ hoặc mang về, không ghi vào tồn kho. Nhập 0 ở số chấp nhận nếu từ chối toàn bộ." />} />}
-    {(correction || legacy) && <Controller control={form.control} name={`lines.${index}.damagedQty`} render={({ field, fieldState }) => <TextField
-      label={`Số hỏng ${item.productSKU}`} value={quantityInput(field.value)} onChangeText={value => field.onChange(parseQuantity(value))}
-      onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy} keyboardType="decimal-pad" />} />}
-    <Controller control={form.control} name={`lines.${index}.exceptionReason`} render={({ field, fieldState }) => <TextField
-      label={`Tình trạng hàng ${item.productSKU}`} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur}
-      error={fieldState.error?.message} editable={!busy} multiline maxLength={501} />} />
+    <View style={styles.header}>
+      <View style={styles.headerText}>
+        <Text style={[styles.sku, { color: theme.textSecondary }]}>{sku}</Text>
+        <Text style={[styles.name, { color: theme.text }]} numberOfLines={2}>{item.productName}</Text>
+        {!correction && <Text style={[styles.text, { color: theme.textSecondary }]}>Còn được nhận: {item.remainingQuantity} {item.baseUnitName}</Text>}
+      </View>
+      {!correction && <ScanCodeButton compact continuous label={baseQty > 0 ? `Quét đếm · ${baseQty}` : 'Quét đếm'}
+        title={`Quét mã ${sku}`} status={`Đã quét: ${scanned} ${unitName} · Chấp nhận sau xác nhận: ${baseQty + scanned}`} disabled={busy}
+        onOpen={() => setScanCount(0)}
+        onScan={code => {
+          if (code.trim().toLowerCase() !== sku.trim().toLowerCase()) return false;
+          setScanCount(scanCount.current + 1);
+          return true;
+        }}
+        confirm={{ label: scanned > 0 ? `Xác nhận ${scanned} ${unitName}` : 'Xác nhận', disabled: scanned === 0, onPress: () => {
+          form.setValue(`lines.${index}.receivedQty`, baseQty + scanCount.current, { shouldDirty: true, shouldValidate: true });
+          setScanCount(0);
+        } }}
+        onBeforeClose={() => scanCount.current === 0 || new Promise<boolean>(resolve => Alert.alert('Bỏ lượt quét?',
+          `${scanCount.current} ${unitName} đã quét chưa được xác nhận sẽ không được cộng vào Chấp nhận.`,
+          [{ text: 'Quét tiếp', style: 'cancel', onPress: () => resolve(false) }, { text: 'Bỏ', style: 'destructive', onPress: () => { setScanCount(0); resolve(true); } }],
+          { cancelable: true, onDismiss: () => resolve(false) }))} />}
+    </View>
+    {units.length > 1 && <Controller control={form.control} name={`lines.${index}.enteredUnitId`} render={({ field }) =>
+      <View accessibilityRole="radiogroup" accessibilityLabel={`Đơn vị nhận ${sku}`} style={[styles.segment, { borderColor: theme.border }]}>
+        {units.map(unit => { const active = field.value === unit.id; return <Pressable key={unit.id} accessibilityRole="radio"
+          accessibilityState={{ selected: active, disabled: busy || correction }} disabled={busy || correction}
+          onPress={() => { if (active) return; field.onChange(unit.id); form.setValue(`lines.${index}.receivedQty`, Number.NaN); form.setValue(`lines.${index}.damagedQty`, 0); }}
+          style={[styles.segmentItem, active && { backgroundColor: theme.primary }, (busy || correction) && styles.inactive]}>
+          <Text style={[styles.segmentLabel, { color: active ? theme.onPrimary : theme.text }]}>{unit.name}</Text>
+        </Pressable>; })}
+      </View>} />}
+    <View style={styles.row}>
+      <View style={styles.cell}><Controller control={form.control} name={`lines.${index}.receivedQty`} render={({ field, fieldState }) => <TextField
+        label={legacy ? `Thực nhận (${unitName})` : `Chấp nhận (${unitName})`} accessibilityLabel={`${legacy ? 'Số thực nhận lịch sử' : 'Số chấp nhận nhận'} ${sku}`}
+        value={quantityInput(field.value)} onChangeText={value => field.onChange(parseQuantity(value))} placeholder="0"
+        onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy && !correction} keyboardType="decimal-pad" />} /></View>
+      {!correction && !legacy && <View style={styles.cell}><Controller control={form.control} name={`lines.${index}.rejectedQty`} render={({ field, fieldState }) => <TextField
+        label={`Từ chối (${unitName})`} accessibilityLabel={`Số từ chối trước nhận ${sku}`} value={quantityInput(field.value)} placeholder="0"
+        onChangeText={value => field.onChange(parseQuantity(value))} onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy} keyboardType="decimal-pad" />} /></View>}
+      {(correction || legacy) && <View style={styles.cell}><Controller control={form.control} name={`lines.${index}.damagedQty`} render={({ field, fieldState }) => <TextField
+        label={`Hỏng (${unitName})`} accessibilityLabel={`Số hỏng ${sku}`} value={quantityInput(field.value)} placeholder="0"
+        onChangeText={value => field.onChange(parseQuantity(value))} onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy} keyboardType="decimal-pad" />} /></View>}
+    </View>
+    <Text style={[styles.hint, { color: theme.textSecondary }]}>{correction ? 'Hàng đã nhận được giữ nguyên; chỉ sửa phân loại.'
+      : legacy ? 'Nhập số đã kiểm đếm thực tế theo đơn vị đang chọn.' : 'Từ chối: phần bên giao mang về, không vào tồn kho. Từ chối toàn bộ thì nhập 0 ở Chấp nhận.'}</Text>
     {item.isLotTracked && <>
       <Controller control={form.control} name={`lines.${index}.lotNumber`} render={({ field, fieldState }) => <TextField
-        label={`Số lô ${item.productSKU}`} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur}
-        error={fieldState.error?.message} editable={!busy && !correction} maxLength={101} autoCapitalize="characters" />} />
-      <Controller control={form.control} name={`lines.${index}.manufacturedDate`} render={({ field, fieldState }) => <TextField
-        label={`Ngày sản xuất ${item.productSKU}`} placeholder="YYYY-MM-DD" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur}
-        error={fieldState.error?.message} editable={!busy && !correction} maxLength={10} autoCapitalize="none" />} />
-      <Controller control={form.control} name={`lines.${index}.expiryDate`} render={({ field, fieldState }) => <TextField
-        label={`Hạn sử dụng ${item.productSKU}`} placeholder="YYYY-MM-DD" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur}
-        error={fieldState.error?.message} editable={!busy && !correction} maxLength={10} autoCapitalize="none" />} />
+        label="Số lô" accessibilityLabel={`Số lô ${sku}`} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur}
+        error={fieldState.error?.message} editable={!busy && !correction} maxLength={101} autoCapitalize="characters"
+        labelAccessory={!correction && <ScanCodeButton compact label="Quét số lô" title="Quét số lô" disabled={busy}
+          onScan={code => { const lot = code.trim(); if (!lot || lot.length > 100) return false; field.onChange(lot.toUpperCase()); return true; }} />} />} />
+      <View style={styles.row}>
+        <View style={styles.cell}><Controller control={form.control} name={`lines.${index}.manufacturedDate`} render={({ field, fieldState }) => <TextField
+          label="Ngày SX" accessibilityLabel={`Ngày sản xuất ${sku}`} placeholder="YYYY-MM-DD" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur}
+          error={fieldState.error?.message} editable={!busy && !correction} maxLength={10} autoCapitalize="none" />} /></View>
+        <View style={styles.cell}><Controller control={form.control} name={`lines.${index}.expiryDate`} render={({ field, fieldState }) => <TextField
+          label="Hạn dùng" accessibilityLabel={`Hạn sử dụng ${sku}`} placeholder="YYYY-MM-DD" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur}
+          error={fieldState.error?.message} editable={!busy && !correction} maxLength={10} autoCapitalize="none" />} /></View>
+      </View>
     </>}
-    {!correction && <Button label={`Bỏ nhận ${item.productSKU} lần này`} variant="ghost" disabled={busy} onPress={onRemove} />}
+    <Controller control={form.control} name={`lines.${index}.exceptionReason`} render={({ field, fieldState }) => <TextField
+      label="Tình trạng hàng" accessibilityLabel={`Tình trạng hàng ${sku}`} placeholder="Móp, rách bao bì, sai quy cách… (nếu có)"
+      value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy} multiline maxLength={501} />} />
+    {!correction && <Button label="Bỏ dòng này" accessibilityLabel={`Bỏ nhận ${sku} lần này`} variant="ghost" disabled={busy} onPress={onRemove} />}
   </View>;
 });
-const styles = StyleSheet.create({ card: { padding: 16, borderWidth: 1, borderRadius: Radius.lg, gap: 12 }, group: { gap: 8 },
-  name: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 24 }, text: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 21 } });
+const styles = StyleSheet.create({
+  card: { padding: 16, borderWidth: 1, borderRadius: Radius.lg, gap: 12 },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  headerText: { flex: 1, gap: 2 },
+  sku: { fontFamily: FontFamily.semibold, fontSize: 12, lineHeight: 16, letterSpacing: 0.5 },
+  name: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 22 },
+  text: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 18 },
+  segment: { flexDirection: 'row', borderWidth: 1, borderRadius: Radius.md, padding: 3, gap: 3 },
+  segmentItem: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.base },
+  segmentLabel: { fontFamily: FontFamily.semibold, fontSize: 14, lineHeight: 20 },
+  inactive: { opacity: 0.5 },
+  row: { flexDirection: 'row', gap: 12 },
+  cell: { flex: 1 },
+  hint: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 17, marginTop: -4 },
+});

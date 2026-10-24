@@ -57,7 +57,7 @@ export const receiptSchema = z.object({
   createdAt: text, modifiedAt: nullableText, submittedAt: nullableText, approvedAt: nullableText, rejectionReason: nullableText,
   arrivalConfirmedBy: id.nullable(), arrivalConfirmedAt: nullableText, receivingSlotId: id.nullable(),
   arrivalStockPostedAt: nullableText, sourceRequestVersion: nullableText, putAwayTaskExecutionStatus: text,
-  receivingFlowVersion: quantity.int().max(1).default(0), keptAtReceiving: z.boolean().default(false), refusedGoodsHandedBack: z.boolean().default(false), refusalEvidence: z.array(evidenceSchema).default([]),
+  receivingFlowVersion: quantity.int().max(1).default(0), keptAtReceiving: z.boolean().default(false), refusedGoodsHandedBack: z.boolean().default(false), refusalEvidence: z.array(evidenceSchema).default([]), documentEvidence: z.array(evidenceSchema).default([]),
   putAwayAssignedTo: id.nullable(), putAwayAssignedToName: nullableText, putAwayAssignedAt: nullableText,
   putAwayTaskPriority: text, putAwayTaskDueAt: nullableText, receivingAssignedTo: id.nullable(), receivingAssignedToName: nullableText,
   putAwayTaskCancelledAt: nullableText, putAwayTaskCancellationReason: nullableText, putAwayTaskRequiresReconciliation: z.boolean(),
@@ -85,7 +85,7 @@ export const updateReceiptFormSchema = z.object({ receiptCode: text.trim().min(1
 export const createReceiptCommandSchema = createReceiptFormSchema.extend({ inboundRequestId: id, expectedInboundVersion: version, commandId: id });
 export const updateReceiptCommandSchema = updateReceiptFormSchema.extend({ expectedVersion: version, commandId: id });
 export const submitReceiptCommandSchema = z.object({ expectedVersion: version, commandId: id, receivingSlotId: id.nullable(),
-  refusedGoodsHandedBack: z.boolean().optional(), refusalEvidenceIds: z.array(id).max(5).optional() });
+  refusedGoodsHandedBack: z.boolean().optional(), refusalEvidenceIds: z.array(id).max(5).optional(), documentEvidenceIds: z.array(id).max(5).optional() });
 export const putAwayFormSchema = z.object({
   goodsReceiptItemId: id, slotId: id, quantity: z.number({ error: 'Vui lòng nhập số lượng thực cất hợp lệ.' }).finite().positive('Số lượng cất phải lớn hơn 0.').lt(1e16, 'Số lượng vượt giới hạn cho phép.').multipleOf(0.01, 'Số lượng chỉ được có tối đa hai chữ số thập phân.'),
   confirmedSlotCode: text.trim().max(100, 'Mã vị trí tối đa 100 ký tự.'), overrideReason: text.trim().max(500, 'Lý do tối đa 500 ký tự.'),

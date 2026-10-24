@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { useCallback } from 'react';
 import { FlatList, Modal, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,7 +25,6 @@ export function TransferPickingScreen({ transferId, shipmentId }: { readonly tra
     <FlatList data={state.canView ? sheet?.lines ?? [] : []} keyExtractor={line => line.lineId} renderItem={renderLine}
       contentContainerStyle={styles.content} ItemSeparatorComponent={Separator} refreshing={state.detail.isFetching}
       onRefresh={busy ? undefined : () => { void state.refresh(); }} ListHeaderComponent={<View style={styles.header}>
-        <Button label="Về công việc của tôi" variant="outline" disabled={busy} onPress={() => router.navigate('/tasks')} />
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{sheet?.transferCode ?? 'Lấy hàng điều chuyển'}</Text>
         {!state.validId && <AlertBanner variant="destructive" title="Liên kết điều chuyển không hợp lệ." />}
         {!state.canView && <AlertBanner title="Chọn kho được giao và kiểm tra quyền xem điều chuyển để mở công việc." />}

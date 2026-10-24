@@ -1,3 +1,7 @@
+import { useRouter } from 'expo-router';
+import { MapPin } from 'lucide-react-native';
+
+import { Button } from '@/components/ui/button';
 import { DetailHeading, DetailScroll, InfoRow, Section } from '@/components/ui/detail-sections';
 import { QueryBoundary } from '@/components/ui/query-boundary';
 import { formatDisplayDate } from '@/lib/date-format';
@@ -10,6 +14,7 @@ interface WarehouseDetailScreenProps {
 }
 
 export function WarehouseDetailScreen({ warehouseId }: WarehouseDetailScreenProps) {
+  const router = useRouter();
   const query = useWarehouseDetailQuery(warehouseId);
 
   return (
@@ -29,6 +34,14 @@ export function WarehouseDetailScreen({ warehouseId }: WarehouseDetailScreenProp
               value={warehouse.modifiedAt ? formatDisplayDate(new Date(warehouse.modifiedAt)) : null}
             />
           </Section>
+          <Button
+            label="Xem vị trí và mã vạch"
+            variant="outline"
+            renderIcon={(color) => <MapPin size={18} color={color} />}
+            onPress={() =>
+              router.push({ pathname: '/catalog/warehouses/locations', params: { warehouseId } })
+            }
+          />
         </DetailScroll>
       )}
     </QueryBoundary>

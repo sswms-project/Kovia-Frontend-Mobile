@@ -29,6 +29,14 @@ export interface ReportDamageBody {
   readonly evidenceIds: readonly string[];
 }
 
+export interface AddDamageEvidenceBody {
+  readonly evidenceIds: readonly string[];
+  readonly expectedCaseVersion: string;
+  /** Required for an observation that has no confirmed quantity yet. */
+  readonly confirmedQuantity?: number;
+  readonly expectedStockVersion?: string;
+}
+
 export const damageCasesApi = {
   list: (params: DamageCaseListParams) =>
     api.get<ApiResponse<PageResult<DamageCase>>>('/inventory/damage-cases', { params }).then(unwrap),
@@ -50,6 +58,10 @@ export const damageCasesApi = {
     assertCurrentContext();
     if (evidence.warehouseId !== warehouseId) throw new Error('Bằng chứng không khớp kho đang báo hỏng.');
     return evidence;
+  },
+  addEvidence: (id: string, body: AddDamageEvidenceBody, assertCurrentContext: () => void) => {
+    assertCurrentContext();
+    return api.post(`/inventory/damage-cases/${id}/evidence`, body, guarded(assertCurrentContext));
   },
   report: (body: ReportDamageBody, assertCurrentContext: () => void) => {
     assertCurrentContext();

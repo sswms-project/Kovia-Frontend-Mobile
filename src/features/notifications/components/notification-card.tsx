@@ -33,7 +33,8 @@ export const NotificationCard = memo(function NotificationCard({ item, busy, can
         {!item.isRead && <View style={[styles.dot, { backgroundColor: theme.primary }]} />}
       </View>
       <Text numberOfLines={3} style={[styles.text, item.isRead ? { color: theme.textSecondary } : { color: theme.text, fontFamily: FontFamily.bold }]}>{item.message}</Text>
-      {!item.isRead && <Pressable accessibilityRole="button" disabled={busy} hitSlop={8} onPress={() => onRead(item.id)}>
+      {!item.isRead && <Pressable accessibilityRole="button" accessibilityLabel={`Đánh dấu đã đọc: ${item.title}`}
+        disabled={busy} style={styles.readAction} onPress={event => { event.stopPropagation(); onRead(item.id); }}>
         <Text style={[styles.link, { color: theme.primary }]}>Đánh dấu đã đọc</Text></Pressable>}
     </View>
   </Pressable>;
@@ -48,4 +49,5 @@ const styles = StyleSheet.create({
   text: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 21 },
   time: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 18 },
   link: { fontFamily: FontFamily.semibold, fontSize: 13, lineHeight: 20 },
+  readAction: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
 });

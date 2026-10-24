@@ -33,7 +33,7 @@ export function NotificationsScreen() {
   const { markRead } = state;
   const read = useCallback((id: string) => { void markRead(id); }, [markRead]);
   const items = state.canView ? state.list.data?.items ?? [] : [];
-  const unreadCount = items.filter((item) => !item.isRead).length;
+  const hasUnread = items.some((item) => !item.isRead);
   const rows = groupByDay(items);
   const renderItem = ({ item }: { item: Row }) => item.kind === 'header'
     ? <Text style={[styles.section, { color: theme.textSecondary }]}>{item.label}</Text>
@@ -46,7 +46,7 @@ export function NotificationsScreen() {
     <View style={styles.toolbar}>
       <View style={styles.heading}>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>Thông báo</Text>
-        {unreadCount > 0 && <View style={[styles.badge, { backgroundColor: theme.errorContainer }]}><Text style={[styles.badgeText, { color: theme.error }]}>{unreadCount} mới</Text></View>}
+        {hasUnread && <View style={[styles.badge, { backgroundColor: theme.errorContainer }]}><Text style={[styles.badgeText, { color: theme.error }]}>Chưa đọc</Text></View>}
       </View>
       <View style={styles.heading}>
         {state.canView && <Pressable accessibilityRole="button" accessibilityLabel="Đọc tất cả" disabled={busy || state.list.isPending}
@@ -55,31 +55,47 @@ export function NotificationsScreen() {
         <Pressable accessibilityRole="button" accessibilityLabel="Đóng thông báo" onPress={close} style={styles.iconButton}><X size={22} color={theme.text} /></Pressable>
       </View>
     </View>
+    {(navigation.searchStatus || navigation.choices.length > 0) && <View style={styles.searchFeedback}>
+      <NotificationTaskChoices navigation={navigation} />
+    </View>}
     <FlatList data={rows} keyExtractor={item => item.key} renderItem={renderItem}
       contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" ItemSeparatorComponent={Separator}
       refreshing={state.canView && state.list.isFetching} onRefresh={() => { if (state.canView) void state.list.refetch(); }}
       ListHeaderComponent={<View style={styles.header}>
-        <NotificationTaskChoices navigation={navigation} />
         {!state.canView ? <>
           <AlertBanner title={state.access.validated ? 'Bạn chưa có quyền xem thông báo.' : 'Đang xác minh tài khoản và quyền thông báo.'} />
           <Button label="Kiểm tra lại quyền" variant="outline" onPress={() => { void state.access.refresh(); }} />
         </> : <>
           {!state.access.ready && <AlertBanner title="Chọn kho làm việc để mở công việc liên quan." />}
-          <Controller control={state.form.control} name="search" render={({ field }) => <View style={[styles.searchBar, { backgroundColor: theme.muted }]}>
-            <Search size={18} color={theme.textSecondary} />
-            <TextInput accessibilityLabel="Tìm thông báo" placeholder="Tìm thông báo…" placeholderTextColor={theme.textSecondary} value={field.value}
-              onChangeText={field.onChange} onBlur={field.onBlur} maxLength={256} autoCapitalize="none" autoCorrect={false} returnKeyType="search"
-              onSubmitEditing={() => { void state.search(); }} style={[styles.searchInput, { color: theme.text }]} />
-            {field.value ? <Pressable accessibilityRole="button" accessibilityLabel="Xóa tìm kiếm" hitSlop={8}
-              onPress={() => { state.form.setValue('search', ''); void state.search(); }}><X size={18} color={theme.textSecondary} /></Pressable> : null}
+          <View accessibilityRole="tablist" style={[styles.filters, { backgroundColor: theme.muted }]}>
+            {[false, true].map(unreadOnly => <Pressable key={String(unreadOnly)} accessibilityRole="tab"
+              accessibilityState={{ selected: state.filters.unreadOnly === unreadOnly }}
+              onPress={() => { if (state.filters.unreadOnly !== unreadOnly) state.toggleUnread(); }}
+              style={[styles.segment, state.filters.unreadOnly === unreadOnly && { backgroundColor: theme.primary }]}>
+              <Text style={[styles.segmentText, { color: state.filters.unreadOnly === unreadOnly ? theme.onPrimary : theme.text }]}>
+                {unreadOnly ? 'Chưa đọc' : 'Tất cả'}</Text>
+            </Pressable>)}
+          </View>
+          <Controller control={state.form.control} name="search" render={({ field, fieldState }) => <View style={styles.searchForm}>
+            <View style={[styles.searchBar, { backgroundColor: theme.muted }]}>
+              <Search size={18} color={theme.textSecondary} />
+              <TextInput accessibilityLabel="Tìm thông báo" placeholder="Tìm thông báo…" placeholderTextColor={theme.textSecondary} value={field.value}
+                onChangeText={field.onChange} onBlur={field.onBlur} maxLength={255} autoCapitalize="none" autoCorrect={false} returnKeyType="search"
+                onSubmitEditing={() => { void state.search(); }} style={[styles.searchInput, { color: theme.text }]} />
+              {field.value ? <Pressable accessibilityRole="button" accessibilityLabel="Xóa tìm kiếm" style={styles.iconButton}
+                onPress={() => { state.form.setValue('search', ''); void state.search(); }}><X size={18} color={theme.textSecondary} /></Pressable> : null}
+            </View>
+            {fieldState.error && <Text accessibilityRole="alert" style={[styles.text, { color: theme.error }]}>{fieldState.error.message}</Text>}
           </View>} />
+          <Button label="Tìm thông báo" variant="outline" onPress={() => { void state.search(); }} />
           {state.list.isPending && <AlertBanner title="Đang tải thông báo…" />}
           {state.list.error && <AlertBanner variant="destructive" title="Chưa thể tải dữ liệu mới" description={getApiErrorMessage(state.list.error)} />}
           {state.mutation.error && <AlertBanner variant="destructive" title="Chưa thể đánh dấu đã đọc" description={getApiErrorMessage(state.mutation.error)} />}
           {state.notice && <AlertBanner title={state.notice} />}
         </>}
       </View>}
-      ListEmptyComponent={state.canView && state.list.isSuccess ? <AlertBanner title={state.filters.search ? 'Không có thông báo phù hợp.' : 'Bạn chưa có thông báo nào.'} /> : null}
+      ListEmptyComponent={state.canView && state.list.isSuccess ? <AlertBanner title={state.filters.search ? 'Không có thông báo phù hợp.'
+        : state.filters.unreadOnly ? 'Bạn không có thông báo mới.' : 'Bạn chưa có thông báo nào.'} /> : null}
       onEndReached={state.loadMore} onEndReachedThreshold={0.4}
       ListFooterComponent={state.loadingMore ? <ActivityIndicator style={styles.footer} color={theme.primary} /> : null} />
     <ConfirmationModal visible={confirmAll === identityKey && state.canView} title="Đánh dấu tất cả thông báo đã đọc?"
@@ -109,10 +125,11 @@ function Separator() { return <View style={styles.separator} />; }
 const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
   sheet: { maxHeight: '94%', height: '88%', width: '100%', maxWidth: 600, alignSelf: 'center', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
-  toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 8 },
+  toolbar: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 8 },
   heading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   iconButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  filters: { flexDirection: 'row', justifyContent: 'flex-end' },
+  filters: { flexDirection: 'row', padding: 4, borderRadius: 999 },
+  searchFeedback: { paddingHorizontal: 20, paddingVertical: 8 }, searchForm: { gap: 8 },
   segment: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
   segmentText: { fontFamily: FontFamily.semibold, fontSize: 14 },
   content: { padding: 20 }, header: { gap: 12, paddingBottom: 16 }, searchBar: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 14, borderRadius: 999 },
@@ -120,7 +137,7 @@ const styles = StyleSheet.create({
   footer: { paddingTop: 16, gap: 12 }, separator: { height: 10 },
   title: { fontFamily: FontFamily.bold, fontSize: 22, lineHeight: 30 },
   badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 }, badgeText: { fontFamily: FontFamily.semibold, fontSize: 12, lineHeight: 18 },
-  readAll: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 36, paddingHorizontal: 12, borderRadius: 999 },
+  readAll: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, paddingHorizontal: 12, borderRadius: 999 },
   readAllText: { fontFamily: FontFamily.semibold, fontSize: 13 },
   section: { fontFamily: FontFamily.semibold, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', paddingTop: 8 },
   text: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 20 },

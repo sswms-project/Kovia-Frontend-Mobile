@@ -1,19 +1,22 @@
 import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { ChevronRight, CircleCheck, MapPin, Pencil } from 'lucide-react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
+import { StatusPill, type PillTone } from '@/components/ui/status-pill';
 import { P } from '@/config/permission-codes';
-import { FontFamily, MaxContentWidth } from '@/constants/theme';
+import { FontFamily, MaxContentWidth, Radius } from '@/constants/theme';
 import { taskDate } from '@/features/my-tasks/my-tasks';
 import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { useEvidencePreview } from '@/hooks/use-evidence-preview';
 import { EvidenceLinks, EvidencePreview } from '@/components/ui/evidence-preview';
 
-import { ConfirmationModal, LocationPicker, PutAwayEditorModal, ReceiptEditorModal, ReceiptItemCard, ReceiptHistoryModal, PutAwaySuggestionsModal, RefusalEvidencePanel } from '../components/receipt-workspace';
+import { ConfirmationModal, LocationPicker, PutAwayEditorModal, ReceiptEditorModal, ReceiptItemCard, ReceiptHistoryModal, PutAwaySuggestionsModal, RefusalEvidencePanel, DocumentEvidencePanel, ReceiptStep } from '../components/receipt-workspace';
+import { useDocumentEvidence } from '../hooks/use-document-evidence';
 import { useReceiptContext } from '../hooks/use-receipt-context';
 import { useReceiptEditor } from '../hooks/use-receipt-editor';
 import { useReceiptExecution } from '../hooks/use-receipt-execution';
@@ -26,20 +29,24 @@ const STATUS_LABELS: Readonly<Record<string, string>> = {
   Draft: 'Nháp', PendingApproval: 'Chờ duyệt kiểm hàng', InspectionCorrectionRequired: 'Cần sửa phân loại kiểm hàng',
   Approved: 'Đã duyệt · Chờ cất/cách biệt', Completed: 'Đã hoàn tất cất/cách biệt hàng', Rejected: 'Cần xử lý lại',
 };
+const STATUS_TONES: Readonly<Record<string, PillTone>> = {
+  Draft: 'neutral', PendingApproval: 'warning', InspectionCorrectionRequired: 'danger', Rejected: 'danger', Approved: 'primary', Completed: 'success',
+};
 export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
   const context = useReceiptContext(mode, documentId);
   const evidence = useEvidencePreview();
   const locations = useReceivingLocations(context);
   const editor = useReceiptEditor(context);
   const refusal = useRefusalEvidence(context);
-  const execution = useReceiptExecution(context, locations.selected, refusal);
+  const documents = useDocumentEvidence(context);
+  const execution = useReceiptExecution(context, locations.selected, refusal, documents);
   const beginPlacement = execution.beginPlacement;
   const [historyKey, setHistoryKey] = useState<string | null>(null);
   const [suggestionsKey, setSuggestionsKey] = useState<string | null>(null);
   const theme = useTheme();
   const receipt = context.receipt.data;
   const task = context.task.data;
-  const busy = editor.mutation.isPending || execution.mutation.isPending || refusal.busy;
+  const busy = editor.mutation.isPending || execution.mutation.isPending || refusal.busy || documents.busy;
   const canPutAway = mode === 'putaway' && context.allowed('PutAway') && context.permission(P.GOODS_RECEIPTS_PUTAWAY) &&
     !!receipt?.items.some(item => item.remainingPutAwayQuantity > 0) &&
     receipt?.putAwayTaskExecutionStatus !== 'Cancelled' && !receipt?.putAwayTaskRequiresReconciliation;
@@ -66,28 +73,65 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
       ListHeaderComponent={<View style={styles.group}>
         <Text style={[styles.kicker, { color: theme.primary }]}>KOVIA · {context.access.warehouse?.warehouseName}</Text>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{mode === 'putaway' ? 'Cất hàng được giao' : 'Nhận hàng được giao'}</Text>
-        <Button label="Về công việc của tôi" variant="outline" disabled={busy} onPress={() => router.navigate('/tasks')} />
         {loading && <Text style={[styles.text, { color: theme.textSecondary }]}>Đang tải chứng từ…</Text>}
         {error && <AlertBanner variant="destructive" title="Chưa tải được chứng từ" description={getApiErrorMessage(error)}>
           <Button label="Tải lại chứng từ" onPress={() => { void context.refresh(); }} loading={fetching} />
         </AlertBanner>}
         {!loading && !error && receipt && <>
-          <Text style={[styles.code, { color: theme.text }]}>{receipt.receiptCode}</Text>
-          <Text style={[styles.text, { color: theme.textSecondary }]}>Yêu cầu {receipt.inboundRequestCode} · {receipt.status === 'Completed' && receipt.receivingFlowVersion === 1 && receipt.items.every(item => item.receivedQuantity === 0)
-            ? 'Đã duyệt biên bản từ chối toàn bộ' : STATUS_LABELS[receipt.status] ?? receipt.status}</Text>
-          <Text style={[styles.text, { color: theme.textSecondary }]}>Cập nhật: {taskDate(receipt.modifiedAt ?? receipt.createdAt)}</Text>
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <View style={styles.cardTop}>
+              <Text style={[styles.code, { color: theme.text }]} numberOfLines={1}>{receipt.receiptCode}</Text>
+              {mode === 'receiving' && context.allowed('Update') && context.permission(P.GOODS_RECEIPTS_CREATE) && <Pressable accessibilityRole="button"
+                accessibilityLabel={receipt.arrivalConfirmedAt ? 'Sửa phân loại kiểm hàng' : 'Sửa phiếu nháp'} accessibilityState={{ disabled: busy }}
+                disabled={busy} onPress={editor.begin} style={({ pressed }) => [styles.edit, { borderColor: theme.border }, (busy || pressed) && styles.dim]}>
+                <Pencil size={14} color={theme.primary} />
+                <Text style={[styles.editLabel, { color: theme.primary }]}>{receipt.arrivalConfirmedAt ? 'Sửa phân loại' : 'Sửa nháp'}</Text>
+              </Pressable>}
+            </View>
+            <View style={styles.pill}><StatusPill tone={STATUS_TONES[receipt.status] ?? 'neutral'}
+              label={receipt.status === 'Completed' && receipt.receivingFlowVersion === 1 && receipt.items.every(item => item.receivedQuantity === 0)
+                ? 'Đã duyệt biên bản từ chối toàn bộ' : STATUS_LABELS[receipt.status] ?? receipt.status} /></View>
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <View style={styles.meta}>
+              <Text style={[styles.metaLabel, { color: theme.textSecondary }]}>Yêu cầu</Text>
+              <Text style={[styles.metaValue, { color: theme.text }]} numberOfLines={1}>{receipt.inboundRequestCode}</Text>
+            </View>
+            <View style={styles.meta}>
+              <Text style={[styles.metaLabel, { color: theme.textSecondary }]}>Cập nhật</Text>
+              <Text style={[styles.metaValue, { color: theme.text }]}>{taskDate(receipt.modifiedAt ?? receipt.createdAt)}</Text>
+            </View>
+          </View>
           {receipt.arrivalConfirmedAt && !receipt.arrivalStockPostedAt && <AlertBanner title="Phiếu nhận cũ cần quản lý đối soát tồn thực nhận có bằng chứng trước khi tiếp tục." />}
           {receipt.status === 'PendingApproval' && <AlertBanner title="Hàng đã nhận đang chờ duyệt kiểm hàng. Hàng tạm giữ chưa được dùng cho xuất kho." />}
           {receipt.rejectionReason && <AlertBanner title="Yêu cầu chỉnh sửa" description={receipt.rejectionReason} />}
-          {mode === 'receiving' && context.allowed('Update') && context.permission(P.GOODS_RECEIPTS_CREATE) && <Button
-            label={receipt.arrivalConfirmedAt ? 'Sửa phân loại kiểm hàng' : 'Sửa phiếu nháp'} disabled={busy} variant="outline" onPress={editor.begin} />}
-          {mode === 'receiving' && context.allowed('Submit') && context.permission(P.GOODS_RECEIPTS_SUBMIT) && <>
-            {!receipt.arrivalConfirmedAt && receipt.items.some(item => item.receivedQuantity > 0) && <Button label={locations.selected ? `Vị trí nhận: ${locations.selected.displayPath}` : 'Chọn vị trí thực tế nhận'}
-              variant="outline" disabled={busy} onPress={locations.open} />}
-            {!receipt.arrivalConfirmedAt && receipt.items.some(item => item.rejectedQuantity > 0) && <RefusalEvidencePanel state={refusal} />}
-            <Button label={receipt.arrivalConfirmedAt ? 'Gửi lại kết quả kiểm hàng' : 'Xác nhận chấp nhận / từ chối nhận'}
-              disabled={busy || fetching} onPress={execution.beginArrival} />
-          </>}
+          {mode === 'receiving' && context.allowed('Submit') && context.permission(P.GOODS_RECEIPTS_SUBMIT) && (() => {
+            const pending = !receipt.arrivalConfirmedAt;
+            const needLocation = pending && receipt.items.some(item => item.receivedQuantity > 0);
+            const needRefusal = pending && receipt.items.some(item => item.rejectedQuantity > 0);
+            let step = 0;
+            return <>
+              {needLocation && <ReceiptStep step={++step} title="Vị trí nhận hàng" done={!!locations.selected}>
+                <Pressable accessibilityRole="button" accessibilityLabel={locations.selected ? `Vị trí nhận: ${locations.selected.displayPath}` : 'Chọn vị trí thực tế nhận'}
+                  accessibilityState={{ disabled: busy }} disabled={busy} onPress={locations.open}
+                  style={({ pressed }) => [styles.picker, { borderColor: theme.border, backgroundColor: theme.backgroundElement }, (busy || pressed) && styles.dim]}>
+                  <MapPin size={18} color={locations.selected ? theme.primary : theme.textSecondary} />
+                  <Text style={[styles.pickerText, { color: locations.selected ? theme.text : theme.textSecondary }]} numberOfLines={2}>
+                    {locations.selected?.displayPath ?? 'Chạm để chọn vị trí thực tế'}</Text>
+                  <ChevronRight size={18} color={theme.textSecondary} />
+                </Pressable>
+              </ReceiptStep>}
+              {pending && <ReceiptStep step={++step} title="Ảnh phiếu giao hàng" done={documents.files.length > 0}
+                meta={documents.files.length > 0 ? `${documents.files.length}/5` : 'Không bắt buộc'}>
+                <DocumentEvidencePanel state={documents} />
+              </ReceiptStep>}
+              {needRefusal && <ReceiptStep step={++step} title="Hàng từ chối" done={refusal.acknowledged && refusal.files.length > 0}
+                meta={`${refusal.files.length}/5 ảnh`}>
+                <RefusalEvidencePanel state={refusal} />
+              </ReceiptStep>}
+              <Button label={pending ? 'Xác nhận chấp nhận / từ chối nhận' : 'Gửi lại kết quả kiểm hàng'} disabled={busy || fetching}
+                renderIcon={color => <CircleCheck size={18} color={color} />} onPress={execution.beginArrival} />
+            </>;
+          })()}
           {(canPutAway || context.allowed('IsolateDamage')) && <>
             {context.allowed('IsolateDamage') && <Button label="Chọn vị trí riêng cho hàng hỏng" variant="outline" disabled={busy} onPress={locations.openIsolation} />}
             <AlertBanner title="Chỉ cất phần hàng đủ điều kiện. Hàng hỏng tiếp tục được tạm giữ; cất hàng không tăng tổng tồn." />
@@ -104,6 +148,7 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
             </>}
           </>}
           <Button label="Lịch sử phiếu và các lần cất" variant="ghost" disabled={busy} onPress={() => setHistoryKey(context.contextKey)} />
+          <EvidenceLinks files={receipt.documentEvidence} onOpen={file => { void evidence.open(file); }} />
           <EvidenceLinks files={receipt.refusalEvidence} onOpen={file => { void evidence.open(file); }} />
         </>}
         {!loading && !error && !receipt && task && <>
@@ -117,7 +162,7 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
       </View>}
       ListFooterComponent={!loading && !error && receipt && task && task.remainingQuantity > 0 && ['Approved', 'Completed'].includes(receipt.status) ? <Button
         label="Nhận đợt tiếp theo của yêu cầu" variant="outline" disabled={busy || fetching}
-        onPress={() => { context.rememberReceipt(null); void context.task.refetch(); }} /> : null} />
+        onPress={() => { context.rememberReceipt(null); void context.task.refetch(); }} /> : undefined} />
     <LocationPicker state={locations} title={locations.isolation ? 'Chọn vị trí riêng cách biệt hàng hỏng' : mode === 'putaway' ? 'Chọn vị trí cất' : 'Chọn vị trí thực tế nhận hàng'} excludedId={mode === 'putaway' ? receipt?.receivingSlotId : null} />
     <ReceiptEditorModal state={editor} receipt={receipt} />
     <PutAwayEditorModal state={execution} receipt={receipt} />
@@ -135,4 +180,11 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
 
 const styles = StyleSheet.create({ root: { flex: 1 }, content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', padding: 20, gap: 16 },
   group: { gap: 14 }, title: { fontFamily: FontFamily.bold, fontSize: 26, lineHeight: 35 }, kicker: { fontFamily: FontFamily.semibold, fontSize: 13 },
-  code: { fontFamily: FontFamily.mono, fontSize: 18, lineHeight: 27 }, text: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 23 } });
+  code: { flex: 1, fontFamily: FontFamily.mono, fontSize: 18, lineHeight: 27 }, text: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 23 },
+  card: { gap: 10, padding: 16, borderWidth: 1, borderRadius: Radius.xl }, cardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  edit: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, paddingHorizontal: 12, borderWidth: 1, borderRadius: Radius.xl },
+  editLabel: { fontFamily: FontFamily.semibold, fontSize: 13, lineHeight: 18 }, dim: { opacity: 0.6 }, pill: { flexDirection: 'row' },
+  divider: { height: StyleSheet.hairlineWidth }, meta: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  metaLabel: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 20 }, metaValue: { flexShrink: 1, fontFamily: FontFamily.medium, fontSize: 14, lineHeight: 20 },
+  picker: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingHorizontal: 12, borderWidth: 1, borderRadius: Radius.md },
+  pickerText: { flex: 1, fontFamily: FontFamily.medium, fontSize: 14, lineHeight: 20 } });

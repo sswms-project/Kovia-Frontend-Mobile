@@ -6,3 +6,5 @@ export { ReceiptItemCard } from './receipt-item-card';
 export { ReceiptHistoryModal } from './receipt-history-modal';
 export { PutAwaySuggestionsModal } from './putaway-suggestions-modal';
 export { RefusalEvidencePanel } from './refusal-evidence-panel';
+export { DocumentEvidencePanel } from './document-evidence-panel';
+export { EvidenceFileRow, ReceiptStep } from './receipt-step';

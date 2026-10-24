@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { Controller } from 'react-hook-form';
 import { FlatList, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,7 @@ export function ReceiptEditorModal({ state, receipt }: ReceiptEditorModalProps) 
   }, [state, correction, busy, receipt?.receivingFlowVersion]);
   const conflict = state.mutation.error instanceof ApiError && state.mutation.error.statusCode === 409;
   return <Modal visible={!!state.target} animationType="slide" onRequestClose={busy ? undefined : state.close}>
-    <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+    <SafeAreaProvider><SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <FlatList data={lines} keyExtractor={item => item.inboundRequestItemId} renderItem={renderItem}
           contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
@@ -60,7 +60,7 @@ export function ReceiptEditorModal({ state, receipt }: ReceiptEditorModalProps) 
       <ConfirmationModal visible={state.discard} title="Bỏ thay đổi chưa lưu?"
         description="Bạn có thay đổi chưa được lưu. Bạn có chắc chắn muốn rời khỏi trang không?" busy={busy}
         onConfirm={state.discardChanges} onCancel={() => state.setDiscard(false)} />
-    </SafeAreaView>
+    </SafeAreaView></SafeAreaProvider>
   </Modal>;
 }
 const styles = StyleSheet.create({ root: { flex: 1 }, content: { width: '100%', maxWidth: 640, alignSelf: 'center', padding: 20, gap: 16 },

@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { useCallback } from 'react';
 import { FlatList, Modal, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,7 +31,6 @@ export function RelocationScreen({ taskId }: { readonly taskId: string }) {
     <FlatList data={rows} renderItem={renderRow} keyExtractor={row => row.kind === 'line' ? row.line.id : row.execution.id}
       contentContainerStyle={styles.content} ItemSeparatorComponent={Separator} refreshing={state.detail.isFetching}
       onRefresh={busy ? undefined : () => { void state.refresh(); }} ListHeaderComponent={<View style={styles.header}>
-        <Button label="Về công việc của tôi" variant="outline" disabled={busy} onPress={() => router.navigate('/tasks')} />
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{state.task?.taskCode ?? 'Chuyển vị trí trong kho'}</Text>
         {!state.validId && <AlertBanner title="Mã công việc không hợp lệ." />}
         {!state.canView && <AlertBanner title="Chọn kho và xác minh quyền xem công việc cá nhân." description={state.access.selection.notice ?? undefined} />}
