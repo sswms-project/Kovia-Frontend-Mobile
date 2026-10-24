@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { FlatList, Modal, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { EvidenceLinks } from '@/components/ui/evidence-preview';
@@ -41,14 +41,14 @@ export function ReceiptHistoryModal({ visible, receipt, onClose, onOpenEvidence 
     <EvidenceLinks files={item.evidence ?? []} onOpen={onOpenEvidence} />
   </View>, [theme, onOpenEvidence]);
   return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-    <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+    <SafeAreaProvider><SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
       <FlatList data={rows} renderItem={renderItem} keyExtractor={item => item.key} contentContainerStyle={styles.content}
         ListHeaderComponent={<View style={styles.group}>
           <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>Lịch sử {receipt?.receiptCode}</Text>
           <Button label="Đóng lịch sử" variant="outline" onPress={onClose} />
         </View>}
         ListEmptyComponent={<Text style={[styles.text, { color: theme.textSecondary }]}>Chưa có lịch sử được ghi nhận.</Text>} />
-    </SafeAreaView>
+    </SafeAreaView></SafeAreaProvider>
   </Modal>;
 }
 const styles = StyleSheet.create({ root: { flex: 1 }, content: { padding: 20, gap: 14, maxWidth: 640, width: '100%', alignSelf: 'center' },

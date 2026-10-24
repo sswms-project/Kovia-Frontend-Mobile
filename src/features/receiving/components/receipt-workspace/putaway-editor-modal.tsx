@@ -1,15 +1,17 @@
 import { Controller } from 'react-hook-form';
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
 import { FontFamily } from '@/constants/theme';
+import { ScanCodeButton } from '@/features/scanner/components/scan-code-button';
 import { useTheme } from '@/hooks/use-theme';
 
 import type { useReceiptExecution } from '../../hooks/use-receipt-execution';
 import type { Receipt } from '../../receiving.schema';
+import { matchesLocationScan } from '../../receiving-scan';
 import { ConfirmationModal } from './confirmation-modal';
 import { parseQuantity, quantityInput } from './receipt-line-fields';
 
@@ -20,7 +22,7 @@ export function PutAwayEditorModal({ state, receipt }: PutAwayEditorModalProps) 
   const isolation = state.editor?.isolation === true;
   const item = receipt?.items.find(value => value.id === state.form.getValues('goodsReceiptItemId'));
   return <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : state.closeEditor}>
-    <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+    <SafeAreaProvider><SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{isolation ? 'Cách biệt hàng hỏng đã nhập' : 'Ghi nhận cất hàng thực tế'}</Text>
@@ -33,7 +35,12 @@ export function PutAwayEditorModal({ state, receipt }: PutAwayEditorModalProps) 
           <Controller control={state.form.control} name="confirmedSlotCode" render={({ field, fieldState }) => <TextField
             label="Mã vị trí thực tế" value={field.value} autoCapitalize="characters" editable={!busy} maxLength={101}
             onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message}
-            hint="Nhập mã trên nhãn vị trí. Nếu không xác nhận được mã hoặc cất khác kế hoạch, ghi rõ lý do bên dưới." />} />
+            labelAccessory={state.editor && <ScanCodeButton compact label="Quét mã vị trí" title="Quét mã vị trí thực tế" disabled={busy}
+              onScan={code => {
+                if (!state.editor || !matchesLocationScan(code, state.editor.destination.id, state.editor.destination.slotCode)) return false;
+                field.onChange(state.editor.destination.slotCode); return true;
+              }} />}
+            hint="Quét hoặc nhập mã trên nhãn vị trí. Nếu không xác nhận được mã hoặc cất khác kế hoạch, ghi rõ lý do bên dưới." />} />
           {!isolation && <Controller control={state.form.control} name="overrideReason" render={({ field, fieldState }) => <TextField
             label="Lý do cất khác kế hoạch hoặc không xác nhận mã" value={field.value} multiline editable={!busy} maxLength={501}
             onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} hint="Mô tả ít nhất 5 ký tự khi áp dụng." />} />}
@@ -47,7 +54,7 @@ export function PutAwayEditorModal({ state, receipt }: PutAwayEditorModalProps) 
       <ConfirmationModal visible={state.discard} title="Bỏ thay đổi chưa lưu?"
         description="Bạn có thay đổi chưa được lưu. Bạn có chắc chắn muốn rời khỏi trang không?" busy={busy}
         onConfirm={state.discardChanges} onCancel={() => state.setDiscard(false)} />
-    </SafeAreaView>
+    </SafeAreaView></SafeAreaProvider>
   </Modal>;
 }
 const styles = StyleSheet.create({ root: { flex: 1 }, content: { width: '100%', maxWidth: 640, alignSelf: 'center', padding: 20, gap: 18 },

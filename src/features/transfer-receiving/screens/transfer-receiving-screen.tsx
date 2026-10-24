@@ -57,7 +57,6 @@ export function TransferReceivingScreen({ transferId, shipmentId, mode }: {
     <FlatList data={rows} renderItem={renderRow} keyExtractor={row => row.key} ItemSeparatorComponent={Separator}
       contentContainerStyle={styles.content} refreshing={state.detail.isFetching} onRefresh={() => { void state.refresh(); }}
       ListHeaderComponent={<View style={styles.header}>
-        <Button label="Về công việc của tôi" variant="outline" onPress={() => router.navigate('/tasks')} />
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{mode === 'Receive' ? 'Phiếu nhận điều chuyển' : 'Phiếu cất điều chuyển'}</Text>
         {!state.validId && <AlertBanner variant="destructive" title="Liên kết điều chuyển không hợp lệ." />}
         {!state.canView && <>

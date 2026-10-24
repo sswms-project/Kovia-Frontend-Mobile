@@ -11,13 +11,15 @@ import { assertPlacement, receiptCommand, type ReceiptCommandMemory } from '../r
 import { receivingApi } from '../receiving.api';
 import { putAwayFormSchema, type PutAwayForm, type PutAwaySuggestions, type SelectedReceivingLocation } from '../receiving.schema';
 import type { ReceiptContext } from './use-receipt-context';
+import type { useDocumentEvidence } from './use-document-evidence';
 import type { useRefusalEvidence } from './use-refusal-evidence';
 
 interface ExecutionTarget {
   key: string; receiptId: string; version: string; action: 'Submit' | 'PutAway' | 'IsolateDamage';
-  sourceId: string | null; placement?: PutAwayForm; refusalEvidenceIds?: string[];
+  sourceId: string | null; placement?: PutAwayForm; refusalEvidenceIds?: string[]; documentEvidenceIds?: string[];
 }
-export function useReceiptExecution(context: ReceiptContext, selected: SelectedReceivingLocation | null, refusal: ReturnType<typeof useRefusalEvidence>) {
+export function useReceiptExecution(context: ReceiptContext, selected: SelectedReceivingLocation | null, refusal: ReturnType<typeof useRefusalEvidence>,
+  documents: ReturnType<typeof useDocumentEvidence>) {
   const [target, setTarget] = useState<ExecutionTarget | null>(null);
   const [editor, setEditor] = useState<{ key: string; version: string; destination: SelectedReceivingLocation; isolation: boolean } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -38,7 +40,8 @@ export function useReceiptExecution(context: ReceiptContext, selected: SelectedR
       assertCurrentContext();
       if (original.action === 'Submit') {
         const body = { expectedVersion: original.version, receivingSlotId: original.sourceId,
-          ...(original.refusalEvidenceIds ? { refusedGoodsHandedBack: true, refusalEvidenceIds: original.refusalEvidenceIds } : {}) };
+          ...(original.refusalEvidenceIds ? { refusedGoodsHandedBack: true, refusalEvidenceIds: original.refusalEvidenceIds } : {}),
+          ...(original.documentEvidenceIds ? { documentEvidenceIds: original.documentEvidenceIds } : {}) };
         command.current = receiptCommand(command.current, { receiptId: original.receiptId, action: original.action, ...body });
         return receivingApi.submit(original.receiptId, { ...body, commandId: command.current.commandId }, assertCurrentContext);
       }
@@ -85,9 +88,12 @@ export function useReceiptExecution(context: ReceiptContext, selected: SelectedR
     if (hasRefused && (!refusal.acknowledged || refusal.files.length === 0 || refusal.busy)) {
       setNotice('Vui lòng xác nhận bên giao giữ/mang về phần từ chối và đính kèm ảnh bằng chứng trước.'); return;
     }
+    if (documents.busy) { setNotice('Đang tải ảnh phiếu giao hàng, vui lòng đợi.'); return; }
+    const documentIds = !receipt.arrivalConfirmedAt && documents.files.length > 0 ? documents.files.map(file => file.id) : null;
     mutation.reset(); setNotice(null);
     setTarget({ key: context.contextKey, receiptId: receipt.id, version: receipt.version, action: 'Submit', sourceId,
-      ...(hasRefused ? { refusalEvidenceIds: refusal.files.map(file => file.id) } : {}) });
+      ...(hasRefused ? { refusalEvidenceIds: refusal.files.map(file => file.id) } : {}),
+      ...(documentIds ? { documentEvidenceIds: documentIds } : {}) });
   }
   function beginPlacement(goodsReceiptItemId: string, isolation = false) {
     const receipt = context.receipt.data;

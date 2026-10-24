@@ -36,6 +36,8 @@ export const MOBILE_TABS = [
     title: 'Tồn kho',
     permission: P.INVENTORY_VIEW,
     inNavbar: true,
+    // Stays in the navbar without the permission; the screen then explains access is missing.
+    showWithoutPermission: true,
     icon: { sf: 'shippingbox', md: 'inventory_2' },
   },
   {
