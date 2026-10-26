@@ -13,15 +13,18 @@ import { StagingPointField } from '@/features/warehouse-access/components/stagin
 import { TransferPickEditor } from '../components/transfer-pick-editor';
 import { TransferPickLineCard } from '../components/transfer-pick-line-card';
 import { useTransferPicking } from '../hooks/use-transfer-picking';
+import { useTransferExceptions } from '../hooks/use-transfer-exceptions';
+import { TransferExceptionModal } from '../components/transfer-exception-modal';
 import type { TransferPickLine } from '../transfer-picking.schema';
 
 export function TransferPickingScreen({ transferId, shipmentId }: { readonly transferId: string; readonly shipmentId: string }) {
   const state = useTransferPicking(transferId, shipmentId);
+  const exceptions = useTransferExceptions(transferId, shipmentId, state);
   const theme = useTheme();
-  const busy = state.mutation.isPending;
+  const busy = state.mutation.isPending || exceptions.mutation.isPending || exceptions.visible;
   const sheet = state.detail.data?.sheet;
   const renderLine = useCallback(({ item }: { item: TransferPickLine }) => <TransferPickLineCard
-    line={item} canPick={state.canPick} busy={busy} onPick={state.beginPick} />, [state.canPick, state.beginPick, busy]);
+    line={item} canPick={state.canPick} busy={busy} onPick={state.beginPick} onException={exceptions.open} />, [state.canPick, state.beginPick, exceptions.open, busy]);
   return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
     <FlatList data={state.canView ? sheet?.lines ?? [] : []} keyExtractor={line => line.lineId} renderItem={renderLine}
       contentContainerStyle={styles.content} ItemSeparatorComponent={Separator} refreshing={state.detail.isFetching}
@@ -63,6 +66,7 @@ export function TransferPickingScreen({ transferId, shipmentId }: { readonly tra
     <ConfirmationModal visible={state.target?.action === 'Complete'} title="Đã lấy đủ hàng của đợt?"
       description="Công việc lấy hàng sẽ hoàn tất và chuyển sang chờ xác nhận xuất thực tế. Thao tác này chưa giảm tồn kho."
       busy={busy} error={state.mutation.error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />
+    <TransferExceptionModal state={exceptions} />
   </SafeAreaView>;
 }
 function Separator() { return <View style={styles.separator} />; }

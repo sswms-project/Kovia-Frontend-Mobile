@@ -111,6 +111,7 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
   }
   const activeEditor = editor?.key === contextKey && canPick && editor.version === data?.sheet.version ? editor : null;
   return { access, validId, canView, detail, canPick, canComplete, form, mutation, contextKey, beginPick, review, beginComplete, confirm,
+    assertExecution: (key: string, version: string) => assertCurrent({ key, version, action: 'Pick' }),
     staged, stagingSlotId, chooseStaging: (id: string) => {
       if (!lock.current && !data?.sheet.outboundStagingSlotId && data?.sheet.stagingPoints?.items.some(point => point.slotId === id))
         { setTarget(null); setStagingChoice({ key: contextKey, id }); }

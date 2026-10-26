@@ -47,6 +47,7 @@ const ENTRY_ICONS: Record<string, LucideIcon> = {
   warehouses: Warehouse,
   'inbound-requests': PackagePlus,
   'stock-issue-requests': PackageMinus,
+  transfers: Truck,
   'stock-recipients': Users,
   'goods-returns': Undo2,
   'stock-adjustments': Scale,

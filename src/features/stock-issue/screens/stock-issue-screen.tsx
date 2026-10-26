@@ -15,16 +15,19 @@ import { PickingEditor } from '../components/picking-editor';
 import { DispatchSelectionModal } from '../components/dispatch-selection-modal';
 import { StockIssueItemCard } from '../components/stock-issue-item-card';
 import { useStockIssue } from '../hooks/use-stock-issue';
+import { usePickIssueReport } from '../hooks/use-pick-issue-report';
+import { PickIssueReportModal } from '../components/pick-issue-report-modal';
 import { outstandingPicks } from '../stock-issue';
 import type { StockIssueItem } from '../stock-issue.schema';
 
 export function StockIssueScreen({ documentId }: { readonly documentId: string }) {
   const state = useStockIssue(documentId);
+  const report = usePickIssueReport(documentId, state);
   const theme = useTheme();
-  const busy = state.mutation.isPending;
+  const busy = state.mutation.isPending || report.mutation.isPending || report.active;
   const canPick = state.allowed('Pick') && state.permission(P.STOCK_ISSUE_REQUESTS_PICK);
   const renderItem = useCallback(({ item }: { item: StockIssueItem }) => <StockIssueItemCard item={item} canPick={canPick}
-    busy={busy} onPick={state.beginPick} />, [canPick, busy, state.beginPick]);
+    busy={busy} onPick={state.beginPick} onReport={report.open} />, [canPick, busy, state.beginPick, report.open]);
   const error = state.detail.error ?? state.actions.error;
   const pending = state.detail.data ? outstandingPicks(state.detail.data) : [];
   return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
@@ -69,6 +72,7 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
     <ConfirmationModal visible={state.target?.action === 'Dispatch'} title="Xác nhận hàng đã thực tế rời kho?"
       description={`${state.target?.pickDetailIds?.length ?? 0} lượt đã chọn sẽ được xác nhận xuất. Phần chưa chọn hoặc chưa lấy vẫn mở và tiếp tục được theo dõi.`}
       busy={busy} error={state.mutation.error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />
+    <PickIssueReportModal state={report} />
   </SafeAreaView>;
 }
 function Separator() { return <View style={styles.separator} />; }

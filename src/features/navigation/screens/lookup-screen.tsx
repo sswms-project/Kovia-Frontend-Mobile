@@ -14,7 +14,7 @@ export function LookupScreen() {
   const owner = !isFieldWorkspace(me.data?.role);
   const groups = [
     { title: owner ? 'Báo cáo & theo dõi' : 'Báo cáo hiện trường', keys: ['warehouse-monitor', 'discrepancies', 'damage-cases', 'audit-logs', 'reports'] },
-    { title: 'Chứng từ kho', keys: ['inbound-requests', 'stock-issue-requests', 'goods-returns', 'stock-adjustments'] },
+    { title: 'Chứng từ kho', keys: ['inbound-requests', 'stock-issue-requests', 'transfers', 'goods-returns', 'stock-adjustments'] },
     { title: 'Vật tư hàng hóa', keys: ['products', 'categories', 'units'] },
     { title: 'Đối tượng & kho', keys: ['suppliers', 'stock-recipients', 'warehouses'] },
   ];

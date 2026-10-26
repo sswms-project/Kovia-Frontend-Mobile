@@ -1,4 +1,5 @@
 import { P } from '@/config/permission-codes';
+import { USER_ROLES } from '@/config/roles';
 import type { UserProfile } from '@/features/auth/auth.types';
 import { warehouseSnapshot } from '@/features/warehouse-access/warehouse-access';
 
@@ -15,6 +16,9 @@ export function assertNotificationContext(identity: string | null, signature: st
 export function notificationDestination(notification: AppNotification, profile: UserProfile | undefined) {
   if (!profile || !nonEmptyDotNetGuidSchema('Mã thông báo không hợp lệ.').safeParse(notification.referenceId).success) return null;
   if (!notification.referenceId) return null;
+  if (notification.referenceType === 'StockTransfer' && (profile.role === USER_ROLES.TenantOwner || profile.role === USER_ROLES.WarehouseManager)
+    && profile.permissions.includes(P.TRANSFERS_VIEW))
+    return { pathname: '/catalog/transfers/[id]' as const, params: { id: notification.referenceId } };
   if (notification.referenceType === 'StockDiscrepancyReport' && profile.permissions.includes(P.INVENTORY_VIEW))
     return { pathname: '/catalog/discrepancies/[id]' as const, params: { id: notification.referenceId } };
 

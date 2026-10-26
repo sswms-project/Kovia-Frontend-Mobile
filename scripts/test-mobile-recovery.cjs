@@ -21,6 +21,7 @@ function fixture() {
     const source = ts.transpileModule(readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
     const localRequire = name => {
       if (name === 'expo-secure-store') return secure;
+      if (name === './secure-store') return { SecureStore: secure };
       if (name === 'expo-crypto') return { CryptoDigestAlgorithm: { SHA256: 'sha256' }, digestStringAsync: async (_, value) => createHash('sha256').update(value).digest('hex') };
       if (name === './api') return { ApiError };
       if (name.startsWith('@/')) return load('src/' + name.slice(2) + '.ts');

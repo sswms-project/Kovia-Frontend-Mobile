@@ -65,6 +65,8 @@ export type MobileTab = (typeof MOBILE_TABS)[number];
 
 // Each lookup feature adds one entry here; the Lookup tab shows those the user has permission for.
 export const LOOKUP_ENTRIES = [
+  { key: 'transfers', href: '/catalog/transfers', title: 'Điều chuyển kho',
+    description: 'Theo dõi các đợt xuất, nhận và chênh lệch giữa kho', permission: P.TRANSFERS_VIEW },
   {
     key: 'discrepancies',
     href: '/catalog/discrepancies',

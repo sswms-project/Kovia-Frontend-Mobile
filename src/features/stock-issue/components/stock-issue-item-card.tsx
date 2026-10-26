@@ -8,8 +8,9 @@ import { useTheme } from '@/hooks/use-theme';
 import type { StockIssueItem } from '../stock-issue.schema';
 
 interface Props { readonly item: StockIssueItem; readonly canPick: boolean; readonly busy: boolean;
+  readonly onReport: (item: StockIssueItem) => void;
   readonly onPick: (item: StockIssueItem, inventoryStockId: string) => void }
-export const StockIssueItemCard = memo(function StockIssueItemCard({ item, canPick, busy, onPick }: Props) {
+export const StockIssueItemCard = memo(function StockIssueItemCard({ item, canPick, busy, onPick, onReport }: Props) {
   const theme = useTheme();
   const issued = item.pickDetails.filter(value => value.issuedAt).reduce((sum, value) => sum + value.pickedQuantity, 0);
   return <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
@@ -24,6 +25,7 @@ export const StockIssueItemCard = memo(function StockIssueItemCard({ item, canPi
       {canPick && location.reservedQuantity > 0 && item.pickedQuantity < item.quantity &&
         <Button label={`${location.directFromReceiving ? 'Chuyển thẳng từ' : 'Lấy hàng tại'} ${location.slotCode}`} variant="outline" disabled={busy} onPress={() => onPick(item, location.inventoryStockId)} />}
     </View>)}
+    {canPick && <Button label="Báo sự cố khi lấy hàng" variant="outline" disabled={busy} onPress={() => onReport(item)} />}
     {item.pickDetails.map(detail => <Text key={detail.id} style={[styles.text, { color: theme.textSecondary }]}>
       {detail.slotCode} → {detail.stagingSlotCode} · {detail.pickedQuantity} · {detail.issuedAt ? 'Đã xuất thực tế' : 'Đang chờ xuất'}
     </Text>)}
