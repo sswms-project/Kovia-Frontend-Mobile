@@ -1,4 +1,5 @@
 import type { TransferPickForm, TransferPickSheet, TransferScope } from './transfer-picking.schema';
+import { matchesWarehouseLocation } from '@/features/scanner/warehouse-scan';
 
 export function assertTransferPickScope(document: TransferScope, sheet: TransferPickSheet,
   transferId: string, shipmentId: string, warehouseId: string, userId: string) {
@@ -21,7 +22,10 @@ export function assertTransferPick(values: TransferPickForm, sheet: TransferPick
   const code = values.scannedProductCode.trim().toLowerCase();
   if (![line.sku, line.productBarcode].some(value => value?.trim().toLowerCase() === code))
     throw new Error('Mã sản phẩm không khớp với dòng cần lấy.');
-  // Composite location labels are validated by the server; do not reject a valid printed label locally.
+  if (!matchesWarehouseLocation(values.scannedSlotCode, source)) throw new Error('Mã vị trí không khớp với vị trí được giao lấy hàng.');
+  const scale = 10 ** line.baseQuantityPrecision;
+  if (Math.abs(values.quantity * scale - Math.round(values.quantity * scale)) > 1e-7)
+    throw new Error('Số lượng chưa đúng độ chính xác của đơn vị cơ sở.');
 }
 export function transferPickingComplete(sheet: TransferPickSheet) {
   const active = sheet.lines.filter(line => line.plannedQuantity > 0 || line.pickedQuantity > 0);

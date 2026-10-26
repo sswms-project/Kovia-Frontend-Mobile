@@ -9,10 +9,12 @@ const quantity = z.number().finite().nonnegative();
 export { warehouseActionsSchema as executionActionsSchema } from '@/lib/warehouse-contract.schema';
 const pickLocation = z.object({ inventoryStockId: id, slotId: id, slotCode: text, zoneCode: text, rackCode: text,
   lotId: id.nullable(), lotNumber: nullableText, expiryDate: nullableText, reservedQuantity: quantity,
-  directFromReceiving: z.boolean().default(false), allocationReason: nullableText.optional() });
+  directFromReceiving: z.boolean().default(false), allocationReason: nullableText.optional(), isSystemDefaultSlot: z.boolean().default(false) });
 const pickDetail = z.object({ id, inventoryStockId: id, slotId: id, slotCode: text, stagingSlotId: id,
   stagingSlotCode: text, lotId: id.nullable(), lotNumber: nullableText, qualityStatus: text, pickedQuantity: quantity,
-  returnedQuantity: quantity, returnableQuantity: quantity, pickedByUserId: id, pickedByName: text, pickedAt: text, issuedAt: nullableText });
+  returnedQuantity: quantity, returnableQuantity: quantity, pickedByUserId: id, pickedByName: text, pickedAt: text, issuedAt: nullableText,
+  zoneCode: nullableText.optional(), rackCode: nullableText.optional(), isSystemDefaultSlot: z.boolean().default(false),
+  stagingZoneCode: nullableText.optional(), stagingRackCode: nullableText.optional(), isSystemDefaultStagingSlot: z.boolean().default(false) });
 export const stockIssueItemSchema = z.object({ id, productId: id, productName: text, sku: text, quantity,
   pickedQuantity: quantity, returnedQuantity: quantity, returnableQuantity: quantity, note: nullableText,
   barcode: nullableText, enteredQuantity: quantity, enteredUnitId: id, enteredUnitName: text,

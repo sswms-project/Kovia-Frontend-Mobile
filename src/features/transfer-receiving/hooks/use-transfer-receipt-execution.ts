@@ -13,6 +13,7 @@ import { warehouseCommand, type WarehouseCommandMemory } from '@/lib/warehouse-c
 import { transferReceivingApi } from '../transfer-receiving.api';
 import type { TransferExecutionTarget } from '../transfer-execution.schema';
 import type { useTransferReceiving } from './use-transfer-receiving';
+import { transferReceiptActionAllowed } from '../transfer-receiving';
 
 export function useTransferReceiptExecution(state: ReturnType<typeof useTransferReceiving>, transferId: string, shipmentId: string) {
   const client = useQueryClient();
@@ -24,6 +25,12 @@ export function useTransferReceiptExecution(state: ReturnType<typeof useTransfer
   const memory = useRef<WarehouseCommandMemory | null>(null);
   const enabled = state.canView && !!state.data && !state.detail.isError && !state.detail.isFetching &&
     !!state.data.receipt.version && !state.data.document.isLegacyWorkflow && !!state.access.profile.data?.permissions.includes(P.TRANSFERS_RECEIVE);
+  function allowed(action: TransferExecutionTarget['action']) {
+    if (!enabled || !state.data) return false;
+    const { shipment, receipt, putAway } = state.data;
+    const taskStatus = state.mode === 'Receive' ? shipment.receiveTaskStatus : shipment.putAwayTaskStatus;
+    return transferReceiptActionAllowed(state.mode, action, receipt.status, taskStatus, !!putAway?.canResumePutAway);
+  }
   function assertCurrent(expectedVersion: string) {
       const profile = client.getQueryData<UserProfile>(profileQueryKey);
       const snapshot = profile ? warehouseSnapshot(profile) : null;
@@ -38,6 +45,7 @@ export function useTransferReceiptExecution(state: ReturnType<typeof useTransfer
     const check = () => {
       if (original.scopeKey !== key) throw new Error('Kho đã thay đổi.');
       assertCurrent(original.body.expectedVersion);
+      if (!allowed(original.action)) throw new Error('Trạng thái công việc không còn cho phép thao tác này. Vui lòng tải lại.');
     };
     check();
     return transferReceivingApi.execute(transferId, shipmentId, original, check);
@@ -45,15 +53,16 @@ export function useTransferReceiptExecution(state: ReturnType<typeof useTransfer
     if (original.scopeKey !== key) return;
     setTarget(null); setNotice(original.action === 'Start' ? 'Đã bắt đầu nhận tại vị trí đã xác nhận. Chưa ghi nhận số lượng thực nhận.'
       : original.action === 'Submit' ? 'Đã ghi nhận kết quả kiểm hàng. Chỉ hàng đạt đủ điều kiện mới được phân bổ; hàng hỏng cách biệt vẫn bị tạm giữ.'
+      : original.action === 'Resume' ? 'Đã tiếp tục công việc cất phần hàng còn khả dụng. Không ghi nhận nhập tồn thêm.'
       : 'Đã ghi nhận cất hàng thực tế. Luồng nhận mới chỉ chuyển vị trí, không cộng tồn lần nữa.');
     await client.invalidateQueries({ queryKey: ['warehouse', identity, warehouseId, revision] });
   } });
   function prepare(value: TransferExecutionTarget) {
-    if (!enabled || lock.current) return;
+    if (!allowed(value.action) || lock.current) return;
     memory.current = warehouseCommand(memory.current, { transferId, shipmentId, ...value });
     mutation.reset(); setTarget({ ...value, body: { ...value.body, commandId: memory.current.commandId }, scopeKey: key } as TransferExecutionTarget & { scopeKey: string });
   }
-  return { enabled, key, assertCurrent, target: target?.scopeKey === key ? target : null, mutation, notice, prepare,
+  return { enabled, allowed, key, assertCurrent, target: target?.scopeKey === key ? target : null, mutation, notice, prepare,
     confirm: async () => { if (!target || lock.current) return false; lock.current = true; try { await mutation.mutateAsync(target); return true; } catch { return false; } finally { lock.current = false; } },
     cancel: () => { if (!lock.current) setTarget(null); },
   };

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
+import { warehouseStagingPointsSchema } from '@/lib/warehouse-contract.schema';
 
 const id = nonEmptyDotNetGuidSchema('Mã điều chuyển không hợp lệ.');
 const text = z.string();
@@ -16,7 +17,10 @@ export const transferReceiptSheetSchema = z.object({ transferId: id, shipmentId:
   shipmentNumber: z.number().int().positive(), status: text, receiptFlowVersion: z.number().int().min(0).max(255),
   version: nullableText, arrivedAt: nullableText, arrivedBy: id.nullable(), receiptSubmittedAt: nullableText,
   receiptSubmittedBy: id.nullable(), lines: z.array(transferReceiptLineSchema), receivingSlotId: id.nullable().default(null),
-  arrivalStockPostedAt: nullableText.default(null), keptAtReceiving: z.boolean().default(false) });
+  arrivalStockPostedAt: nullableText.default(null), keptAtReceiving: z.boolean().default(false),
+  outboundStagingFlowVersion: z.number().int().nonnegative().default(0), stagingPoints: warehouseStagingPointsSchema.nullable().default(null),
+  execution: z.object({ sourceWarehouseId: id, destinationWarehouseId: id, destinationWarehouseName: text,
+    receiveAssigneeId: id.nullable(), putAwayAssigneeId: id.nullable(), putAwayAssigneeName: nullableText }).nullable().optional() });
 export const transferPutAwayRowSchema = z.object({ lineId: id, itemId: id, productId: id, sku: text, productName: text,
   baseUnitName: text, baseQuantityPrecision: z.number().int().min(0).max(2), lotId: id.nullable(), lotNumber: nullableText,
   qualityStatus: text, actualQuantity: quantity, putAwayQuantity: quantity, remainingQuantity: quantity, keptAtReceivingQuantity: quantity.default(0),
@@ -25,7 +29,7 @@ export const transferPutAwayEventSchema = z.object({ id, lineId: id, lotId: id.n
   slotId: id, path: text, quantity, isLateReceipt: z.boolean(), isOffPlan: z.boolean(), slotCodeUnreadable: z.boolean(),
   deviationReasonCode: nullableText, note: nullableText, putAwayBy: id, putAwayAt: text });
 export const transferPutAwaySheetSchema = z.object({ receipt: transferReceiptSheetSchema, planVersion: text,
-  rows: z.array(transferPutAwayRowSchema), putAwayLines: z.array(transferPutAwayEventSchema) });
+  rows: z.array(transferPutAwayRowSchema), putAwayLines: z.array(transferPutAwayEventSchema), canResumePutAway: z.boolean().default(false) });
 // Scope projection of StockTransferResponse; the full operational DTO is not cached here.
 export const transferDestinationScopeSchema = z.object({ id, destinationWarehouseId: id, destinationWarehouseName: text,
   sourceWarehouseName: text, status: text, isLegacyWorkflow: z.boolean(), shipments: z.array(z.object({ id,

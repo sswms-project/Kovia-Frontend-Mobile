@@ -1,4 +1,15 @@
 import type { PickForm, StockIssue } from './stock-issue.schema';
+import { codesMatch, matchesWarehouseLocation } from '@/features/scanner/warehouse-scan';
+
+export function canCaptureIssueLocation(code: string, location: StockIssue['items'][number]['pickLocations'][number]) {
+  const value = code.trim();
+  if (!value || value.length > 200) return false;
+  if (value.toLowerCase().startsWith('kovia:loc:slot:')) return matchesWarehouseLocation(value, location);
+  // This DTO omits rack ID and custom slot barcode. Leave their final check to TransferScanRules in the command handler.
+  if (value.toLowerCase().startsWith('kovia:loc:rack:')) return location.isSystemDefaultSlot &&
+    /^kovia:loc:rack:[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value);
+  return !value.toLowerCase().startsWith('kovia:loc:');
+}
 
 export function assertStockIssueScope(document: StockIssue, warehouseId: string, userId: string) {
   if (document.warehouseId !== warehouseId || document.assignedStaffId !== userId)
@@ -18,6 +29,8 @@ export function assertPick(values: PickForm, document: StockIssue) {
     throw new Error('Số lượng lấy phải theo nguyên kiện của dòng hàng.');
   if (item.barcode && values.scannedBarcode.trim().toLowerCase() !== item.barcode.trim().toLowerCase())
     throw new Error('Mã sản phẩm không khớp với dòng hàng cần lấy.');
+  if (!item.barcode && !codesMatch(values.scannedBarcode, item.sku)) throw new Error('Mã SKU không khớp với dòng hàng cần lấy.');
+  if (!canCaptureIssueLocation(values.scannedSlotCode, location)) throw new Error('Mã vị trí không khớp với nguồn hàng được giữ cho phiếu.');
 }
 export function outstandingPicks(document: StockIssue) {
   return document.items.flatMap(item => item.pickDetails.filter(detail => !detail.issuedAt)
