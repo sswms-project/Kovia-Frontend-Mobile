@@ -36,6 +36,8 @@ export const pickFormSchema = z.object({ stockIssueRequestItemId: id, inventoryS
 export const pickingDestinationSchema = z.object({ stockIssueRequestId: id, warehouseId: id, version: nullableText,
   inventoryStockId: id, slotId: id, slotCode: text, path: text });
 const command = { expectedVersion: text.min(1, 'Thiếu phiên bản. Vui lòng tải lại.'), commandId: id };
+export const reportPickIssueSchema = z.object({ stockIssueRequestItemId: id,
+  reason: text.trim().min(1, 'Vui lòng mô tả sự cố.').max(500, 'Mô tả tối đa 500 ký tự.') });
 export const pickingCommandSchema = z.object({ ...command, items: z.array(pickFormSchema).min(1).max(500) });
 export const dispatchCommandSchema = z.object({ ...command, pickDetailIds: z.array(id).min(1).max(500)
   .refine(values => new Set(values).size === values.length, 'Chi tiết xuất bị trùng.') });

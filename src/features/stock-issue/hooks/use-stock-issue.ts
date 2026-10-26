@@ -137,6 +137,11 @@ export function useStockIssue(documentId: string) {
     finally { lock.current = false; }
   }
   return { access, validId, canView, detail, actions, form, allowed, permission, mutation, notice,
+    assertFieldReport: (key: string, version: string) => {
+      assertCurrent(P.STOCK_ISSUE_REQUESTS_PICK);
+      if (key !== contextKey || detail.data?.version !== version || detail.isError || detail.isFetching ||
+        !['ReleasedForPicking', 'Picking'].includes(detail.data.status)) throw new Error('Phiếu đã đổi trạng thái hoặc phiên bản. Vui lòng tải lại.');
+    },
     dispatchSelection: dispatchSelection?.key === contextKey && dispatchSelection.version === detail.data?.version && allowed('Dispatch') ? dispatchSelection : null,
     reviewDispatch, toggleDispatch: (id: string) => {
       if (!lock.current && detail.data && outstandingPicks(detail.data).some(pick => pick.id === id))

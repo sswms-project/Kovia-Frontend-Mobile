@@ -120,3 +120,64 @@ test('transfer APIs serialize exact completion/resume paths and preserve guards'
   assert.equal(sent[1][0],`/transfers/${transferId}/shipments/${shipmentId}/resume-putaway`);
   await assert.rejects(receiving.execute(transferId,shipmentId,{ action:'Start',body:{...base,receivingSlotId:slotId} },()=>{throw new Error('revoked');}),/revoked/);
 });
+
+const exceptions = load('src/features/transfer-picking/transfer-exception.schema.ts');
+const exceptionRules = load('src/features/transfer-picking/transfer-exception.ts');
+test('switch obeys remaining reservation and target availability; returns exclude dispatched quantities', () => {
+  const targetId=randomUUID(), pickId=randomUUID();
+  const line={lineId,remainingQuantity:4,baseQuantityPrecision:0,status:'Picking',
+    suggestions:[{...location,inventoryStockId:stockId,suggestedQuantity:4,reservedQuantity:4}],
+    picks:[{...location,id:pickId,inventoryStockId:stockId,pickedQuantity:5,returnedQuantity:1,dispatchedQuantity:2}]};
+  const values={action:'Switch',lineId,fromInventoryStockId:stockId,toInventoryStockId:targetId,pickDetailId:'',quantity:2,reasonCode:'Damaged',note:'Hang hong',scannedSlotCode:''};
+  const alternatives=[{inventoryStockId:targetId,availableQuantity:2}];
+  exceptionRules.assertTransferException(values,{lines:[line]},alternatives);
+  for(const quantity of [3,0.5]) assert.throws(()=>exceptionRules.assertTransferException({...values,quantity},{lines:[line]},alternatives));
+  assert.throws(()=>exceptionRules.assertTransferException(values,{lines:[{...line,status:'PendingManager'}]},alternatives));
+  const returned={...values,action:'Return',pickDetailId:pickId,scannedSlotCode:`KOVIA:LOC:SLOT:${slotId}`};
+  exceptionRules.assertTransferException(returned,{lines:[line]},[]);
+  assert.throws(()=>exceptionRules.assertTransferException({...returned,quantity:3},{lines:[line]},[]));
+  assert.throws(()=>exceptionRules.assertTransferException({...returned,scannedSlotCode:'WRONG'},{lines:[line]},[]));
+  exceptionRules.assertTransferException({...returned,scannedSlotCode:'CUSTOM-LABEL'},{lines:[{...line,suggestions:[]}]},[]);
+});
+test('exception form requires evidence of reason, different source and valid actual return',()=>{
+  const value={action:'Escalate',lineId,fromInventoryStockId:'',toInventoryStockId:'',pickDetailId:'',quantity:0,reasonCode:'NotFound',note:'Khong thay hang',scannedSlotCode:''};
+  assert.ok(exceptions.transferExceptionFormSchema.safeParse(value).success);
+  assert.equal(exceptions.transferExceptionFormSchema.safeParse({...value,note:' '}).success,false);
+  assert.equal(exceptions.transferExceptionFormSchema.safeParse({...value,action:'Switch',quantity:2,fromInventoryStockId:stockId,toInventoryStockId:stockId}).success,false);
+  assert.equal(exceptions.transferExceptionFormSchema.safeParse({...value,action:'Return',quantity:1}).success,false);
+  assert.equal(exceptions.returnTransferCommandSchema.safeParse({transferId,shipmentId,commandId:base.commandId,pickDetailId:lineId,quantity:0.001,scannedSlotCode:'S01'}).success,false);
+});
+test('exception APIs keep exact payload, command replay identifier and post-refresh scope guard',async()=>{
+  const sent=[];let guards=0;
+  const module=loader({'@/lib/api':{api:{post:async(...args)=>{args[2].assertCurrentContext();sent.push(args);return {data:{data:null}};}},unwrap:res=>res.data.data}})('src/features/transfer-picking/transfer-picking.api.ts').transferPickingApi;
+  const common={transferId,shipmentId,commandId:base.commandId};
+  const body={...common,pickDetailId:lineId,quantity:1,scannedSlotCode:'S01'};
+  await module.returnPick(body,()=>guards++);await module.returnPick(body,()=>guards++);
+  assert.equal(guards,4);assert.equal(sent[0][0],`/transfers/${transferId}/shipments/${shipmentId}/returns`);
+  assert.equal(sent[0][1].commandId,sent[1][1].commandId);assert.deepEqual(Object.keys(sent[0][1]).sort(),Object.keys(body).sort());
+  await module.switch({...common,lineId,fromInventoryStockId:stockId,toInventoryStockId:randomUUID(),quantity:1,reasonCode:'NotFound',note:'Het hang'},()=>{});
+  assert.ok(sent[2][0].endsWith(`/lines/${lineId}/switch`));
+  await module.escalate({...common,lineId,reasonCode:'Other',note:'Can quan ly'},()=>{});
+  assert.ok(sent[3][0].endsWith(`/lines/${lineId}/escalate`));
+  await assert.rejects(module.returnPick(body,()=>{throw new Error('scope changed');}),/scope changed/);assert.equal(sent.length,4);
+});
+
+test('Owner transfer notifications open a scoped read-only document while Staff keeps task navigation',()=>{
+  const navigation=load('src/features/notifications/notifications.ts');
+  const P=load('src/config/permission-codes.ts').P;
+  const roles=load('src/config/roles.ts').USER_ROLES;
+  const item={referenceType:'StockTransfer',referenceId:transferId};
+  const owner={role:roles.TenantOwner,permissions:[P.TRANSFERS_VIEW]};
+  assert.equal(navigation.notificationDestination(item,owner).pathname,'/catalog/transfers/[id]');
+  assert.equal(navigation.notificationDestination(item,{...owner,permissions:[]}),null);
+  assert.equal(navigation.notificationDestination(item,{role:roles.WarehouseStaff,permissions:[P.TRANSFERS_VIEW,P.WAREHOUSE_TASKS_VIEW_OWN]}),null);
+});
+test('legacy pick report validates reason and sends no unsupported version or command identifier',async()=>{
+  assert.equal(issue.reportPickIssueSchema.safeParse({stockIssueRequestItemId:lineId,reason:' '}).success,false);
+  assert.equal(issue.reportPickIssueSchema.safeParse({stockIssueRequestItemId:lineId,reason:'x'.repeat(501)}).success,false);
+  const sent=[];
+  const module=loader({'@/lib/api':{api:{post:async(...args)=>{args[2].assertCurrentContext();sent.push(args);return {data:{data:null}};}},unwrap:res=>res.data.data}})('src/features/stock-issue/stock-issue.api.ts').stockIssueApi;
+  await module.reportIssue(transferId,{stockIssueRequestItemId:lineId,reason:'SKU: bao bi rach',expectedVersion:'unsupported'},()=>{});
+  assert.deepEqual(Object.keys(sent[0][1]).sort(),['reason','stockIssueRequestItemId']);
+  assert.ok(sent[0][0].endsWith('/report-pick-issue'));
+});

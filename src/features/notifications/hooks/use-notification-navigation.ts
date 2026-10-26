@@ -57,7 +57,7 @@ export function useNotificationNavigation(dismissOverlay = false) {
       assertCurrent();
       const profile = client.getQueryData<UserProfile>(profileQueryKey);
       if (!canOpenNotification(item, profile)) throw new ApiError('Thông báo chưa có màn hình phù hợp hoặc bạn không có quyền truy cập.', 403);
-      if (!notificationNeedsTask(item)) {
+      if (notificationDestination(item, profile) || !notificationNeedsTask(item)) {
         const destination = notificationDestination(item, profile);
         if (destination) {
           setStatus(null);
