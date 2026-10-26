@@ -1,5 +1,4 @@
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -14,18 +13,17 @@ export function MetricGrid({ kpis }: { readonly kpis: readonly HomeKpi[] }) {
       ? { fg: theme.onErrorContainer, bg: theme.errorContainer }
       : tone === 'neutral'
         ? { fg: theme.onSecondaryContainer, bg: theme.secondaryContainer }
-        : { fg: theme.onPrimaryContainer, bg: theme.primaryContainer };
+        : { fg: theme.primary, bg: theme.muted };
 
   return (
     <View style={styles.grid}>
-      {kpis.map((kpi, index) => {
+      {kpis.map((kpi) => {
         const danger = kpi.tone === 'danger';
         const chip = kpi.chip ? chipColors(kpi.chip.tone) : null;
         const Icon = kpi.icon;
         return (
-          <Animated.View
+          <View
             key={kpi.id}
-            entering={FadeInDown.delay(80 * index).springify()}
             style={[
               styles.card,
               {
@@ -43,7 +41,7 @@ export function MetricGrid({ kpis }: { readonly kpis: readonly HomeKpi[] }) {
             </Text>
             {chip && kpi.chip ? (
               <View style={[styles.chip, { backgroundColor: chip.bg }]}>
-                <Text style={[styles.chipText, { color: chip.fg }]} numberOfLines={1}>
+                <Text style={[styles.chipText, { color: chip.fg }]}>
                   {kpi.chip.text}
                 </Text>
               </View>
@@ -53,7 +51,7 @@ export function MetricGrid({ kpis }: { readonly kpis: readonly HomeKpi[] }) {
                 <View style={[styles.fill, { backgroundColor: theme.primary, width: `${kpi.progress * 100}%` }]} />
               </View>
             ) : null}
-          </Animated.View>
+          </View>
         );
       })}
     </View>
@@ -62,13 +60,13 @@ export function MetricGrid({ kpis }: { readonly kpis: readonly HomeKpi[] }) {
 
 const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  card: { flexBasis: '46%', minWidth: 140, flexGrow: 1, borderWidth: 1, borderRadius: Radius.xl, padding: 16, gap: 10 },
+  card: { flexBasis: '46%', minWidth: 140, flexGrow: 1, borderWidth: 1, borderRadius: Radius.lg, padding: 16, gap: 10 },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   label: { flex: 1, fontSize: 13, lineHeight: 19, fontFamily: FontFamily.medium },
   value: { fontSize: 28, fontFamily: FontFamily.bold, letterSpacing: -0.5 },
   unit: { fontSize: 12, fontFamily: FontFamily.medium },
-  chip: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
-  chipText: { fontSize: 11, fontFamily: FontFamily.semibold },
+  chip: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.md },
+  chipText: { fontSize: 12, lineHeight: 18, fontFamily: FontFamily.semibold },
   track: { height: 6, borderRadius: 3, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 3 },
 });

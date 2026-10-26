@@ -25,7 +25,7 @@ export function GreetingCard({ name, subtitle, onSearch, onScan, overview = fals
         <Text style={[styles.greeting, { color: theme.text }]} numberOfLines={2}>{name}</Text>
       </View>
       <View style={styles.subtitleRow}>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]} numberOfLines={1}>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           {subtitle}
         </Text>
       </View>
@@ -61,7 +61,7 @@ export function GreetingCard({ name, subtitle, onSearch, onScan, overview = fals
 }
 
 const styles = StyleSheet.create({
-  card: { borderWidth: 1, borderRadius: 20, padding: 20, gap: 10 },
+  card: { borderWidth: 1, borderRadius: Radius.lg, padding: 20, gap: 10 },
   hello: { fontSize: 14, lineHeight: 20, fontFamily: FontFamily.medium },
   greeting: { fontSize: 20, lineHeight: 28, fontFamily: FontFamily.bold },
   subtitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -73,11 +73,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    height: 48,
+    minHeight: 48,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderRadius: Radius.xl,
+    borderRadius: Radius.md,
   },
-  input: { flex: 1, fontSize: 14, fontFamily: FontFamily.regular, paddingVertical: 0 },
-  scan: { width: 48, height: 48, borderRadius: Radius.xl, alignItems: 'center', justifyContent: 'center' },
+  input: { flex: 1, minWidth: 0, fontSize: 16, fontFamily: FontFamily.regular, paddingVertical: 10 },
+  scan: { width: 48, height: 48, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
 });

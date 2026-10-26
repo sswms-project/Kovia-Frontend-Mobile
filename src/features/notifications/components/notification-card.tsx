@@ -21,33 +21,37 @@ interface Props { readonly item: WarehouseNotification; readonly busy: boolean; 
   readonly onRead: (id: string) => void; readonly onOpen: (item: WarehouseNotification) => void }
 export const NotificationCard = memo(function NotificationCard({ item, busy, canOpen, onRead, onOpen }: Props) {
   const theme = useTheme();
-  return <Pressable accessibilityRole={canOpen ? 'button' : undefined} disabled={!canOpen || busy} onPress={() => onOpen(item)}
-    style={({ pressed }) => [styles.card, { backgroundColor: theme.card, borderColor: theme.border }, pressed && styles.pressed]}>
+  return <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+    <Pressable accessibilityRole={canOpen ? 'button' : undefined} accessibilityLabel={`${item.title}. ${item.message}`}
+      accessibilityHint={canOpen ? 'Mở chứng từ liên quan' : undefined} disabled={!canOpen || busy} onPress={() => onOpen(item)}
+      style={({ pressed }) => [styles.content, pressed && styles.pressed]}>
     <View style={[styles.icon, { backgroundColor: item.isRead ? theme.muted : theme.primary }]}>
       <Bell size={18} color={item.isRead ? theme.textSecondary : theme.onPrimary} />
     </View>
     <View style={styles.body}>
       <View style={styles.row}>
-        <Text numberOfLines={1} style={[styles.title, { color: item.isRead ? theme.textSecondary : theme.primary }]}>{item.title}</Text>
+        <Text style={[styles.title, { color: item.isRead ? theme.textSecondary : theme.primary }]}>{item.title}</Text>
         <Text style={[styles.time, { color: theme.textSecondary }]}>{timeAgo(item.createdAt)}</Text>
         {!item.isRead && <View style={[styles.dot, { backgroundColor: theme.primary }]} />}
       </View>
       <Text numberOfLines={3} style={[styles.text, item.isRead ? { color: theme.textSecondary } : { color: theme.text, fontFamily: FontFamily.bold }]}>{item.message}</Text>
-      {!item.isRead && <Pressable accessibilityRole="button" accessibilityLabel={`Đánh dấu đã đọc: ${item.title}`}
-        disabled={busy} style={styles.readAction} onPress={event => { event.stopPropagation(); onRead(item.id); }}>
-        <Text style={[styles.link, { color: theme.primary }]}>Đánh dấu đã đọc</Text></Pressable>}
     </View>
-  </Pressable>;
+    </Pressable>
+    {!item.isRead && <Pressable accessibilityRole="button" accessibilityLabel={`Đánh dấu đã đọc: ${item.title}`}
+      disabled={busy} style={styles.readAction} onPress={() => onRead(item.id)}>
+      <Text style={[styles.link, { color: theme.primary }]}>Đánh dấu đã đọc</Text></Pressable>}
+  </View>;
 });
 const styles = StyleSheet.create({
-  card: { flexDirection: 'row', gap: 12, padding: 14, borderWidth: 1, borderRadius: Radius.lg }, pressed: { opacity: 0.85 },
+  card: { gap: 4, padding: 16, borderWidth: 1, borderRadius: Radius.lg }, pressed: { opacity: 0.85 },
+  content: { flexDirection: 'row', gap: 12, minHeight: 48 },
   icon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, gap: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  title: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 12, lineHeight: 18, textTransform: 'uppercase' },
+  title: { flexGrow: 1, flexShrink: 1, flexBasis: 120, fontFamily: FontFamily.semibold, fontSize: 14, lineHeight: 21 },
   text: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 21 },
   time: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 18 },
   link: { fontFamily: FontFamily.semibold, fontSize: 13, lineHeight: 20 },
-  readAction: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
+  readAction: { minHeight: 48, marginLeft: 52, justifyContent: 'center', alignSelf: 'flex-start' },
 });

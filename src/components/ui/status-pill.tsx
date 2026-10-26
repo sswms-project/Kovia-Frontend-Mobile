@@ -29,6 +29,6 @@ export function StatusPill({ label, tone }: StatusPillProps) {
 }
 
 const styles = StyleSheet.create({
-  pill: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
-  label: { fontFamily: FontFamily.medium, fontSize: 11 },
+  pill: { alignSelf: 'flex-start', maxWidth: '100%', flexShrink: 1, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  label: { fontFamily: FontFamily.medium, fontSize: 12, lineHeight: 18 },
 });

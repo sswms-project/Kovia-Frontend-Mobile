@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Radius.xl,
+    borderRadius: Radius.md,
     paddingHorizontal: 20,
     paddingVertical: 12,
   },

@@ -1,6 +1,7 @@
 import { Check, ChevronDown, Search, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FontFamily, Radius } from '@/constants/theme';
@@ -23,6 +24,7 @@ interface SelectionFieldProps {
 
 export function SelectionField({ label, value, options, placeholder = 'Chọn một mục', disabled = false, onChange }: SelectionFieldProps) {
   const theme = useTheme();
+  const reduceMotion = useReducedMotion();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -36,13 +38,13 @@ export function SelectionField({ label, value, options, placeholder = 'Chọn m�
       accessibilityState={{ expanded: open, disabled }} disabled={disabled} onPress={() => setOpen(true)}
       style={({ pressed }) => [styles.trigger, { backgroundColor: theme.card, borderColor: theme.border }, (pressed || disabled) && styles.dim]}>
       <View style={styles.copy}>
-        <Text style={[styles.value, { color: theme.text }]} numberOfLines={2}>{selected?.label ?? placeholder}</Text>
-        {!!selected?.description && <Text style={[styles.description, { color: theme.textSecondary }]} numberOfLines={1}>{selected.description}</Text>}
+        <Text style={[styles.value, { color: theme.text }]}>{selected?.label ?? placeholder}</Text>
+        {!!selected?.description && <Text style={[styles.description, { color: theme.textSecondary }]}>{selected.description}</Text>}
       </View>
       <ChevronDown size={20} color={theme.textSecondary} />
     </Pressable>
-    <Modal visible={open && !disabled} transparent animationType="slide" onRequestClose={close}>
-      <View style={[styles.overlay, { backgroundColor: theme.scrim }]}>
+    <Modal visible={open && !disabled} transparent animationType={reduceMotion ? 'none' : 'slide'} onRequestClose={close}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.overlay, { backgroundColor: theme.scrim }]}>
         <Pressable accessibilityRole="button" accessibilityLabel="Đóng bảng chọn" onPress={close} style={StyleSheet.absoluteFill} />
         <View accessibilityViewIsModal style={[styles.sheet, { backgroundColor: theme.card, paddingBottom: Math.max(insets.bottom, 16) }]}>
           <View style={styles.heading}>
@@ -67,18 +69,18 @@ export function SelectionField({ label, value, options, placeholder = 'Chọn m�
             </Pressable>}
             ListEmptyComponent={<Text style={[styles.empty, { color: theme.textSecondary }]}>Không tìm thấy mục phù hợp.</Text>} />
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   </View>;
 }
 
 const styles = StyleSheet.create({
   field: { gap: 8 }, label: { fontFamily: FontFamily.medium, fontSize: 13, lineHeight: 18 },
-  trigger: { minHeight: 52, borderWidth: 1, borderRadius: Radius.xl, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  trigger: { minHeight: 52, borderWidth: 1, borderRadius: Radius.md, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
   copy: { flex: 1, gap: 4 }, value: { fontFamily: FontFamily.medium, fontSize: 15, lineHeight: 22 },
   description: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 19 }, dim: { opacity: 0.6 },
   overlay: { flex: 1, justifyContent: 'flex-end' },
-  sheet: { maxHeight: '80%', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingTop: 8 },
+  sheet: { width: '100%', maxWidth: 640, alignSelf: 'center', maxHeight: '85%', borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingHorizontal: 16, paddingTop: 8 },
   heading: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
   title: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 20, lineHeight: 28 },
   iconButton: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
@@ -86,5 +88,5 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontFamily: FontFamily.regular, fontSize: 16, minHeight: 48 },
   option: { minHeight: 56, padding: 14, borderRadius: Radius.lg, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
   empty: { padding: 20, fontFamily: FontFamily.regular, fontSize: 14 },
-  list: { flexGrow: 0 },
+  list: { flexGrow: 0, flexShrink: 1 },
 });

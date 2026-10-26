@@ -25,6 +25,8 @@ import { AppHeader } from '@/components/app-header';
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
+import { SelectionField } from '@/components/ui/selection-field';
+import { APPEARANCE_OPTIONS, useAppearance } from '@/stores/appearance.store';
 import { getRoleLabel } from '@/config/roles';
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -86,6 +88,11 @@ function MenuRow({ label, onPress, disabled, icon: Icon }: { label: string; onPr
 
 export function ProfileScreen() {
   const theme = useTheme();
+  const preference = useAppearance(state => state.preference);
+  const appearanceHydrated = useAppearance(state => state.hydrated);
+  const savingAppearance = useAppearance(state => state.saving);
+  const appearanceError = useAppearance(state => state.error);
+  const chooseAppearance = useAppearance(state => state.choose);
   const queryClient = useQueryClient();
   const signOut = useAuth((state) => state.signOut);
   const [editing, setEditing] = useState(false);
@@ -224,6 +231,13 @@ export function ProfileScreen() {
         )}
       </View>
 
+      <View style={[styles.card, card]}>
+        <SelectionField label="Giao diện" value={preference} options={APPEARANCE_OPTIONS}
+          disabled={busy || !appearanceHydrated || savingAppearance} onChange={value => {
+            if (value === 'system' || value === 'light' || value === 'dark') void chooseAppearance(value);
+          }} />
+        {appearanceError && <AlertBanner variant="destructive" title={appearanceError} />}
+      </View>
       <View style={[styles.card, styles.menu, card]}>
         <MenuRow icon={Shield} label="Bảo mật và xác thực hai bước" disabled={busy} onPress={() => router.push('/security')} />
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
