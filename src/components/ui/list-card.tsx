@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ChevronRight } from 'lucide-react-native';
 
 import { StatusPill, type PillTone } from '@/components/ui/status-pill';
 import { FontFamily, Radius } from '@/constants/theme';
@@ -36,23 +37,26 @@ export function ListCard({ title, subtitle, lines = [], pill, onPress }: ListCar
   );
   const cardStyle = [styles.card, { backgroundColor: theme.card, borderColor: theme.border }];
 
-  if (!onPress) return <View style={cardStyle}>{body}</View>;
+  if (!onPress) return <View style={cardStyle}><View style={styles.copy}>{body}</View></View>;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={title}
+      accessibilityLabel={[title, subtitle, pill?.label].filter(Boolean).join('. ')}
+      accessibilityHint="Mở chi tiết"
       onPress={onPress}
       style={({ pressed }) => [cardStyle, pressed && styles.pressed]}>
-      {body}
+      <View style={styles.copy}>{body}</View>
+      <ChevronRight size={18} color={theme.textSecondary} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { gap: 6, padding: 14, borderWidth: 1, borderRadius: Radius.xl },
+  card: { gap: 12, padding: 16, borderWidth: 1, borderRadius: Radius.lg, flexDirection: 'row', alignItems: 'center' },
+  copy: { flex: 1, minWidth: 0, gap: 8 },
   pressed: { opacity: 0.85 },
-  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
-  title: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 15, lineHeight: 21 },
-  subtitle: { fontFamily: FontFamily.mono, fontSize: 13 },
-  line: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 18 },
+  header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+  title: { flexGrow: 1, flexShrink: 1, flexBasis: 160, fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 23 },
+  subtitle: { fontFamily: FontFamily.mono, fontSize: 13, lineHeight: 20 },
+  line: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 21 },
 });

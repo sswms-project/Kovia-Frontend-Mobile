@@ -49,8 +49,8 @@ export function AppHeader({ hideProfile = false, title }: AppHeaderProps) {
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 6, paddingBottom: 4 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 12 },
-  avatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  bell: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 48, height: 48, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  bell: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   bellDot: { position: 'absolute', top: 5, right: 6, width: 9, height: 9, borderRadius: 5 },
   pressed: { opacity: 0.75 },
 });
