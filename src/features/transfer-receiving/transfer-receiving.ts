@@ -1,6 +1,16 @@
 import type { TransferDestinationScope, TransferReceivingMode, TransferReceiptSheet } from './transfer-receiving.schema';
+import type { TransferExecutionTarget } from './transfer-execution.schema';
 
 export class TransferDestinationScopeError extends Error {}
+
+export function transferReceiptActionAllowed(mode: TransferReceivingMode, action: TransferExecutionTarget['action'],
+  status: string, taskStatus: string | null, canResume: boolean) {
+  if (action === 'Resume') return mode === 'PutAway' && canResume;
+  if (taskStatus !== 'Queued' && taskStatus !== 'InProgress') return false;
+  return action === 'Start' ? mode === 'Receive' && status === 'InTransit'
+    : action === 'Submit' ? mode === 'Receive' && status === 'Receiving'
+      : mode === 'PutAway' && status === 'AwaitingPutAway';
+}
 
 export function assertTransferDestinationScope(document: TransferDestinationScope, receipt: TransferReceiptSheet,
   transferId: string, shipmentId: string, warehouseId: string, userId: string, mode: TransferReceivingMode) {

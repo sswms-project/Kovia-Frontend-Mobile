@@ -53,8 +53,11 @@ export function TransferReceivingScreen({ transferId, shipmentId, mode }: {
   }, [theme.text]);
   const otherAssigned = data && (mode === 'Receive' ? data.shipment.putAwayTaskId && data.shipment.putAwayAssigneeId === state.access.profile.data?.id
     : data.shipment.receiveTaskId && data.shipment.receiveAssigneeId === state.access.profile.data?.id);
+  // Web modals preserve React context; own them outside FlatList so their lists scroll independently.
   return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
-    <FlatList data={rows} renderItem={renderRow} keyExtractor={row => row.key} ItemSeparatorComponent={Separator}
+    <TransferReceiptEditor key={JSON.stringify([state.access.selection.identity, state.access.selection.warehouseId, state.access.selection.revision, state.access.selection.signature, transferId, shipmentId, mode])}
+      state={state} transferId={transferId} shipmentId={shipmentId} mode={mode}>
+    {controls => <FlatList data={rows} renderItem={renderRow} keyExtractor={row => row.key} ItemSeparatorComponent={Separator}
       contentContainerStyle={styles.content} refreshing={state.detail.isFetching} onRefresh={() => { void state.refresh(); }}
       ListHeaderComponent={<View style={styles.header}>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{mode === 'Receive' ? 'Phiếu nhận điều chuyển' : 'Phiếu cất điều chuyển'}</Text>
@@ -72,10 +75,9 @@ export function TransferReceivingScreen({ transferId, shipmentId, mode }: {
           {state.detail.isError && <AlertBanner title="Dữ liệu cũ" description={`Lần tải thành công: ${new Date(state.detail.dataUpdatedAt).toLocaleString('vi-VN')}. Thử tải lại trước khi sử dụng số liệu.`} />}
           <Text style={[styles.text, { color: theme.textSecondary }]}>Bắt đầu nhận: {transferReceivingDate(data.receipt.arrivedAt)}</Text>
           <Text style={[styles.text, { color: theme.textSecondary }]}>Gửi kết quả kiểm hàng: {transferReceivingDate(data.receipt.receiptSubmittedAt)}</Text>
-          <TransferReceiptEditor key={JSON.stringify([state.access.selection.identity, state.access.selection.warehouseId, state.access.selection.revision, state.access.selection.signature, transferId, shipmentId, mode])}
-            state={state} transferId={transferId} shipmentId={shipmentId} mode={mode} />
+          {controls}
           {!data.receipt.lines.length && <AlertBanner title="Chưa có dòng hàng đã xuất trong đợt này." />}
-          {data.receipt.keptAtReceiving && <AlertBanner title="Hàng đạt được giữ tại vị trí nhận" description="Có thể được chọn theo FEFO để lấy trực tiếp. Chưa ghi nhận cất vào kệ; hàng hỏng vẫn không khả dụng." />}
+          {data.receipt.keptAtReceiving && <AlertBanner title="Đã chọn giữ hàng đạt tại khu nhận" description="Hàng đủ điều kiện được lấy theo FEFO từ vị trí thực tế hiện tại. Cất sau chỉ chuyển vị trí, không ghi nhập tồn thêm; hàng hỏng vẫn không khả dụng." />}
           {(data.document.isLegacyWorkflow || ![1, 2].includes(data.receipt.receiptFlowVersion)) && <AlertBanner
             title="Phiếu thuộc luồng nhận hàng cũ" description="Đang hiển thị thông tin đối chiếu. Không suy ra số lượng chờ cất từ phiếu cũ." />}
           {mode === 'PutAway' && data.putAway && !data.putAway.rows.length && <AlertBanner title="Không có dòng hàng tốt trong phiếu cất hiện tại." />}
@@ -85,7 +87,8 @@ export function TransferReceivingScreen({ transferId, shipmentId, mode }: {
               params: { id: transferId, shipmentId } })} />}
         </>}
         <Button label="Tải lại dữ liệu" variant="outline" loading={state.detail.isFetching} onPress={() => { void state.refresh(); }} />
-      </View>} />
+      </View>} />}
+    </TransferReceiptEditor>
   </SafeAreaView>;
 }
 function Separator() { return <View style={styles.separator} />; }

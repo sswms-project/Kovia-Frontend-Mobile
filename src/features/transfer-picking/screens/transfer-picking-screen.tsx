@@ -8,6 +8,7 @@ import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { StagingPointField } from '@/features/warehouse-access/components/staging-point-field';
 
 import { TransferPickEditor } from '../components/transfer-pick-editor';
 import { TransferPickLineCard } from '../components/transfer-pick-line-card';
@@ -40,7 +41,9 @@ export function TransferPickingScreen({ transferId, shipmentId }: { readonly tra
           {!state.canPick && sheet.shipmentStatus === 'Picking' && !state.detail.isFetching && !state.detail.isError && <AlertBanner
             title="Chưa thể lấy hàng" description="Kiểm tra quyền lấy hàng, trạng thái công việc và phiên bản đợt xuất. Công việc tạm dừng cần được tiếp tục từ danh sách việc." />}
           {!sheet.lines.length && <AlertBanner title="Đợt xuất không có dòng hàng." />}
-          {state.canComplete && <Button label="Hoàn tất lấy hàng, chuyển chờ xuất" disabled={busy} onPress={state.beginComplete} />}
+          {state.staged && <StagingPointField label="Điểm chờ xuất thực tế" points={sheet.stagingPoints} value={state.stagingSlotId}
+            frozen={!!sheet.outboundStagingSlotId} disabled={busy || !state.canPick} onChange={state.chooseStaging} />}
+          <Button label="Hoàn tất lấy hàng, chuyển chờ xuất" disabled={busy || !state.canComplete} onPress={state.beginComplete} />
         </>}
         {state.notice && <AlertBanner title={state.notice} />}
         <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
