@@ -1,3 +1,5 @@
+import { P } from '@/config/permission-codes';
+import { USER_ROLES } from '@/config/roles';
 import { api, unwrap, type ApiResponse } from '@/lib/api';
 
 import type { OtpInput, ProfileInput } from './auth.schema';
@@ -18,8 +20,17 @@ export type { SignInResponse } from './auth.types';
 
 // These endpoints answer with a human-readable message the UI shows as-is.
 const unwrapMessage = (res: { data: ApiResponse<unknown> }) => res.data.message;
-const getProfile = (signal?: AbortSignal) =>
-  api.get<ApiResponse<UserProfile>>('/auth/me', { signal }).then(unwrap);
+// A Tenant Owner has no warehouse assignments; the BE scopes them to every tenant warehouse instead.
+const getProfile = async (signal?: AbortSignal): Promise<UserProfile> => {
+  const profile = unwrap(await api.get<ApiResponse<UserProfile>>('/auth/me', { signal }));
+  if (profile.role !== USER_ROLES.TenantOwner || profile.assignedWarehouses.length > 0
+    || !profile.permissions.includes(P.DASHBOARD_VIEW)) return profile;
+  const warehouses = unwrap(await api.get<ApiResponse<{ id: string; name: string }[]>>('/dashboard/warehouses', { signal }));
+  return {
+    ...profile,
+    accessibleWarehouses: warehouses.map((w) => ({ id: w.id, warehouseCode: w.name, warehouseName: w.name, status: 'Active' })),
+  };
+};
 
 export const authApi = {
   login: (body: LoginRequestDto) =>

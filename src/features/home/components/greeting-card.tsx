@@ -29,7 +29,7 @@ export function GreetingCard({ name, subtitle, onSearch, onScan, overview = fals
           {subtitle}
         </Text>
       </View>
-      {overview ? <Text style={[styles.overviewHint, { color: theme.textSecondary }]}>Theo dõi tồn kho, tiến độ và các cập nhật tại kho đang chọn.</Text> : <View style={styles.searchRow}>
+      {overview ? null : <View style={styles.searchRow}>
         <View style={[styles.search, { backgroundColor: theme.muted, borderColor: theme.border }]}>
           <Search size={18} color={theme.textSecondary} />
           <TextInput
@@ -66,7 +66,6 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 20, lineHeight: 28, fontFamily: FontFamily.bold },
   subtitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   subtitle: { flexShrink: 1, fontSize: 13, fontFamily: FontFamily.medium },
-  overviewHint: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 22 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
   search: {
     flex: 1,

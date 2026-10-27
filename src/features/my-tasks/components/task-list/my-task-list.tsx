@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
+import { FilterToggle } from '@/components/ui/filter-toggle';
 import { FontFamily, MaxContentWidth } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -61,11 +62,9 @@ export function MyTaskList({ warehouseName, data, filters, loading, fetching, er
         </Text>}
         {!!activeTask && !error && <AlertBanner title={`Đang làm: ${activeTask.referenceCode}`}
           description="Muốn bắt đầu việc khác, mở Chi tiết của việc đang làm và chọn Tạm dừng." />}
-        <View style={styles.row}>
-          <Button label={filtersOpen ? 'Ẩn bộ lọc' : 'Bộ lọc'} variant="outline" disabled={busy} onPress={() => setFiltersOpen((value) => !value)} />
-          {filtersOpen && <Button label="Xóa bộ lọc" variant="ghost" disabled={busy}
-            onPress={() => onFilters({ taskType: undefined, executionStatus: undefined, deadlineStatus: undefined, recentlyAssignedFirst: false })} />}
-        </View>
+        <FilterToggle open={filtersOpen} disabled={busy} activeCount={Number(!!filters.taskType) + Number(!!filters.executionStatus) + Number(!!filters.deadlineStatus) + Number(filters.recentlyAssignedFirst)}
+          onToggle={() => setFiltersOpen((value) => !value)}
+          onClear={() => onFilters({ taskType: undefined, executionStatus: undefined, deadlineStatus: undefined, recentlyAssignedFirst: false })} />
         {filtersOpen && <>
           <TaskFiltersPanel filters={filters} onChange={onFilters} disabled={busy} />
           {!filters.history && <Button label={filters.recentlyAssignedFirst ? 'Sắp xếp: Mới giao trước' : 'Sắp xếp: Ưu tiên và thời hạn'} variant="outline" disabled={busy}

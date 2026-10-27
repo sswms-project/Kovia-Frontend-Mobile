@@ -1,5 +1,5 @@
 import { Pause, Play, Undo2 } from 'lucide-react-native';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { StatusPill } from '@/components/ui/status-pill';
@@ -24,11 +24,13 @@ interface TaskDetailViewProps {
   readonly onOpenDocument?: () => void;
   readonly openingDocument?: boolean;
   readonly documentLabel?: string;
+  readonly isRefreshing?: boolean;
+  readonly onRefresh?: () => void;
 }
 
 const formatTime = (value: string | null) => (value ? formatDisplayDateTime(new Date(value)) : '—');
 
-export function TaskDetailView({ task, availableActions, isPending, onAction, onOpenDocument, openingDocument, documentLabel = 'Mở chứng từ và thực hiện' }: TaskDetailViewProps) {
+export function TaskDetailView({ task, availableActions, isPending, onAction, onOpenDocument, openingDocument, documentLabel = 'Mở chứng từ và thực hiện', isRefreshing = false, onRefresh }: TaskDetailViewProps) {
   const theme = useTheme();
   const rows: readonly { label: string; value: string }[] = [
     { label: 'Mã tham chiếu', value: task.referenceCode },
@@ -46,7 +48,8 @@ export function TaskDetailView({ task, availableActions, isPending, onAction, on
   const isResume = task.executionStatus === 'Paused';
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView contentContainerStyle={styles.content}
+      refreshControl={onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined}>
       <View style={styles.heading}>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>
           {TASK_TYPE_LABEL[task.taskType] ?? task.taskType}

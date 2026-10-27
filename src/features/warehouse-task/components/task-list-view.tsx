@@ -11,9 +11,10 @@ import type { FilterOption } from '@/components/ui/filter-chips';
 import { SelectionField } from '@/components/ui/selection-field';
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
+import { FilterToggle } from '@/components/ui/filter-toggle';
 import { useState, type ReactNode } from 'react';
 import { LoadingState } from '@/components/ui/loading-state';
-import { FontFamily } from '@/constants/theme';
+import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { isApiErrorResponse } from '@/lib/api-error';
 import { executionStatusSchema, taskTypeSchema } from '@/features/my-tasks/my-tasks.schema';
@@ -103,17 +104,18 @@ export function TaskListView({
       </AlertBanner>}
 
       <View style={styles.chips}>
-        <Button label={filtersOpen ? 'Ẩn bộ lọc' : `Bộ lọc${activeFilters ? ` (${activeFilters})` : ''}`}
-          variant="outline" onPress={() => setFiltersOpen((value) => !value)} />
-        {activeFilters > 0 && <Button label="Xóa bộ lọc" variant="ghost" onPress={() => { onStatusChange(null); onTypeChange(null); }} />}
+        <FilterToggle open={filtersOpen} activeCount={activeFilters} onToggle={() => setFiltersOpen((value) => !value)}
+          onClear={() => { onStatusChange(null); onTypeChange(null); }} />
       </View>
       {filtersOpen && <View style={styles.chips}>
-        <SelectionField label="Trạng thái" value={statusFilter ?? ''}
-          options={[{ value: '', label: 'Tất cả trạng thái' }, ...statusOptions]}
-          onChange={(value) => onStatusChange(value ? executionStatusSchema.parse(value) : null)} />
-        <SelectionField label="Loại công việc" value={typeFilter ?? ''}
-          options={[{ value: '', label: 'Mọi loại công việc' }, ...TASK_TYPE_FILTERS]}
-          onChange={(value) => onTypeChange(value ? taskTypeSchema.parse(value) : null)} />
+        <View style={[styles.panel, { borderColor: theme.border, backgroundColor: theme.card }]}>
+          <SelectionField label="Trạng thái" value={statusFilter ?? ''}
+            options={[{ value: '', label: 'Tất cả trạng thái' }, ...statusOptions]}
+            onChange={(value) => onStatusChange(value ? executionStatusSchema.parse(value) : null)} />
+          <SelectionField label="Loại công việc" value={typeFilter ?? ''}
+            options={[{ value: '', label: 'Mọi loại công việc' }, ...TASK_TYPE_FILTERS]}
+            onChange={(value) => onTypeChange(value ? taskTypeSchema.parse(value) : null)} />
+        </View>
       </View>}
 
     </View>;
@@ -153,6 +155,7 @@ const styles = StyleSheet.create({
   description: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 19 },
   standaloneDescription: { paddingHorizontal: 20 },
   chips: { gap: 8, paddingHorizontal: 20 },
+  panel: { gap: 10, borderWidth: 1, borderRadius: Radius.xl, padding: 10 },
   listContent: { paddingBottom: 24 },
   separator: { height: 12 },
   footer: { paddingVertical: 16 },
