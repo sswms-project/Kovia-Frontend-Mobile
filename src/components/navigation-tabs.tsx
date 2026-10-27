@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { ClipboardList, House, PackageSearch, ScanLine, UserRound } from 'lucide-react-native';
+import { ClipboardList, House, PackageSearch, ScanLine, Search, UserRound } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,7 +10,7 @@ import { useMe } from '@/features/auth/hooks/use-me';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-const TAB_ICONS = { index: House, tasks: ClipboardList, scanner: ScanLine, inventory: PackageSearch, profile: UserRound, catalog: PackageSearch };
+const TAB_ICONS = { index: House, tasks: ClipboardList, scanner: ScanLine, inventory: PackageSearch, profile: UserRound, catalog: Search };
 
 export function KoviaTabs({ allowedTabNames }: { readonly allowedTabNames: readonly string[] }) {
   const theme = useTheme();
@@ -21,6 +21,14 @@ export function KoviaTabs({ allowedTabNames }: { readonly allowedTabNames: reado
     ? ['index', 'catalog', 'scanner', 'inventory', 'profile'].map((name) => MOBILE_TABS.find((tab) => tab.name === name)!)
       .concat(MOBILE_TABS.filter((tab) => tab.name === 'tasks'))
     : MOBILE_TABS;
+  const canInventory = allowedTabNames.includes('inventory');
+  // Field roles without inventory access get the catalog hub in that slot instead of an empty screen.
+  const tabVisible = (tab: (typeof MOBILE_TABS)[number]) => {
+    if (owner) return tab.name !== 'tasks' && (allowedTabNames.includes(tab.name) || 'showWithoutPermission' in tab);
+    if (tab.name === 'inventory') return canInventory;
+    if (tab.name === 'catalog') return !canInventory && allowedTabNames.includes('catalog');
+    return tab.inNavbar && allowedTabNames.includes(tab.name);
+  };
   const bottom = Math.max(insets.bottom, 8);
   return <Tabs backBehavior="history" screenOptions={{
     headerShown: false,
@@ -37,7 +45,7 @@ export function KoviaTabs({ allowedTabNames }: { readonly allowedTabNames: reado
       const scanner = tab.name === 'scanner';
       return <Tabs.Screen key={tab.name} name={tab.name} options={{
         title: owner && tab.name === 'catalog' ? role === USER_ROLES.TenantOwner ? 'Quản lý' : 'Theo dõi' : owner && tab.name === 'index' ? 'Tổng quan' : tab.title,
-        href: (owner ? tab.name !== 'tasks' : tab.inNavbar) && (allowedTabNames.includes(tab.name) || 'showWithoutPermission' in tab) ? undefined : null,
+        href: tabVisible(tab) ? undefined : null,
         tabBarAccessibilityLabel: scanner ? 'Quét mã, mở tra cứu bằng camera hoặc nhập mã' : tab.title,
         tabBarIcon: ({ color, focused }) => scanner
           ? <View style={[styles.scan, { backgroundColor: theme.primary, borderColor: theme.card, shadowColor: theme.primary }, focused && { borderColor: theme.secondaryContainer }]}>

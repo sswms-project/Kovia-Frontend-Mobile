@@ -5,7 +5,7 @@ export function isFieldWorkspace(role: string | null | undefined) {
   return role === USER_ROLES.WarehouseStaff;
 }
 
-const FIELD_ENTRIES = new Set(['products', 'damage-cases', 'discrepancies', 'audit-logs']);
+const FIELD_ENTRIES = new Set(['products', 'damage-cases', 'discrepancies', 'audit-logs', 'ai-assistant']);
 export function isMobileEntryVisible(key: string, role: string | null | undefined) {
   return !isFieldWorkspace(role) || FIELD_ENTRIES.has(key);
 }

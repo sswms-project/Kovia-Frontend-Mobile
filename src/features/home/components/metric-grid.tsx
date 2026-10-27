@@ -3,70 +3,59 @@ import { StyleSheet, Text, View } from 'react-native';
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-import type { HomeKpi, Tone } from '../home.types';
+import type { HomeKpi } from '../home.types';
+
+const ROW_SIZES = [3, 2];
+
+function chunk(kpis: readonly HomeKpi[]) {
+  const rows: HomeKpi[][] = [];
+  let start = 0;
+  for (const size of ROW_SIZES) {
+    if (start >= kpis.length) break;
+    rows.push(kpis.slice(start, start + size));
+    start += size;
+  }
+  if (start < kpis.length) rows.push(kpis.slice(start));
+  return rows;
+}
 
 export function MetricGrid({ kpis }: { readonly kpis: readonly HomeKpi[] }) {
   const theme = useTheme();
 
-  const chipColors = (tone: Tone) =>
-    tone === 'danger'
-      ? { fg: theme.onErrorContainer, bg: theme.errorContainer }
-      : tone === 'neutral'
-        ? { fg: theme.onSecondaryContainer, bg: theme.secondaryContainer }
-        : { fg: theme.primary, bg: theme.muted };
-
   return (
-    <View style={styles.grid}>
-      {kpis.map((kpi) => {
-        const danger = kpi.tone === 'danger';
-        const chip = kpi.chip ? chipColors(kpi.chip.tone) : null;
-        const Icon = kpi.icon;
-        return (
-          <View
-            key={kpi.id}
-            style={[
-              styles.card,
-              {
-                backgroundColor: danger ? theme.errorContainer : theme.card,
-                borderColor: danger ? theme.error : theme.border,
-              },
-            ]}>
-            <View style={styles.top}>
-              <Text style={[styles.label, { color: danger ? theme.error : theme.textSecondary }]}>{kpi.label}</Text>
-              <Icon size={18} color={danger ? theme.error : theme.primary} />
+    <View style={[styles.group, { backgroundColor: theme.card, borderColor: theme.border }]}>
+      {chunk(kpis).map((row, r) => (
+        <View key={r} style={[styles.row, r > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderColor: theme.border }]}>
+          {row.map((kpi, c) => (
+            <View key={kpi.id} style={[styles.cell, c > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderColor: theme.border }]}>
+              <Text style={[styles.value, { color: kpi.tone === 'danger' ? theme.error : theme.text }]}>
+                {kpi.value}
+                <Text style={[styles.unit, { color: theme.textSecondary }]}> {kpi.unit}</Text>
+              </Text>
+              <Text style={[styles.label, { color: theme.textSecondary }]} numberOfLines={1}>{kpi.label}</Text>
+              {kpi.progress !== undefined ? (
+                <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
+                  <View style={[styles.fill, { backgroundColor: theme.primary, width: `${Math.min(1, kpi.progress) * 100}%` }]} />
+                </View>
+              ) : kpi.chip ? (
+                <Text style={[styles.sub, { color: theme.textSecondary }]} numberOfLines={1}>{kpi.chip.text}</Text>
+              ) : null}
             </View>
-            <Text style={[styles.value, { color: danger ? theme.error : theme.text }]}>
-              {kpi.value}
-              <Text style={[styles.unit, { color: danger ? theme.error : theme.textSecondary }]}> {kpi.unit}</Text>
-            </Text>
-            {chip && kpi.chip ? (
-              <View style={[styles.chip, { backgroundColor: chip.bg }]}>
-                <Text style={[styles.chipText, { color: chip.fg }]}>
-                  {kpi.chip.text}
-                </Text>
-              </View>
-            ) : null}
-            {kpi.progress !== undefined ? (
-              <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
-                <View style={[styles.fill, { backgroundColor: theme.primary, width: `${kpi.progress * 100}%` }]} />
-              </View>
-            ) : null}
-          </View>
-        );
-      })}
+          ))}
+        </View>
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  card: { flexBasis: '46%', minWidth: 140, flexGrow: 1, borderWidth: 1, borderRadius: Radius.lg, padding: 16, gap: 10 },
-  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  label: { flex: 1, fontSize: 13, lineHeight: 19, fontFamily: FontFamily.medium },
-  value: { fontSize: 28, fontFamily: FontFamily.bold, letterSpacing: -0.5 },
-  unit: { fontSize: 12, fontFamily: FontFamily.medium },
-  chip: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.md },
-  chipText: { fontSize: 12, lineHeight: 18, fontFamily: FontFamily.semibold },
-  track: { height: 6, borderRadius: 3, overflow: 'hidden' },
-  fill: { height: '100%', borderRadius: 3 },
+  group: { borderWidth: 1, borderRadius: Radius.xl, overflow: 'hidden' },
+  row: { flexDirection: 'row' },
+  cell: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, gap: 2 },
+  value: { fontSize: 22, lineHeight: 28, fontFamily: FontFamily.bold },
+  unit: { fontSize: 12, fontFamily: FontFamily.regular },
+  label: { fontSize: 12, lineHeight: 16, fontFamily: FontFamily.medium },
+  sub: { fontSize: 11, lineHeight: 14, fontFamily: FontFamily.regular },
+  track: { height: 4, borderRadius: 2, overflow: 'hidden', marginTop: 4 },
+  fill: { height: '100%', borderRadius: 2 },
 });

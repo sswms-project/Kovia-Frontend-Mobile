@@ -3,6 +3,8 @@ import { Bell, User, ClipboardList, PackageSearch, Warehouse } from 'lucide-reac
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { StockAlertSummary } from '@/features/stock-alerts/components/stock-alert-summary';
+
 import { OwnerActions } from '../components/owner-actions';
 import { KoviaLogo } from '@/components/kovia-logo';
 
@@ -165,6 +167,8 @@ export function HomeScreen() {
           )}
         </View>
       ) : null}
+
+      {access.ready && <StockAlertSummary warehouseId={access.warehouse?.id ?? null} />}
 
       {owner && <OwnerActions profile={profile} ready={access.ready} />}
 
