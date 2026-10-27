@@ -13,15 +13,15 @@ export function LookupScreen() {
   const me = useMe();
   const owner = !isFieldWorkspace(me.data?.role);
   const groups = [
-    { title: owner ? 'Báo cáo & theo dõi' : 'Báo cáo hiện trường', keys: ['warehouse-monitor', 'discrepancies', 'damage-cases', 'audit-logs', 'reports'] },
-    { title: 'Chứng từ kho', keys: ['inbound-requests', 'stock-issue-requests', 'goods-returns', 'stock-adjustments'] },
+    { title: owner ? 'Báo cáo & theo dõi' : 'Báo cáo hiện trường', keys: ['warehouse-monitor', 'discrepancies', 'damage-cases', 'reservations', 'abc-classification', 'forecast', 'stock-alerts', 'ai-assistant', 'audit-logs', 'reports'] },
+    { title: 'Chứng từ kho', keys: ['inbound-requests', 'stock-issue-requests', 'transfers', 'goods-returns', 'stock-adjustments'] },
     { title: 'Vật tư hàng hóa', keys: ['products', 'categories', 'units'] },
     { title: 'Đối tượng & kho', keys: ['suppliers', 'stock-recipients', 'warehouses'] },
   ];
 
   // Only entries the user may open are listed; the BE still enforces each screen's own permission.
   const entries: readonly LookupEntry[] = me.data && !me.isError
-    ? LOOKUP_ENTRIES.filter((entry) => hasPermission(me.data, entry.permission) && isMobileEntryVisible(entry.key, me.data.role)).map((entry) => ({
+    ? LOOKUP_ENTRIES.filter((entry) => (entry.permission === null || hasPermission(me.data, entry.permission)) && isMobileEntryVisible(entry.key, me.data.role)).map((entry) => ({
         key: entry.key,
         title: entry.key === 'audit-logs' && me.data.role === USER_ROLES.WarehouseStaff ? 'Hoạt động của tôi' : entry.title,
         description: entry.description,

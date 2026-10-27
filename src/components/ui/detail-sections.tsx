@@ -16,6 +16,7 @@ export function DetailScroll({ children, isRefreshing = false, onRefresh }: Deta
     <ScrollView
       style={{ backgroundColor: theme.background }}
       contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
       refreshControl={onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined}>
       {children}
     </ScrollView>
@@ -38,7 +39,7 @@ export function Section({ title, children }: { readonly title: string; readonly 
   const theme = useTheme();
   return (
     <View style={[styles.section, { backgroundColor: theme.card, borderColor: theme.border }]}>
-      <Text style={[styles.sectionTitle, { color: theme.text }]}>{title}</Text>
+      <Text accessibilityRole="header" style={[styles.sectionTitle, { color: theme.text }]}>{title}</Text>
       {children}
     </View>
   );
@@ -64,13 +65,13 @@ export function InfoRow({ label, value }: InfoRowProps) {
 }
 
 const styles = StyleSheet.create({
-  content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', padding: 20, gap: 16 },
+  content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', padding: 20, paddingBottom: 48, gap: 20 },
   heading: { gap: 4 },
   title: { fontFamily: FontFamily.semibold, fontSize: 22, lineHeight: 30 },
   subtitle: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 20 },
-  section: { gap: 10, padding: 14, borderWidth: 1, borderRadius: Radius.xl },
-  sectionTitle: { fontFamily: FontFamily.semibold, fontSize: 15 },
-  infoRow: { gap: 2 },
-  infoLabel: { fontFamily: FontFamily.medium, fontSize: 12 },
-  infoValue: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 21 },
+  section: { gap: 14, padding: 16, borderWidth: 1, borderRadius: Radius.lg },
+  sectionTitle: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 23 },
+  infoRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 8 },
+  infoLabel: { flexBasis: 104, flexGrow: 1, fontFamily: FontFamily.medium, fontSize: 13, lineHeight: 21 },
+  infoValue: { flexBasis: 152, flexGrow: 2, flexShrink: 1, fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 22 },
 });

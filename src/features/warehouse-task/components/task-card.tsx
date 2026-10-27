@@ -71,11 +71,11 @@ export function TaskCard({ task, onPress, showAssignee = false }: TaskCardProps)
           <Icon size={20} color={theme.primary} />
         </View>
         <View style={styles.identity}>
-          <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
+          <Text style={[styles.title, { color: theme.text }]}>
             {typeLabel}
             <Text style={[styles.summary, { color: theme.textSecondary }]}> · {task.workSummary}</Text>
           </Text>
-          <Text style={[styles.reference, { color: theme.textSecondary }]} numberOfLines={1}>
+          <Text style={[styles.reference, { color: theme.textSecondary }]}>
             <Text style={{ color: theme.text }}>{task.referenceCode}</Text> · {task.warehouseName}
           </Text>
         </View>
@@ -117,14 +117,14 @@ export function TaskCard({ task, onPress, showAssignee = false }: TaskCardProps)
 }
 
 const styles = StyleSheet.create({
-  card: { gap: 10, padding: 14, borderWidth: 1, borderRadius: Radius.xl },
+  card: { gap: 12, padding: 16, borderWidth: 1, borderRadius: Radius.lg },
   pressed: { opacity: 0.85 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   iconBox: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.lg },
-  identity: { flex: 1, gap: 2 },
-  title: { fontFamily: FontFamily.semibold, fontSize: 15, lineHeight: 21 },
+  identity: { flex: 1, minWidth: 0, gap: 6 },
+  title: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 23 },
   summary: { fontFamily: FontFamily.regular },
-  reference: { fontFamily: FontFamily.mono, fontSize: 12, lineHeight: 18 },
+  reference: { fontFamily: FontFamily.mono, fontSize: 13, lineHeight: 20 },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   pauseReason: {
     paddingLeft: 8,
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   progressRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  meta: { fontFamily: FontFamily.regular, fontSize: 12 },
+  meta: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 20 },
   track: { height: 6, overflow: 'hidden', borderRadius: 3 },
   fill: { height: '100%', borderRadius: 3 },
 });

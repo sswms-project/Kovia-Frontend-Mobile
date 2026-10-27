@@ -8,19 +8,23 @@ import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { StagingPointField } from '@/features/warehouse-access/components/staging-point-field';
 
 import { TransferPickEditor } from '../components/transfer-pick-editor';
 import { TransferPickLineCard } from '../components/transfer-pick-line-card';
 import { useTransferPicking } from '../hooks/use-transfer-picking';
+import { useTransferExceptions } from '../hooks/use-transfer-exceptions';
+import { TransferExceptionModal } from '../components/transfer-exception-modal';
 import type { TransferPickLine } from '../transfer-picking.schema';
 
 export function TransferPickingScreen({ transferId, shipmentId }: { readonly transferId: string; readonly shipmentId: string }) {
   const state = useTransferPicking(transferId, shipmentId);
+  const exceptions = useTransferExceptions(transferId, shipmentId, state);
   const theme = useTheme();
-  const busy = state.mutation.isPending;
+  const busy = state.mutation.isPending || exceptions.mutation.isPending || exceptions.visible;
   const sheet = state.detail.data?.sheet;
   const renderLine = useCallback(({ item }: { item: TransferPickLine }) => <TransferPickLineCard
-    line={item} canPick={state.canPick} busy={busy} onPick={state.beginPick} />, [state.canPick, state.beginPick, busy]);
+    line={item} canPick={state.canPick} busy={busy} onPick={state.beginPick} onException={exceptions.open} />, [state.canPick, state.beginPick, exceptions.open, busy]);
   return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
     <FlatList data={state.canView ? sheet?.lines ?? [] : []} keyExtractor={line => line.lineId} renderItem={renderLine}
       contentContainerStyle={styles.content} ItemSeparatorComponent={Separator} refreshing={state.detail.isFetching}
@@ -40,7 +44,9 @@ export function TransferPickingScreen({ transferId, shipmentId }: { readonly tra
           {!state.canPick && sheet.shipmentStatus === 'Picking' && !state.detail.isFetching && !state.detail.isError && <AlertBanner
             title="Chưa thể lấy hàng" description="Kiểm tra quyền lấy hàng, trạng thái công việc và phiên bản đợt xuất. Công việc tạm dừng cần được tiếp tục từ danh sách việc." />}
           {!sheet.lines.length && <AlertBanner title="Đợt xuất không có dòng hàng." />}
-          {state.canComplete && <Button label="Hoàn tất lấy hàng, chuyển chờ xuất" disabled={busy} onPress={state.beginComplete} />}
+          {state.staged && <StagingPointField label="Điểm chờ xuất thực tế" points={sheet.stagingPoints} value={state.stagingSlotId}
+            frozen={!!sheet.outboundStagingSlotId} disabled={busy || !state.canPick} onChange={state.chooseStaging} />}
+          <Button label="Hoàn tất lấy hàng, chuyển chờ xuất" disabled={busy || !state.canComplete} onPress={state.beginComplete} />
         </>}
         {state.notice && <AlertBanner title={state.notice} />}
         <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
@@ -60,6 +66,7 @@ export function TransferPickingScreen({ transferId, shipmentId }: { readonly tra
     <ConfirmationModal visible={state.target?.action === 'Complete'} title="Đã lấy đủ hàng của đợt?"
       description="Công việc lấy hàng sẽ hoàn tất và chuyển sang chờ xác nhận xuất thực tế. Thao tác này chưa giảm tồn kho."
       busy={busy} error={state.mutation.error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />
+    <TransferExceptionModal state={exceptions} />
   </SafeAreaView>;
 }
 function Separator() { return <View style={styles.separator} />; }

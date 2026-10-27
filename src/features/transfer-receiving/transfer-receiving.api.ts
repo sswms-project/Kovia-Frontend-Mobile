@@ -6,7 +6,7 @@ import { assertTransferDestinationScope } from './transfer-receiving';
 import { transferDestinationScopeSchema, transferPutAwaySheetSchema, transferReceiptSheetSchema,
   type TransferReceivingMode } from './transfer-receiving.schema';
 import { putAwayTransferSchema, startTransferReceivingSchema, submitTransferReceivingSchema,
-  transferExecutionSlotsSchema, type TransferExecutionTarget } from './transfer-execution.schema';
+  resumeTransferPutAwaySchema, transferExecutionSlotsSchema, type TransferExecutionTarget } from './transfer-execution.schema';
 
 const id = nonEmptyDotNetGuidSchema('Mã điều chuyển không hợp lệ.');
 export const transferReceivingApi = {
@@ -19,9 +19,10 @@ export const transferReceivingApi = {
   execute: async (transferId: string, shipmentId: string, target: TransferExecutionTarget, assertCurrentContext: () => void) => {
     id.parse(transferId); id.parse(shipmentId); assertCurrentContext();
     const config: AxiosRequestConfig & { assertCurrentContext: () => void } = { assertCurrentContext };
-    const action = target.action === 'Start' ? 'start-receiving' : target.action === 'Submit' ? 'submit-receipt' : 'putaway';
+    const action = target.action === 'Start' ? 'start-receiving' : target.action === 'Submit' ? 'submit-receipt' : target.action === 'Resume' ? 'resume-putaway' : 'putaway';
     const body = target.action === 'Start' ? startTransferReceivingSchema.parse(target.body)
-      : target.action === 'Submit' ? submitTransferReceivingSchema.parse(target.body) : putAwayTransferSchema.parse(target.body);
+      : target.action === 'Submit' ? submitTransferReceivingSchema.parse(target.body)
+        : target.action === 'Resume' ? resumeTransferPutAwaySchema.parse(target.body) : putAwayTransferSchema.parse(target.body);
     return unwrap(await api.post<ApiResponse<unknown>>(`/transfers/${transferId}/shipments/${shipmentId}/${action}`, body, config));
   },
   load: async (transferId: string, shipmentId: string, warehouseId: string, userId: string,

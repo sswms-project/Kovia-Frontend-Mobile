@@ -53,7 +53,7 @@ export function TextField({
             setIsFocused(false);
             onBlur?.(event);
           }}
-          style={[styles.input, { color: theme.text }, isPassword && styles.inputWithToggle]}
+          style={[styles.input, { color: theme.text }, inputProps.multiline && styles.multiline, isPassword && styles.inputWithToggle]}
           {...inputProps}
         />
         {isPassword ? (
@@ -86,9 +86,8 @@ const styles = StyleSheet.create({
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 20 },
   label: {
     fontFamily: FontFamily.semibold,
-    fontSize: 11,
-    letterSpacing: 0.77,
-    textTransform: 'uppercase',
+    fontSize: 13,
+    lineHeight: 19,
   },
   inputWrapper: {
     minHeight: 48,
@@ -99,6 +98,7 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, minHeight: 48, paddingHorizontal: 12, fontFamily: FontFamily.regular, fontSize: 16 },
   inputWithToggle: { paddingRight: 4 },
+  multiline: { minHeight: 104, paddingVertical: 12, textAlignVertical: 'top' },
   toggle: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   message: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 18 },
 });

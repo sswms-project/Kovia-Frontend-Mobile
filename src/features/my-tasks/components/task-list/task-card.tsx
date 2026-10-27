@@ -77,14 +77,14 @@ export const TaskCard = memo(function TaskCard({ task, history, canManage, busy,
 });
 
 const styles = StyleSheet.create({
-  card: { padding: 16, borderWidth: 1, borderRadius: Radius.xl, gap: 10 },
+  card: { padding: 16, borderWidth: 1, borderRadius: Radius.lg, gap: 10 },
   heading: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   kind: { fontFamily: FontFamily.semibold, fontSize: 13 },
   badge: { fontFamily: FontFamily.bold, fontSize: 12 },
   reference: { fontFamily: FontFamily.mono, fontSize: 15, lineHeight: 23 },
   text: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 21 },
   state: { fontFamily: FontFamily.semibold, fontSize: 14, lineHeight: 21 },
-  detailButton: { minHeight: 44, justifyContent: 'center' },
+  detailButton: { minHeight: 48, justifyContent: 'center' },
   details: { borderTopWidth: 1, paddingTop: 12, gap: 8 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
   progress: { height: 5, borderRadius: 3, overflow: 'hidden' },

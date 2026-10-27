@@ -38,6 +38,7 @@ export function useStockIssue(documentId: string) {
   const [target, setTarget] = useState<Target | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [discard, setDiscard] = useState(false);
+  const [dispatchSelection, setDispatchSelection] = useState<{ key: string; version: string; ids: string[] } | null>(null);
   const lock = useRef(false);
   const command = useRef<WarehouseCommandMemory | null>(null);
   const form = useForm<PickForm>({ resolver: zodResolver(pickFormSchema), defaultValues: { stockIssueRequestItemId: '',
@@ -79,7 +80,7 @@ export function useStockIssue(documentId: string) {
   }, onError: logApiError, onSuccess: async (_, original) => {
     if (original.key !== contextKey) return;
     if (original.action === 'Pick') await draft.clear();
-    setTarget(null); setEditor(null); form.reset();
+    setTarget(null); setEditor(null); setDispatchSelection(null); form.reset();
     setNotice(original.action === 'Pick' ? 'Đã ghi nhận lấy hàng vào khu chờ xuất. Tổng tồn kho không đổi.'
       : 'Đã xác nhận phần hàng thực tế rời kho. Phần còn lại tiếp tục được theo dõi.');
     await client.invalidateQueries({ queryKey: ['warehouse', identity, warehouseId, revision] });
@@ -108,8 +109,8 @@ export function useStockIssue(documentId: string) {
       if (editor?.key !== contextKey || lock.current) return;
       try {
         assertPick(values, detail.data!);
-        if (values.destinationStagingSlotId !== editor.destinationId || !values.scannedStagingSlotCode?.trim())
-          throw new Error('Vui lòng quét hoặc nhập mã khu chờ xuất đã được chỉ định.');
+        if (values.destinationStagingSlotId !== editor.destinationId)
+          throw new Error('Điểm chờ xuất đã thay đổi. Vui lòng mở lại dòng hàng.');
         setTarget({ key: contextKey, version: editor.version, action: 'Pick', values });
       }
       catch (error) { setNotice(error instanceof Error ? error.message : 'Dữ liệu chưa hợp lệ.'); }
@@ -120,7 +121,14 @@ export function useStockIssue(documentId: string) {
     const ids = outstandingPicks(detail.data).map(detail => detail.id);
     if (!ids.length) return;
     mutation.reset(); setNotice(null);
-    setTarget({ key: contextKey, version: detail.data.version, action: 'Dispatch', pickDetailIds: ids });
+    setDispatchSelection({ key: contextKey, version: detail.data.version, ids: [] });
+  }
+  function reviewDispatch() {
+    if (!dispatchSelection || dispatchSelection.key !== contextKey || dispatchSelection.version !== detail.data?.version ||
+      !allowed('Dispatch') || dispatchSelection.ids.length === 0 || dispatchSelection.ids.length > 500 || lock.current) return;
+    const pending = outstandingPicks(detail.data);
+    if (dispatchSelection.ids.some(id => !pending.some(pick => pick.id === id))) return;
+    setTarget({ key: contextKey, version: dispatchSelection.version, action: 'Dispatch', pickDetailIds: [...dispatchSelection.ids] });
   }
   async function confirm() {
     if (!target || target.key !== contextKey || lock.current) return;
@@ -129,7 +137,19 @@ export function useStockIssue(documentId: string) {
     finally { lock.current = false; }
   }
   return { access, validId, canView, detail, actions, form, allowed, permission, mutation, notice,
-    contextKey, editor: editor?.key === contextKey ? editor : null, target: target?.key === contextKey ? target : null,
+    assertFieldReport: (key: string, version: string) => {
+      assertCurrent(P.STOCK_ISSUE_REQUESTS_PICK);
+      if (key !== contextKey || detail.data?.version !== version || detail.isError || detail.isFetching ||
+        !['ReleasedForPicking', 'Picking'].includes(detail.data.status)) throw new Error('Phiếu đã đổi trạng thái hoặc phiên bản. Vui lòng tải lại.');
+    },
+    dispatchSelection: dispatchSelection?.key === contextKey && dispatchSelection.version === detail.data?.version && allowed('Dispatch') ? dispatchSelection : null,
+    reviewDispatch, toggleDispatch: (id: string) => {
+      if (!lock.current && detail.data && outstandingPicks(detail.data).some(pick => pick.id === id))
+        setDispatchSelection(current => current?.key === contextKey ? { ...current,
+          ids: current.ids.includes(id) ? current.ids.filter(value => value !== id) : current.ids.length < 500 ? [...current.ids, id] : current.ids } : current);
+    }, closeDispatch: () => { if (!lock.current) { setTarget(null); setDispatchSelection(null); } },
+    contextKey, editor: editor?.key === contextKey && editor.version === detail.data?.version && allowed('Pick') ? editor : null,
+    target: target?.key === contextKey && target.version === detail.data?.version && allowed(target.action) ? target : null,
     discard, setDiscard, beginPick, reviewPick, beginDispatch, confirm,
     refresh: async () => { await client.invalidateQueries({ queryKey: prefix }); },
     closeEditor: () => { if (!lock.current) { if (form.formState.isDirty) setDiscard(true); else setEditor(null); } },

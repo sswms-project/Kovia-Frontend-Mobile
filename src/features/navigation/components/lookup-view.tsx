@@ -1,4 +1,5 @@
 import {
+  BellRing,
   ChevronRight,
   FileBarChart,
   FolderTree,
@@ -17,13 +18,12 @@ import {
   Warehouse,
   type LucideIcon,
 } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
 
 import { EmptyState } from '@/components/ui/empty-state';
-import { Button } from '@/components/ui/button';
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -47,10 +47,12 @@ const ENTRY_ICONS: Record<string, LucideIcon> = {
   warehouses: Warehouse,
   'inbound-requests': PackagePlus,
   'stock-issue-requests': PackageMinus,
+  transfers: Truck,
   'stock-recipients': Users,
   'goods-returns': Undo2,
   'stock-adjustments': Scale,
   'damage-cases': ShieldAlert,
+  'stock-alerts': BellRing,
   reports: FileBarChart,
   'audit-logs': History,
 };
@@ -70,7 +72,6 @@ export function LookupView({ entries, owner = false, title, refreshing = false, 
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: theme.background }]}>
       <AppHeader title={title ?? (owner ? 'Quản lý' : 'Tra cứu & báo cáo')} />
-      {onRefresh && <View style={styles.header}><Button label="Làm mới" variant="ghost" loading={refreshing} onPress={onRefresh} /></View>}
       {refreshFailed && <AlertBanner variant="destructive" title="Chưa thể xác minh quyền. Vui lòng tải lại." />}
 
       {entries.length === 0 ? (
@@ -80,7 +81,8 @@ export function LookupView({ entries, owner = false, title, refreshing = false, 
           description="Tài khoản của bạn chưa được cấp quyền xem danh mục nào."
         />
       ) : (
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView contentContainerStyle={styles.list}
+          refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined}>
           {entries.map((entry, index) => {
             const Icon = ENTRY_ICONS[entry.key] ?? Search;
             return (
@@ -115,7 +117,6 @@ export function LookupView({ entries, owner = false, title, refreshing = false, 
 
 const styles = StyleSheet.create({
   root: { flex: 1, gap: 12, paddingTop: 12 },
-  header: { paddingHorizontal: 20, paddingTop: 4, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'space-between' },
   title: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 26, lineHeight: 32 },
   list: { gap: 12, paddingHorizontal: 20, paddingBottom: 24 },
   entry: { gap: 10 },

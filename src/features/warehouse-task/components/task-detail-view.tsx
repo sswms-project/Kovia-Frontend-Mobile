@@ -1,5 +1,5 @@
 import { Pause, Play, Undo2 } from 'lucide-react-native';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { StatusPill } from '@/components/ui/status-pill';
@@ -24,11 +24,13 @@ interface TaskDetailViewProps {
   readonly onOpenDocument?: () => void;
   readonly openingDocument?: boolean;
   readonly documentLabel?: string;
+  readonly isRefreshing?: boolean;
+  readonly onRefresh?: () => void;
 }
 
 const formatTime = (value: string | null) => (value ? formatDisplayDateTime(new Date(value)) : '—');
 
-export function TaskDetailView({ task, availableActions, isPending, onAction, onOpenDocument, openingDocument, documentLabel = 'Mở chứng từ và thực hiện' }: TaskDetailViewProps) {
+export function TaskDetailView({ task, availableActions, isPending, onAction, onOpenDocument, openingDocument, documentLabel = 'Mở chứng từ và thực hiện', isRefreshing = false, onRefresh }: TaskDetailViewProps) {
   const theme = useTheme();
   const rows: readonly { label: string; value: string }[] = [
     { label: 'Mã tham chiếu', value: task.referenceCode },
@@ -46,7 +48,8 @@ export function TaskDetailView({ task, availableActions, isPending, onAction, on
   const isResume = task.executionStatus === 'Paused';
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView contentContainerStyle={styles.content}
+      refreshControl={onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined}>
       <View style={styles.heading}>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>
           {TASK_TYPE_LABEL[task.taskType] ?? task.taskType}
@@ -120,13 +123,12 @@ const styles = StyleSheet.create({
   heading: { gap: 8 },
   title: { fontFamily: FontFamily.semibold, fontSize: 22, lineHeight: 30 },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  card: { gap: 14, padding: 16, borderWidth: 1, borderRadius: Radius.xl },
+  card: { gap: 14, padding: 16, borderWidth: 1, borderRadius: Radius.lg },
   row: { gap: 2 },
   label: {
     fontFamily: FontFamily.semibold,
-    fontSize: 11,
-    letterSpacing: 0.77,
-    textTransform: 'uppercase',
+    fontSize: 13,
+    lineHeight: 20,
   },
   value: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 22 },
   actions: { gap: 10 },

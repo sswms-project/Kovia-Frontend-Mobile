@@ -25,11 +25,11 @@ export function GreetingCard({ name, subtitle, onSearch, onScan, overview = fals
         <Text style={[styles.greeting, { color: theme.text }]} numberOfLines={2}>{name}</Text>
       </View>
       <View style={styles.subtitleRow}>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]} numberOfLines={1}>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           {subtitle}
         </Text>
       </View>
-      {overview ? <Text style={[styles.overviewHint, { color: theme.textSecondary }]}>Theo dõi tồn kho, tiến độ và các cập nhật tại kho đang chọn.</Text> : <View style={styles.searchRow}>
+      {overview ? null : <View style={styles.searchRow}>
         <View style={[styles.search, { backgroundColor: theme.muted, borderColor: theme.border }]}>
           <Search size={18} color={theme.textSecondary} />
           <TextInput
@@ -61,23 +61,22 @@ export function GreetingCard({ name, subtitle, onSearch, onScan, overview = fals
 }
 
 const styles = StyleSheet.create({
-  card: { borderWidth: 1, borderRadius: 20, padding: 20, gap: 10 },
+  card: { borderWidth: 1, borderRadius: Radius.lg, padding: 20, gap: 10 },
   hello: { fontSize: 14, lineHeight: 20, fontFamily: FontFamily.medium },
   greeting: { fontSize: 20, lineHeight: 28, fontFamily: FontFamily.bold },
   subtitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   subtitle: { flexShrink: 1, fontSize: 13, fontFamily: FontFamily.medium },
-  overviewHint: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 22 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
   search: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    height: 48,
+    minHeight: 48,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderRadius: Radius.xl,
+    borderRadius: Radius.md,
   },
-  input: { flex: 1, fontSize: 14, fontFamily: FontFamily.regular, paddingVertical: 0 },
-  scan: { width: 48, height: 48, borderRadius: Radius.xl, alignItems: 'center', justifyContent: 'center' },
+  input: { flex: 1, minWidth: 0, fontSize: 16, fontFamily: FontFamily.regular, paddingVertical: 10 },
+  scan: { width: 48, height: 48, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
 });

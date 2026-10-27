@@ -7,7 +7,6 @@ import { StyleSheet, View } from 'react-native';
 import { toast } from 'sonner-native';
 
 import { AlertBanner } from '@/components/ui/alert-banner';
-import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
@@ -97,8 +96,8 @@ export function TaskDetailScreen({ taskType, taskId, history = false, warehouseI
     {query.isError && <AlertBanner title="Đang hiển thị dữ liệu cũ. Tải lại trước khi thao tác." description={getApiErrorMessage(query.error)} />}
     <TaskDetailView task={task} availableActions={getAvailableActions(task, { canManage, currentUserId: profile?.id })}
       isPending={manageMutation.isPending || query.isFetching} onAction={handleAction}
-      onOpenDocument={destination && fresh ? openDocument : undefined} documentLabel={readOnly ? 'Xem chứng từ tham chiếu' : 'Mở chứng từ và thực hiện'} />
-    <Button label="Tải lại công việc" variant="outline" loading={query.isFetching} disabled={manageMutation.isPending} onPress={() => { void query.refetch(); }} />
+      onOpenDocument={destination && fresh ? openDocument : undefined} documentLabel={readOnly ? 'Xem chứng từ tham chiếu' : 'Mở chứng từ và thực hiện'}
+      isRefreshing={query.isRefetching} onRefresh={manageMutation.isPending ? undefined : () => { void query.refetch(); }} />
     <TaskReasonDialog visible={pendingAction !== null && canManage} title={pendingAction ? REASON_DIALOG_COPY[pendingAction].title : ''}
       description={pendingAction ? REASON_DIALOG_COPY[pendingAction].description : ''} form={reasonForm} isPending={manageMutation.isPending}
       onSubmit={(values) => { if (pendingAction) void runAction(pendingAction, values.reason); }} onCancel={() => setPendingAction(null)} />

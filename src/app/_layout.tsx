@@ -6,7 +6,13 @@ import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { StyleSheet, useColorScheme, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useReducedMotion } from 'react-native-reanimated';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/hooks/use-theme';
+import { FontFamily } from '@/constants/theme';
+import { useAppearance } from '@/stores/appearance.store';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Toaster } from 'sonner-native';
 
@@ -19,6 +25,14 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const colors = useTheme();
+  const reduceMotion = useReducedMotion();
+  const hydrateAppearance = useAppearance(state => state.hydrate);
+  const baseTheme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
+  const navigationTheme = { ...baseTheme, colors: { ...baseTheme.colors, primary: colors.primary, background: colors.background,
+    card: colors.card, text: colors.text, border: colors.border, notification: colors.error }, fonts: { ...baseTheme.fonts,
+    regular: { ...baseTheme.fonts.regular, fontFamily: FontFamily.regular }, medium: { ...baseTheme.fonts.medium, fontFamily: FontFamily.medium },
+    bold: { ...baseTheme.fonts.bold, fontFamily: FontFamily.bold }, heavy: { ...baseTheme.fonts.heavy, fontFamily: FontFamily.bold } } };
   const ready = useAuth((state) => state.ready);
   const signedIn = useAuth((state) => state.signedIn);
   const restore = useAuth((state) => state.restore);
@@ -36,6 +50,7 @@ export default function RootLayout() {
   useEffect(() => {
     restore();
   }, [restore]);
+  useEffect(() => { void hydrateAppearance(); }, [hydrateAppearance]);
 
   useEffect(() => {
     if (ready && fontsSettled) SplashScreen.hideAsync();
@@ -46,16 +61,17 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <QueryProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <ThemeProvider value={navigationTheme}>
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
           <BottomSheetModalProvider>
             <WarehouseSessionProvider signedIn={signedIn}>
               <View style={styles.root}>
                 <OfflineBanner />
-                <Stack screenOptions={{ headerShown: false }}>
+                <Stack screenOptions={{ headerShown: false, animation: reduceMotion ? 'none' : 'default' }}>
                   <Stack.Protected guard={signedIn}>
                     <Stack.Screen name="(app)" />
                     <Stack.Screen name="(account)" />
-                    <Stack.Screen name="notifications" options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }} />
+                    <Stack.Screen name="notifications" options={{ presentation: 'transparentModal', animation: reduceMotion ? 'none' : 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }} />
                     <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
                   </Stack.Protected>
                   <Stack.Protected guard={!signedIn}>

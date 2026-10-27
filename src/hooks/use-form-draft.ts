@@ -26,6 +26,7 @@ export function useFormDraft<T extends FieldValues>(options: Options<T>) {
   useLayoutEffect(() => { latest.current = options; currentScope.current = scope; });
   const ready = useRef(false); const pending = useRef(false); const stopped = useRef(false);
   const dirty = useRef(false);
+  const hasVersion = !!options.version;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const current = () => {
     if (currentScope.current !== scope || !latest.current.enabled || !useAuth.getState().signedIn ||
@@ -81,7 +82,7 @@ export function useFormDraft<T extends FieldValues>(options: Options<T>) {
     return () => { flush(); active = false; cancelTimer(); subscription.unsubscribe(); appState.remove(); };
     // A changed version is checked on restore/save, without reopening an alert during background refresh.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope, options.enabled]);
+  }, [scope, options.enabled, hasVersion]);
   return {
     beforeSubmit: async () => {
       if (!latest.current.version) return;

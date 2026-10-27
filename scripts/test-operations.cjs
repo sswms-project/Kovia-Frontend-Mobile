@@ -37,7 +37,7 @@ const { warehouseSnapshot } = load('src/features/warehouse-access/warehouse-acce
 const warehouseId = randomUUID(), userId = randomUUID(), documentId = randomUUID(), lineId = randomUUID(), stockId = randomUUID();
 const values = () => ({ stockIssueRequestItemId: lineId, inventoryStockId: stockId, pickedQuantity: 2, scannedBarcode: 'SKU-01', scannedSlotCode: 'S-01' });
 const document = () => ({ warehouseId, assignedStaffId: userId, items: [{ id: lineId, quantity: 5, pickedQuantity: 1, barcode: 'SKU-01', conversionFactor: 1,
-  pickLocations: [{ inventoryStockId: stockId, reservedQuantity: 3 }], pickDetails: [{ id: 'picked', pickedQuantity: 1, issuedAt: null }, { id: 'issued', pickedQuantity: 1, issuedAt: '2026-10-20' }] }] });
+  pickLocations: [{ inventoryStockId: stockId, slotCode: 'S-01', reservedQuantity: 3 }], pickDetails: [{ id: 'picked', pickedQuantity: 1, issuedAt: null }, { id: 'issued', pickedQuantity: 1, issuedAt: '2026-10-20' }] }] });
 const profile = () => ({ id: userId, tenantId: randomUUID(), status: 'Active', assignedWarehouses: [{ id: warehouseId, status: 'Active' }],
   permissions: [P.NOTIFICATIONS_VIEW, P.STOCK_ISSUE_REQUESTS_VIEW] });
 test('picking requires actual positive quantity, source confirmation and versioned unique command', () => {

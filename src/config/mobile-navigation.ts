@@ -65,6 +65,8 @@ export type MobileTab = (typeof MOBILE_TABS)[number];
 
 // Each lookup feature adds one entry here; the Lookup tab shows those the user has permission for.
 export const LOOKUP_ENTRIES = [
+  { key: 'transfers', href: '/catalog/transfers', title: 'Điều chuyển kho',
+    description: 'Theo dõi các đợt xuất, nhận và chênh lệch giữa kho', permission: P.TRANSFERS_VIEW },
   {
     key: 'discrepancies',
     href: '/catalog/discrepancies',
@@ -155,6 +157,41 @@ export const LOOKUP_ENTRIES = [
     title: 'Hồ sơ hàng hỏng',
     description: 'Hàng hỏng đang giữ và đã xử lý',
     permission: P.INVENTORY_VIEW,
+  },
+  {
+    key: 'reservations',
+    href: '/catalog/reservations',
+    title: 'Giữ chỗ tồn kho',
+    description: 'Hàng đang được giữ cho phiếu xuất, điều chuyển',
+    permission: P.INVENTORY_VIEW,
+  },
+  {
+    key: 'abc-classification',
+    href: '/catalog/abc-classification',
+    title: 'Phân loại ABC',
+    description: 'Xếp hạng sản phẩm theo mức độ quan trọng',
+    permission: P.INVENTORY_VIEW,
+  },
+  {
+    key: 'forecast',
+    href: '/catalog/forecast',
+    title: 'Dự báo nhu cầu',
+    description: 'Ước tính nhu cầu và đề xuất bổ sung hàng',
+    permission: P.INVENTORY_VIEW,
+  },
+  {
+    key: 'stock-alerts',
+    href: '/catalog/stock-alerts',
+    title: 'Cảnh báo tồn kho',
+    description: 'Hàng dưới mức tối thiểu, vượt tối đa, sắp và đã hết hạn',
+    permission: P.DASHBOARD_VIEW,
+  },
+  {
+    key: 'ai-assistant',
+    href: '/catalog/ai-assistant',
+    title: 'Trợ lý AI',
+    description: 'Hỏi đáp và tạo phiếu bằng ngôn ngữ tự nhiên',
+    permission: null,
   },
   {
     key: 'reports',

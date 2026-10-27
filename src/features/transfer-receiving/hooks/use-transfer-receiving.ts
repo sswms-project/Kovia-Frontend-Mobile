@@ -20,7 +20,7 @@ export function useTransferReceiving(transferId: string, shipmentId: string, mod
     queryFn: ({ signal }) => transferReceivingApi.load(transferId, shipmentId, warehouseId!, access.profile.data!.id, mode, signal) });
   const lostAccess = detail.error instanceof TransferDestinationScopeError ||
     ['unauthorized', 'forbidden', 'notFound'].includes(getApiErrorKind(detail.error));
-  return { access, validId, canView, detail, data: canView && !lostAccess ? detail.data : undefined,
+  return { access, validId, canView, detail, mode, data: canView && !lostAccess ? detail.data : undefined,
     refresh: async () => { await client.invalidateQueries({ queryKey: prefix }); },
   };
 }

@@ -12,21 +12,24 @@ import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
 
 import { PickingEditor } from '../components/picking-editor';
+import { DispatchSelectionModal } from '../components/dispatch-selection-modal';
 import { StockIssueItemCard } from '../components/stock-issue-item-card';
 import { useStockIssue } from '../hooks/use-stock-issue';
+import { usePickIssueReport } from '../hooks/use-pick-issue-report';
+import { PickIssueReportModal } from '../components/pick-issue-report-modal';
 import { outstandingPicks } from '../stock-issue';
 import type { StockIssueItem } from '../stock-issue.schema';
 
 export function StockIssueScreen({ documentId }: { readonly documentId: string }) {
   const state = useStockIssue(documentId);
+  const report = usePickIssueReport(documentId, state);
   const theme = useTheme();
-  const busy = state.mutation.isPending;
+  const busy = state.mutation.isPending || report.mutation.isPending || report.active;
   const canPick = state.allowed('Pick') && state.permission(P.STOCK_ISSUE_REQUESTS_PICK);
   const renderItem = useCallback(({ item }: { item: StockIssueItem }) => <StockIssueItemCard item={item} canPick={canPick}
-    busy={busy} onPick={state.beginPick} />, [canPick, busy, state.beginPick]);
+    busy={busy} onPick={state.beginPick} onReport={report.open} />, [canPick, busy, state.beginPick, report.open]);
   const error = state.detail.error ?? state.actions.error;
   const pending = state.detail.data ? outstandingPicks(state.detail.data) : [];
-  const pendingQuantity = pending.reduce((sum, value) => sum + value.pickedQuantity, 0);
   return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
     <FlatList data={state.canView ? state.detail.data?.items ?? [] : []} keyExtractor={item => item.id} renderItem={renderItem}
       contentContainerStyle={styles.content} refreshing={state.detail.isFetching || state.actions.isFetching}
@@ -47,7 +50,7 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
             {!state.detail.data.items.length && <AlertBanner title="Phiếu không có dòng hàng." />}
             {state.actions.data?.denialReasonCode === 'DAMAGE_WORKFLOW_OUT_OF_SCOPE' && <AlertBanner title="Phiếu này thuộc quy trình xử lý hàng hỏng ngoài phạm vi mobile hiện tại." />}
             {state.allowed('Dispatch') && state.permission(P.STOCK_ISSUE_REQUESTS_DISPATCH) && <Button
-              label={`Xác nhận xuất ${pending.length} lượt đang chờ`} disabled={busy} onPress={state.beginDispatch} />}
+              label="Chọn phần hàng đã rời kho" disabled={busy} onPress={state.beginDispatch} />}
           </>}
         </>}
         <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
@@ -64,9 +67,12 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
           busy={busy} onConfirm={state.discardChanges} onCancel={() => state.setDiscard(false)} />
       </SafeAreaView>
     </Modal>
+    <DispatchSelectionModal visible={!!state.dispatchSelection && state.target?.action !== 'Dispatch'} picks={pending}
+      selected={state.dispatchSelection?.ids ?? []} busy={busy} onToggle={state.toggleDispatch} onReview={state.reviewDispatch} onClose={state.closeDispatch} />
     <ConfirmationModal visible={state.target?.action === 'Dispatch'} title="Xác nhận hàng đã thực tế rời kho?"
-      description={`${pending.length} lượt hàng đang chờ xuất sẽ được xác nhận, tổng ${pendingQuantity} đơn vị cơ sở. Chỉ xác nhận nếu toàn bộ phần này đã rời kho. Phần chưa lấy vẫn mở.`}
+      description={`${state.target?.pickDetailIds?.length ?? 0} lượt đã chọn sẽ được xác nhận xuất. Phần chưa chọn hoặc chưa lấy vẫn mở và tiếp tục được theo dõi.`}
       busy={busy} error={state.mutation.error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />
+    <PickIssueReportModal state={report} />
   </SafeAreaView>;
 }
 function Separator() { return <View style={styles.separator} />; }

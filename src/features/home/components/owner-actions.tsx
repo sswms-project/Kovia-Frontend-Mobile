@@ -36,7 +36,7 @@ export function OwnerActions({ profile, ready }: { readonly profile: UserProfile
 
 const styles = StyleSheet.create({
   section: { gap: 12 }, heading: { fontFamily: FontFamily.bold, fontSize: 17 },
-  group: { borderWidth: 1, borderRadius: 16, overflow: 'hidden' },
+  group: { borderWidth: 1, borderRadius: 8, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12, minHeight: 80 },
   divider: { borderTopWidth: 1 }, icon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   copy: { flex: 1, gap: 4 }, title: { fontFamily: FontFamily.semibold, fontSize: 15 },

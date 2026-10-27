@@ -3,6 +3,8 @@ import { Bell, User, ClipboardList, PackageSearch, Warehouse } from 'lucide-reac
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { StockAlertSummary } from '@/features/stock-alerts/components/stock-alert-summary';
+
 import { OwnerActions } from '../components/owner-actions';
 import { KoviaLogo } from '@/components/kovia-logo';
 
@@ -43,8 +45,8 @@ function SectionHeader({ title, count, actionLabel, onAction }: {
       <View style={styles.sectionTitleRow}>
         <Text style={[styles.sectionTitle, { color: theme.text }]}>{title}</Text>
         {count !== undefined ? (
-          <View style={[styles.countChip, { backgroundColor: theme.primaryContainer }]}>
-            <Text style={[styles.countText, { color: theme.onPrimaryContainer }]}>{count}</Text>
+          <View style={[styles.countChip, { backgroundColor: theme.muted }]}>
+            <Text style={[styles.countText, { color: theme.primary }]}>{count}</Text>
           </View>
         ) : null}
       </View>
@@ -166,6 +168,8 @@ export function HomeScreen() {
         </View>
       ) : null}
 
+      {access.ready && <StockAlertSummary warehouseId={access.warehouse?.id ?? null} />}
+
       {owner && <OwnerActions profile={profile} ready={access.ready} />}
 
 
@@ -213,19 +217,19 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingBottom: 32, gap: 24, maxWidth: MaxContentWidth, width: '100%', alignSelf: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  bell: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 48, height: 48, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  bell: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   bellDot: { position: 'absolute', top: 8, right: 9, width: 10, height: 10, borderRadius: 5 },
   section: { gap: 12 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionHeader: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', justifyContent: 'space-between' },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sectionTitle: { fontSize: 16, fontFamily: FontFamily.bold },
-  sectionAction: { fontSize: 13, fontFamily: FontFamily.semibold, minHeight: 44, textAlignVertical: 'center', paddingVertical: 12 },
-  countChip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  sectionAction: { fontSize: 13, fontFamily: FontFamily.semibold, minHeight: 48, textAlignVertical: 'center', paddingVertical: 14 },
+  countChip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   countText: { fontSize: 12, fontFamily: FontFamily.semibold },
   list: { gap: 10 },
   shortcuts: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  shortcut: { flex: 1, minWidth: 140, padding: 18, borderRadius: 16, gap: 10, justifyContent: 'center' },
+  shortcut: { flex: 1, minWidth: 140, padding: 18, borderRadius: 8, gap: 10, justifyContent: 'center' },
   shortcutTitle: { fontFamily: FontFamily.semibold, fontSize: 17, lineHeight: 24 },
   shortcutHint: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 20 },
   pressed: { opacity: 0.75 },

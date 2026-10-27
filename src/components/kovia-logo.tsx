@@ -1,5 +1,5 @@
 import { Boxes } from 'lucide-react-native';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 import { FontFamily } from '@/constants/theme';
@@ -11,7 +11,7 @@ export function KoviaLogo() {
   const theme = useTheme();
   return <View accessible accessibilityRole="image" accessibilityLabel="Kovia" style={styles.logo}>
     <View style={styles.mark}>
-      <Svg width={36} height={36} viewBox="0 0 36 36" accessible={false}>
+      <Svg width={36} height={36} viewBox="0 0 36 36" accessible={Platform.OS === 'web' ? undefined : false}>
         <Defs><LinearGradient id="koviaBrandGradient" x1="0" y1="0" x2="1" y2="1">
           <Stop offset="0" stopColor={theme.primary} /><Stop offset="1" stopColor={theme.primaryContainer} />
         </LinearGradient></Defs>

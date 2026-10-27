@@ -19,7 +19,7 @@ import { assertTransferPick, transferPickingComplete } from '../transfer-picking
 import { transferPickingApi } from '../transfer-picking.api';
 import { transferPickFormSchema, type TransferPickForm, type TransferPickLine } from '../transfer-picking.schema';
 
-type Target = { key: string; version: string; action: 'Pick' | 'Complete'; values?: TransferPickForm };
+type Target = { key: string; version: string; action: 'Pick' | 'Complete'; values?: TransferPickForm; stagingSlotId?: string };
 export function useTransferPicking(transferId: string, shipmentId: string) {
   const access = useWarehouseAccess();
   const client = useQueryClient();
@@ -35,6 +35,7 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
   const [target, setTarget] = useState<Target | null>(null);
   const [notice, setNotice] = useState<{ key: string; message: string } | null>(null);
   const [discard, setDiscard] = useState(false);
+  const [stagingChoice, setStagingChoice] = useState<{ key: string; id: string } | null>(null);
   const lock = useRef(false);
   const command = useRef<WarehouseCommandMemory | null>(null);
   const form = useForm<TransferPickForm>({ resolver: zodResolver(transferPickFormSchema), defaultValues: {
@@ -44,7 +45,10 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
     detail.isSuccess && !detail.isFetching && !detail.isError && !!data?.sheet.version &&
     data.document.status === 'InProgress' && data.sheet.shipmentStatus === 'Picking' &&
     (data.shipment.pickTaskStatus === 'Queued' || data.shipment.pickTaskStatus === 'InProgress');
-  const canComplete = canPick && !!data && transferPickingComplete(data.sheet);
+  const stagingSlotId = data?.sheet.outboundStagingSlotId ?? (stagingChoice?.key === contextKey ? stagingChoice.id : data?.sheet.stagingPoints?.suggestedSlotId) ?? '';
+  const staged = (data?.sheet.outboundStagingFlowVersion ?? 0) > 0;
+  const validStaging = !staged || !!data?.sheet.stagingPoints?.items.some(point => point.slotId === stagingSlotId);
+  const canComplete = canPick && !!data && transferPickingComplete(data.sheet) && validStaging;
   function assertCurrent(original: Target) {
     const profile = client.getQueryData<UserProfile>(profileQueryKey);
     const snapshot = profile ? warehouseSnapshot(profile) : null;
@@ -69,7 +73,10 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
       command.current = warehouseCommand(command.current, { ...body, contextKey, version: original.version });
       return transferPickingApi.pick({ ...body, commandId: command.current.commandId }, guard);
     }
-    return transferPickingApi.complete({ transferId, shipmentId, expectedVersion: original.version }, guard);
+    const body = { transferId, shipmentId, expectedVersion: original.version,
+      ...(original.stagingSlotId ? { outboundStagingSlotId: original.stagingSlotId } : {}) };
+    command.current = warehouseCommand(command.current, { action: 'Complete', contextKey, ...body });
+    return transferPickingApi.complete({ ...body, commandId: command.current.commandId }, guard);
   }, onError: logApiError, onSuccess: async (_, original) => {
     if (original.key !== contextKey) return;
     if (original.action === 'Pick') await draft.clear();
@@ -94,7 +101,7 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
   }
   function beginComplete() {
     if (!canComplete || !data?.sheet.version || lock.current) return;
-    mutation.reset(); setTarget({ key: contextKey, version: data.sheet.version, action: 'Complete' });
+    mutation.reset(); setTarget({ key: contextKey, version: data.sheet.version, action: 'Complete', stagingSlotId: staged ? stagingSlotId : undefined });
   }
   async function confirm() {
     if (!target || lock.current) return;
@@ -104,6 +111,11 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
   }
   const activeEditor = editor?.key === contextKey && canPick && editor.version === data?.sheet.version ? editor : null;
   return { access, validId, canView, detail, canPick, canComplete, form, mutation, contextKey, beginPick, review, beginComplete, confirm,
+    assertExecution: (key: string, version: string) => assertCurrent({ key, version, action: 'Pick' }),
+    staged, stagingSlotId, chooseStaging: (id: string) => {
+      if (!lock.current && !data?.sheet.outboundStagingSlotId && data?.sheet.stagingPoints?.items.some(point => point.slotId === id))
+        { setTarget(null); setStagingChoice({ key: contextKey, id }); }
+    },
     editor: activeEditor, target: target?.key === contextKey && canPick && target.version === data?.sheet.version ? target : null,
     notice: notice?.key === contextKey ? notice.message : null, discard: discard && !!activeEditor, setDiscard,
     refresh: async () => { if (lock.current) return; setTarget(null); setEditor(null); await access.refresh(); await detail.refetch(); },
