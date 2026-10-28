@@ -13,10 +13,9 @@ import {
   FormField,
 } from '@/features/auth/components/auth-form';
 import { TwoFactorSetupDetails } from '@/features/auth/components/two-factor-setup';
-import { useExitProtection, useScreenExit } from '@/hooks/use-screen-exit';
+import { useExitProtection } from '@/hooks/use-screen-exit';
 
 export default function SecurityScreen() {
-  const exit = useScreenExit();
   const queryClient = useQueryClient();
   const clearSession = useAuth((state) => state.clearSession);
   const form = useForm<OtpInput>({ resolver: zodResolver(otpSchema), defaultValues: { otp: '' } });
@@ -42,14 +41,16 @@ export default function SecurityScreen() {
   const busy = setup.isPending || confirm.isPending || disable.isPending;
   useExitProtection(() => ({ busy, dirty: form.formState.isDirty || !!setup.data,
     discard: async () => { form.reset(); setup.reset(); confirm.reset(); disable.reset(); } }));
+  // beforeRemove guards the actual queued action, rather than locking before Expo dispatches it.
+  const backToProfile = () => router.replace('/profile');
   if (profile.isPending)
     return (
-      <AuthFrame topInset={false} title="Bảo mật" backLabel="Hồ sơ" onBack={() => { if (exit) void exit.request(() => router.replace('/profile'), 'về hồ sơ'); else router.replace('/profile'); }}>
+      <AuthFrame topInset={false} title="Bảo mật" backLabel="Hồ sơ" onBack={backToProfile}>
         <Feedback message="Đang kiểm tra trạng thái bảo mật…" />
       </AuthFrame>
     );
   return (
-    <AuthFrame topInset={false} title="Bảo mật" backLabel="Hồ sơ" onBack={() => { if (exit) void exit.request(() => router.replace('/profile'), 'về hồ sơ'); else router.replace('/profile'); }}
+    <AuthFrame topInset={false} title="Bảo mật" backLabel="Hồ sơ" onBack={backToProfile}
       description="Bảo vệ tài khoản bằng mã từ ứng dụng xác thực.">
       {!profile.data ? (
         <>

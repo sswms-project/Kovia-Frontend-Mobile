@@ -104,10 +104,79 @@ function boundaryFixture({ canGoBack = false, missingOwner = false, deepLink = f
     '@/lib/api-error': { getApiErrorMessage: failure => failure.message }, '@/lib/screen-navigation': navigationLogic,
   });
   const render = () => runtime.render(() => ScreenExitBoundary({ children: 'screen', standalone: true })).props.value;
-  return { render, alerts, errors, actions, wrapperActions, queued, selection, session, remove: action => removal({ data: { action } }),
+  return { render, alerts, errors, actions, wrapperActions, queued, selection, session, navigation, remove: action => removal({ data: { action } }),
     focus: () => { focused = true; focusListener(); }, blur: () => { focused = false; }, cleanup: runtime.cleanup };
 }
 const tick = () => new Promise(resolve => setImmediate(resolve));
+
+function securityFixture({ loading = false, dirty = false, busy = false } = {}) {
+  const f = boundaryFixture(); const exit = f.render();
+  const jsx = (type, props) => ({ type, props });
+  const { default: SecurityScreen } = load('src/app/(account)/security.tsx', {
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    '@hookform/resolvers/zod': { zodResolver: () => undefined },
+    '@tanstack/react-query': { useQueryClient: () => ({}), useQuery: () => ({ isPending: loading, data: { isTwoFactorEnabled: false } }),
+      useMutation: () => ({ isPending: busy, reset() {} }) },
+    'expo-router': { router: { replace: route => f.queued.push({ type: 'REPLACE', payload: { route } }) } },
+    'react-hook-form': { useForm: () => ({ formState: { isDirty: dirty }, reset() {}, resetField() {}, handleSubmit: callback => callback }) },
+    '@/features/auth/auth.api': { authApi: {} }, '@/features/auth/auth.schema': { otpSchema: {} },
+    '@/features/auth/auth.store': { useAuth: selector => selector({ clearSession() {} }) },
+    '@/features/auth/components/auth-form': { AuthFrame: 'AuthFrame', Feedback: 'Feedback', DetailText: 'DetailText', ActionButton: 'ActionButton', FormField: 'FormField' },
+    '@/features/auth/components/two-factor-setup': { TwoFactorSetupDetails: 'TwoFactorSetupDetails' },
+    '@/hooks/use-screen-exit': { useScreenExit: () => exit, useExitProtection: read => exit.register(read) },
+  });
+  return { ...f, screen: SecurityScreen() };
+}
+
+test('Security profile button lets beforeRemove guard the queued replacement exactly once in loading and loaded states', async () => {
+  for (const loading of [true, false]) {
+    const f = securityFixture({ loading }); f.screen.props.onBack(); await tick();
+    assert.equal(f.render().leaving, false); assert.equal(f.queued.length, 1);
+    f.remove(f.queued.shift()); await tick();
+    assert.equal(f.actions.length, 1); assert.equal(f.actions[0].payload.route, '/profile');
+    assert.equal(f.alerts.length, 0); f.cleanup();
+  }
+});
+
+test('Security profile replacement still protects dirty forms and pending writes', async () => {
+  for (const busy of [false, true]) {
+    const f = securityFixture({ dirty: true, busy }); f.screen.props.onBack();
+    f.remove(f.queued.shift()); await tick();
+    assert.equal(f.actions.length, 0); assert.equal(f.alerts.length, 1);
+    if (!busy) { f.alerts[0].buttons[0].onPress(); await tick(); }
+    assert.equal(f.render().leaving, false); f.cleanup();
+  }
+  const f = securityFixture({ dirty: true }); f.screen.props.onBack(); f.remove(f.queued.shift()); await tick();
+  f.alerts[0].buttons.find(button => /Bỏ/.test(button.text)).onPress(); await tick();
+  assert.equal(f.actions.length, 1); assert.equal(f.alerts.length, 1); f.cleanup();
+});
+
+test('opening audit from an uncertain pick report preserves the marker and navigates synchronously only after approval', async () => {
+  for (const cancel of [true, false]) {
+    const f = boundaryFixture(); const exit = f.render(); const order = [];
+    exit.register(() => ({ pending: true, preservePending: async () => { order.push('preserved'); } }));
+    const jsx = (type, props) => ({ type, props });
+    const { PickIssueReportModal } = load('src/features/stock-issue/components/pick-issue-report-modal.tsx', {
+      'react/jsx-runtime': { jsx, jsxs: jsx }, '@/hooks/use-screen-exit': { useScreenExit: () => exit },
+      'expo-router': { useNavigation: () => f.navigation, router: { push: route => f.queued.push(route) } },
+      'expo-router/react-navigation': { CommonActions: { navigate: (name, params) => ({ type: 'NAVIGATE', payload: { name, params } }) } },
+      'react-hook-form': { Controller: 'Controller' }, '@/components/ui/alert-banner': { AlertBanner: 'AlertBanner' },
+      '@/components/ui/text-field': { TextField: 'TextField' }, '@/components/ui/button': { Button: 'Button' },
+      '@/components/ui/confirmation-modal': { ConfirmationModal: 'ConfirmationModal' },
+      '@/features/warehouse-task/components/field-action-modal': { FieldActionModal: 'FieldActionModal' },
+    });
+    const tree = PickIssueReportModal({ state: { active: true, uncertain: true, canReadAudit: true,
+      attempt: { isSuccess: true }, mutation: { isPending: false }, form: {}, closeToAudit: () => order.push('closed') } });
+    const nodes = node => Array.isArray(node) ? node.flatMap(nodes) : node && typeof node === 'object' ? [node, ...nodes(node.props?.children)] : [];
+    nodes(tree).find(node => node.props?.label === 'Mở nhật ký hoạt động').props.onPress(); await tick();
+    assert.deepEqual(order, []); assert.equal(f.actions.length, 0);
+    f.alerts[0].buttons[cancel ? 0 : 1].onPress(); await tick();
+    assert.deepEqual(order, cancel ? [] : ['preserved', 'closed']); assert.deepEqual(f.queued, []);
+    assert.equal(f.actions.length, cancel ? 0 : 1);
+    if (!cancel) assert.deepEqual(f.actions[0].payload, { name: '(app)', params: { screen: 'catalog', params: { screen: 'audit-logs' } } });
+    f.cleanup();
+  }
+});
 
 test('Home and Tasks reset the app owner below Expo 57 __root without dispatching to the wrapper', async () => {
   for (const target of ['home', 'tasks']) {
