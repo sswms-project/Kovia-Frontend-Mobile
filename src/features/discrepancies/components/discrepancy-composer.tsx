@@ -11,6 +11,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { ScanCodeButton } from '@/features/scanner/components/scan-code-button';
 import type { useDiscrepancyComposer } from '../hooks/use-discrepancy-composer';
 import { DISCREPANCY_TYPE, discrepancyTypeSchema } from '../discrepancies.schema';
+import { WorkScreenHeader } from '@/components/work-screen-header';
 
 type Composer = ReturnType<typeof useDiscrepancyComposer>;
 export function DiscrepancyComposer({ state, title, summary, evidenceOnly = false }: {
@@ -21,6 +22,7 @@ export function DiscrepancyComposer({ state, title, summary, evidenceOnly = fals
   const disabled = state.busy || state.frozen;
   return <Modal visible={state.open} animationType="slide" onRequestClose={state.requestClose}>
     <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+      <WorkScreenHeader modal title={title} onBack={state.requestClose} />
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{title}</Text>

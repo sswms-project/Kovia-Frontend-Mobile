@@ -1,3 +1,5 @@
+import { WorkCompletionActions } from '@/components/work-completion-actions';
+import { useExitProtection, useScreenSubtitle, useScreenExit } from '@/hooks/use-screen-exit';
 import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ChevronRight, CircleCheck, MapPin, Pencil } from 'lucide-react-native';
@@ -35,20 +37,23 @@ const STATUS_TONES: Readonly<Record<string, PillTone>> = {
   Draft: 'neutral', PendingApproval: 'warning', InspectionCorrectionRequired: 'danger', Rejected: 'danger', Approved: 'primary', Completed: 'success',
 };
 export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
+  const exit = useScreenExit();
   const context = useReceiptContext(mode, documentId);
   const evidence = useEvidencePreview('goods-receipts');
   const locations = useReceivingLocations(context);
   const allocation = usePutawayAllocation(context, locations);
-  const editor = useReceiptEditor(context);
   const refusal = useRefusalEvidence(context);
   const documents = useDocumentEvidence(context);
+  const editor = useReceiptEditor(context, { documents, refusal });
   const execution = useReceiptExecution(context, locations.selected, refusal, documents);
   const beginPlacement = execution.beginPlacement;
   const [historyKey, setHistoryKey] = useState<string | null>(null);
   const theme = useTheme();
   const receipt = context.receipt.data;
   const task = context.task.data;
+  useScreenSubtitle(context.canView ? receipt?.receiptCode ?? task?.inboundRequestCode : undefined);
   const busy = editor.mutation.isPending || execution.mutation.isPending || allocation.mutation.isPending || refusal.busy || documents.busy;
+  useExitProtection(() => ({ busy: busy }));
   const handoff = useReceiptHandoff(context, busy || !!editor.target || !!execution.editor || !!allocation.visible ||
     !!execution.target || locations.isOpen || historyKey === context.contextKey || !!evidence.preview);
   const canPutAway = mode === 'putaway' && context.allowed('PutAway') && context.permission(P.GOODS_RECEIPTS_PUTAWAY) &&
@@ -59,22 +64,23 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
     onIsolate={id => beginPlacement(id, true)} />, [context, busy, beginPlacement]);
   const suggestions = execution.suggestions.data?.key === context.contextKey && execution.suggestions.data.version === receipt?.version
     ? execution.suggestions.data.data : null;
-  if (!context.canView) return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+  if (!context.canView) return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
     <View style={styles.content}>
       <AlertBanner title={!context.validId ? 'Mã công việc không hợp lệ.' : !context.access.ready ? 'Chọn kho và xác minh quyền trước khi mở công việc.' : 'Bạn không có quyền truy cập nội dung này.'}
         description={context.access.selection.notice ?? undefined} />
-      <Button label="Chọn kho làm việc" onPress={() => router.navigate('/')} />
+      <Button label="Chọn kho làm việc" onPress={() => { if (exit) exit.home(); else router.navigate('/'); }} />
       <Button label="Kiểm tra lại quyền" variant="outline" loading={context.access.profile.isFetching} onPress={() => { void context.access.refresh(); }} />
     </View>
   </SafeAreaView>;
   const error = context.receiptId ? context.receipt.error ?? context.actions.error : context.task.error;
   const loading = context.receiptId ? context.receipt.isPending || context.actions.isPending : context.task.isPending;
   const fetching = context.receiptId ? context.receipt.isFetching || context.actions.isFetching : context.task.isFetching;
-  return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+  return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
     <FlatList data={error ? [] : receipt?.items ?? []} keyExtractor={item => item.id} renderItem={renderItem}
       contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" refreshing={fetching && !loading}
       onRefresh={busy ? undefined : () => { void context.refresh(); }}
       ListHeaderComponent={<View style={styles.group}>
+        <WorkCompletionActions visible={!busy && !fetching && !error && !editor.target && !allocation.visible && !execution.editor && (mode === 'receiving' ? task?.executionStatus === 'Completed' || receipt?.status === 'Completed' : receipt?.putAwayTaskExecutionStatus === 'Completed')} message={mode === 'receiving' ? 'Đã hoàn tất bước nhận hàng.' : 'Đã hoàn tất cất hàng.'} />
         <Text style={[styles.kicker, { color: theme.primary }]}>KOVIA · {context.access.warehouse?.warehouseName}</Text>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{mode === 'putaway' ? 'Cất hàng được giao' : 'Nhận hàng được giao'}</Text>
         {loading && <Text style={[styles.text, { color: theme.textSecondary }]}>Đang tải chứng từ…</Text>}

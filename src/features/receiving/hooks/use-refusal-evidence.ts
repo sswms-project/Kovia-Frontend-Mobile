@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 
 import { P } from '@/config/permission-codes';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { useExitProtection } from '@/hooks/use-screen-exit';
 
 import { receivingApi } from '../receiving.api';
 import type { ReceiptContext } from './use-receipt-context';
@@ -13,8 +14,9 @@ export function useRefusalEvidence(context: ReceiptContext) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lock = useRef(false);
-  const files = record?.key === key ? record.files : [];
+  const files = record?.key === key ? record.files.filter(file => !context.receipt.data?.refusalEvidence?.some(saved => saved.id === file.id)) : [];
   const acknowledged = record?.key === key && record.acknowledged;
+  useExitProtection(() => ({ busy, photos: files.length > 0, discard: async () => { setRecord(null); } }));
   async function addPhoto() {
     const receipt = context.receipt.data;
     const warehouseId = receipt?.warehouseId ?? context.scope?.warehouseId;
@@ -44,6 +46,8 @@ export function useRefusalEvidence(context: ReceiptContext) {
     finally { lock.current = false; setBusy(false); }
   }
   return { files, acknowledged, busy, error, addPhoto,
+    markAttached: (ids: readonly string[]) => setRecord(previous => previous?.key === key
+      ? { ...previous, files: previous.files.filter(file => !ids.includes(file.id)) } : previous),
     toggle: () => { if (!lock.current) setRecord({ key, files, acknowledged: !acknowledged }); },
     remove: (id: string) => { if (!lock.current) setRecord({ key, files: files.filter(file => file.id !== id), acknowledged }); },
   };

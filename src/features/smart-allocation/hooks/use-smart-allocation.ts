@@ -13,6 +13,7 @@ import { warehouseCommand, type WarehouseCommandMemory } from '@/lib/warehouse-c
 
 import { AllocationScopeError, smartAllocationApi } from '../smart-allocation.api';
 import type { AllocationAuthorization } from '../smart-allocation.schema';
+import { useCommandDraft } from '@/hooks/use-command-draft';
 
 type Target = { action: 'Authorize'; key: string; orderId: string; body: AllocationAuthorization }
   | { action: 'Revoke'; key: string; orderId: string; demandId: string; version: string };
@@ -52,6 +53,8 @@ export function useSmartAllocation() {
       ![P.STOCK_ISSUE_REQUESTS_VIEW, P.STOCK_ISSUE_REQUESTS_ASSIGN_PICKER].every(permission => profile?.permissions.includes(permission)))
       throw new Error('Kho, phiên hoặc quyền đã thay đổi. Vui lòng mở lại chức năng.');
   }
+  const draft = useCommandDraft({ feature: 'allocation-authorization', documentId: selected ?? '', version: data?.plan.documentVersion ?? undefined,
+    enabled: ready && !!selected, assertCurrent });
   const mutation = useMutation<unknown, Error, Target>({ retry: false, mutationFn: async (original: Target) => {
     const check = () => {
       assertCurrent();
@@ -63,10 +66,17 @@ export function useSmartAllocation() {
         throw new Error('Lần cho phép đã thay đổi. Vui lòng tải lại.');
     };
     check();
-    return original.action === 'Authorize' ? smartAllocationApi.authorize(original.orderId, original.body, check)
-      : smartAllocationApi.revoke(original.orderId, original.demandId, original.version, check);
-  }, onError: logApiError, onSuccess: async (_, original) => {
+    const sending = original.action === 'Authorize' ? { commandId: original.body.commandId, content: JSON.stringify(original.body) }
+      : (command.current = warehouseCommand(command.current, original));
+    return draft.execute({ operation: original.action, ...sending, documentId: original.orderId,
+      expectedVersion: original.action === 'Authorize' ? original.body.expectedVersion : original.version },
+    () => original.action === 'Authorize' ? smartAllocationApi.authorize(original.orderId, original.body, check)
+      : smartAllocationApi.revoke(original.orderId, original.demandId, original.version, check),
+    () => { command.current = null; });
+  }, onSettled: () => draft.settled(), onError: logApiError, onSuccess: async (_, original) => {
     if (original.key !== key) return;
+    try { assertCurrent(); } catch { return; }
+    await draft.clear(true);
     setTarget(null); setNotice(original.action === 'Authorize' ? 'Đã cho phép tự phân bổ. Hệ thống chỉ giữ hàng khi đủ toàn phiếu; không tự xác nhận xuất.' : 'Đã thu hồi lần cho phép.');
     await client.invalidateQueries({ queryKey: prefix });
   } });

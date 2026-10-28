@@ -22,12 +22,13 @@ interface AuthFrameProps {
   description?: string;
   backLabel?: string;
   onBack?: () => void;
+  topInset?: boolean;
   children: ReactNode;
 }
-export function AuthFrame({ title, description, backLabel, onBack, children }: AuthFrameProps) {
+export function AuthFrame({ title, description, backLabel, onBack, topInset = true, children }: AuthFrameProps) {
   const colors = useTheme();
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
+    <SafeAreaView edges={topInset ? ['top', 'left', 'right', 'bottom'] : ['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         style={styles.root}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

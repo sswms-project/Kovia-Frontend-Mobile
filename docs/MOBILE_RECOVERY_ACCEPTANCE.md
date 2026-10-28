@@ -1,5 +1,7 @@
 # P24 — Nhận khách trả, khôi phục form và bằng chứng
 
+> Cập nhật 2026-10-28: điều hướng nhanh bổ sung metadata đối soát cho lệnh có idempotency. Nháp thường giữ giới hạn/TTL bên dưới; bản pending chưa giải quyết không tự hết hạn hoặc bị thay thế khi đủ 12 bản. Đóng cảnh báo không xóa pending và không mở lại gửi lệnh thay thế. Không lưu full payload/ảnh để tự retry sau restart. Logout/thu hồi phiên vẫn xóa dữ liệu riêng tư theo cơ chế hiện có. Xem `MOBILE_DEEP_SCREEN_NAVIGATION_ACCEPTANCE.md`; các kết quả nghiệm thu thiết bị cũ bên dưới không chứng nhận phần điều hướng mới.
+
 ## Phạm vi mobile
 
 - Nhận khách trả: chỉ xác nhận phiếu đã duyệt bằng quyền `goods-return-requests:restock`; không thêm tạo/duyệt hoặc xử lý tiêu hủy trên mobile. Cần đọc phiếu xuất gốc và vị trí trong đúng kho đang chọn.

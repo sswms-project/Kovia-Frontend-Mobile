@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import { P } from '@/config/permission-codes';
+import { useScreenExit } from '@/hooks/use-screen-exit';
 import type { Receipt } from '../receiving.schema';
 import type { ReceiptContext } from './use-receipt-context';
 
@@ -17,12 +18,15 @@ export function canContinueToPutaway(receipt: Receipt, userId: string, actions: 
 
 /** Follow an approval only while the employee stays on this receiving screen. */
 export function useReceiptHandoff(context: ReceiptContext, paused: boolean) {
+  const exit = useScreenExit();
+  const exitRef = useRef(exit);
+  useEffect(() => { exitRef.current = exit; }, [exit]);
   const latest = useRef(context);
   useEffect(() => { latest.current = context; }, [context]);
   const followed = useRef<string | null>(null);
   const receipt = context.receipt.data;
   const watching = context.mode === 'receiving' && context.canView && !!context.receiptId && !paused &&
-    (receipt?.status === 'PendingApproval' || receipt?.status === 'Approved') &&
+    !exit?.leaving && (receipt?.status === 'PendingApproval' || receipt?.status === 'Approved') &&
     !receipt.keptAtReceiving && !receipt.putAwayTaskCancelledAt && !receipt.putAwayTaskRequiresReconciliation &&
     receipt.putAwayTaskExecutionStatus !== 'Cancelled' && receipt.putAwayTaskExecutionStatus !== 'Completed' &&
     receipt.items.some(item => item.remainingPutAwayQuantity > 0);
@@ -37,17 +41,19 @@ export function useReceiptHandoff(context: ReceiptContext, paused: boolean) {
     async function check() {
       if (!active || !foreground || running || followed.current === key) return;
       running = true;
+      const canNavigate = exitRef.current?.capture() ?? (() => true);
       try {
         latest.current.assertCurrent(P.GOODS_RECEIPTS_VIEW);
         const detail = await latest.current.receipt.refetch();
         if (!active || !foreground || detail.isError || !detail.data) return;
         const actions = await latest.current.actions.refetch();
-        if (!active || !foreground || actions.isError || !actions.data) return;
+        if (!active || !foreground || !canNavigate() || actions.isError || !actions.data) return;
         const current = latest.current;
         current.assertCurrent(P.GOODS_RECEIPTS_PUTAWAY);
         if (`${current.contextKey}:${current.receiptId}` !== key || detail.data.id !== current.receiptId ||
           detail.data.warehouseId !== current.scope?.warehouseId || detail.data.inboundRequestId !== current.documentId ||
           detail.data.receivingAssignedTo !== current.userId || !canContinueToPutaway(detail.data, current.userId, actions.data)) return;
+        if (!canNavigate()) return;
         followed.current = key;
         router.replace({ pathname: '/(account)/putaway/[id]', params: { id: detail.data.id } });
       } catch {

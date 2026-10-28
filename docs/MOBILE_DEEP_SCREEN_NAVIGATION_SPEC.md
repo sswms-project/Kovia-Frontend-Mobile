@@ -1,6 +1,6 @@
 # Spec — Điều hướng nhanh cho các màn sâu trên mobile
 
-Ngày: 2026-10-28. Bản sửa 2: xử lý ba findings của vòng review spec và xác nhận giữ nguyên Trang chủ hiện tại. Trạng thái: sẵn sàng triển khai, chưa triển khai theo spec này.
+Ngày: 2026-10-28. Bản sửa 2: xử lý ba findings của vòng review spec và xác nhận giữ nguyên Trang chủ hiện tại. Trạng thái: đã triển khai source; kiểm thử native/thiết bị còn chờ. Kết quả và hướng dẫn nghiệm thu: `MOBILE_DEEP_SCREEN_NAVIGATION_ACCEPTANCE.md`.
 
 ## 1. Mục tiêu
 
@@ -257,14 +257,14 @@ Chạy `pnpm exec tsc --noEmit` và `pnpm exec expo lint`. Ghi rõ lỗi baselin
 - [Expo SDK 57 — Router](https://docs.expo.dev/versions/v57.0.0/sdk/router/): API điều hướng theo phiên bản đang dùng; đặc biệt phạm vi stack của dismiss và dismissAll.
 - [Expo — Stack](https://docs.expo.dev/router/advanced/stack/): cấu hình header và stack; phải đối chiếu khả năng thực tế của SDK 57 trước triển khai.
 
-Hoàn thành spec này nghĩa là triển khai và kiểm chứng toàn bộ phạm vi trên, đồng thời ghi rõ phần chưa chạy trên thiết bị. Bản spec hiện tại chưa thay đổi hành vi của ứng dụng.
+Hoàn thành spec này nghĩa là triển khai và kiểm chứng toàn bộ phạm vi trên, đồng thời ghi rõ phần chưa chạy trên thiết bị. Trạng thái triển khai/nghiệm thu được ghi ở đầu tài liệu và trong acceptance record; nội dung yêu cầu bên trên không tự chứng minh đã nghiệm thu.
 
 ## 11. Đối chiếu findings vòng review spec
 
 | Finding | Trạng thái trong spec bản sửa 2 | Phần xử lý |
 | --- | --- | --- |
-| R1: command/payload mất sau unmount; marker hiện tại không đủ để khôi phục lệnh | Đã sửa đặc tả; chưa triển khai code | Mục 6.3 phân biệt retry trong bộ nhớ với metadata đối soát, bảo toàn trước gửi, không xóa pending bằng Đã hiểu; NAV-11/23/28 |
-| R2: đóng editor có thể giải phóng paused và kích hoạt handoff trong lúc về Home | Đã sửa đặc tả; chưa triển khai code | Mục 6.4 quy định khóa đồng bộ, ưu tiên ý định thoát và kiểm tra callback trước điều hướng; NAV-24/25 |
-| R3: danh sách upload còn ảnh sau submit dễ tạo cảnh báo ảnh chưa gắn giả | Đã sửa đặc tả; chưa triển khai code | Mục 6.2 quy định nguồn xác nhận attachment theo ID/loại ảnh/receipt/scope, không dùng files.length đơn lẻ; NAV-09/26 |
+| R1: command/payload mất sau unmount; marker hiện tại không đủ để khôi phục lệnh | Đã sửa đặc tả và source; còn nghiệm thu native | Mục 6.3 phân biệt retry trong bộ nhớ với metadata đối soát, bảo toàn trước gửi, không xóa pending bằng Đã hiểu; NAV-11/23/28 |
+| R2: đóng editor có thể giải phóng paused và kích hoạt handoff trong lúc về Home | Đã sửa đặc tả và source; còn nghiệm thu native | Mục 6.4 quy định khóa đồng bộ, ưu tiên ý định thoát và kiểm tra callback trước điều hướng; NAV-24/25 |
+| R3: danh sách upload còn ảnh sau submit dễ tạo cảnh báo ảnh chưa gắn giả | Đã sửa đặc tả và source; còn nghiệm thu native | Mục 6.2 quy định nguồn xác nhận attachment theo ID/loại ảnh/receipt/scope, không dùng files.length đơn lẻ; NAV-09/26 |
 
 Ràng buộc bổ sung của người dùng: giữ nguyên Trang chủ hiện tại, mục 5.2 và NAV-27. Việc cập nhật spec không xác nhận rằng các ca nghiệm thu mới đã pass trên ứng dụng.

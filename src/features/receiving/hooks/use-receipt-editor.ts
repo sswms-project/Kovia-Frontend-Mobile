@@ -12,6 +12,8 @@ import { assertReceiptCorrection, assertReceiptQuantities, receiptCommand, recei
 import { receivingApi } from '../receiving.api';
 import { createReceiptFormSchema, updateReceiptFormSchema, type ReceiptForm, type ReceivingTask } from '../receiving.schema';
 import type { ReceiptContext } from './use-receipt-context';
+import type { useDocumentEvidence } from './use-document-evidence';
+import type { useRefusalEvidence } from './use-refusal-evidence';
 
 export interface ReceiptSubmission {
   receivingSlotId: string | null;
@@ -19,7 +21,7 @@ export interface ReceiptSubmission {
   refusalEvidenceIds?: string[];
   documentEvidenceIds?: string[];
 }
-export function useReceiptEditor(context: ReceiptContext) {
+export function useReceiptEditor(context: ReceiptContext, evidence?: { documents: ReturnType<typeof useDocumentEvidence>; refusal: ReturnType<typeof useRefusalEvidence> }) {
   const [target, setTarget] = useState<{ key: string; session: number; receiptId: string | null; version: string; task: ReceivingTask | null; correction: boolean } | null>(null);
   const [discard, setDiscard] = useState(false);
   const lock = useRef(false);
@@ -56,7 +58,7 @@ export function useReceiptEditor(context: ReceiptContext) {
       const currentVersion = target?.receiptId ? context.receipt.data?.version : context.task.data?.version;
       if (currentVersion !== target?.version) throw new Error('Phiếu nhận đã thay đổi.');
     } });
-  const mutation = useMutation<string, Error, { values: ReceiptForm; submission?: ReceiptSubmission }>({ retry: false,
+  const mutation = useMutation<{ id: string; key: string; clear: () => Promise<void> }, Error, { values: ReceiptForm; submission?: ReceiptSubmission }>({ retry: false,
     mutationFn: async ({ values, submission }) => {
       if (!target || target.key !== context.contextKey) throw new Error('Công việc đã thay đổi.');
       const original = target;
@@ -81,17 +83,18 @@ export function useReceiptEditor(context: ReceiptContext) {
       if (original.correction && context.receipt.data) assertReceiptCorrection(values, context.receipt.data);
       let id = savedReceipt.current?.key === original.key ? savedReceipt.current.id : null;
       if (!id) {
-        await draft.beforeSubmit();
         setFrozen(true);
         try {
           if (original.receiptId) {
             const body = { ...values, expectedVersion: original.version };
             command.current = receiptCommand(command.current, { receiptId: original.receiptId, ...body });
+            await draft.beforeSubmit({ operation: 'UpdateReceipt', ...command.current, expectedVersion: original.version, documentId: context.documentId, receiptId: original.receiptId });
             await receivingApi.update(original.receiptId, { ...body, commandId: command.current.commandId }, assertCurrentContext);
             id = original.receiptId;
           } else {
             const body = { ...values, inboundRequestId: context.documentId, expectedInboundVersion: original.version };
             command.current = receiptCommand(command.current, body);
+            await draft.beforeSubmit({ operation: 'CreateReceipt', ...command.current, expectedVersion: original.version, documentId: context.documentId });
             id = await receivingApi.create({ ...body, commandId: command.current.commandId }, assertCurrentContext);
           }
           uncertainSave.current = false;
@@ -104,7 +107,8 @@ export function useReceiptEditor(context: ReceiptContext) {
         }
       }
       savedReceipt.current = { key: original.key, id };
-      if (!submission) return id;
+      await draft.recordResult(id);
+      if (!submission) return { id, key: original.key, clear: () => draft.clear(true) };
       setSavedNotice('Phiếu đã lưu trên máy chủ. Đang gửi duyệt; nếu lỗi, hãy thử gửi lại đúng phiếu này.');
       const assertSubmitContext = () => {
         context.assertCurrent(P.GOODS_RECEIPTS_SUBMIT);
@@ -122,13 +126,17 @@ export function useReceiptEditor(context: ReceiptContext) {
         submitSnapshot.current = { id, body: { ...body, commandId: submitCommand.current.commandId } };
       }
       try {
+        await draft.beforeSubmit({ operation: 'SubmitReceipt', ...submitCommand.current!, expectedVersion: submitSnapshot.current.body.expectedVersion,
+          documentId: context.documentId, receiptId: submitSnapshot.current.id }, true);
         await receivingApi.submit(submitSnapshot.current.id, submitSnapshot.current.body, assertSubmitContext);
+        evidence?.documents.markAttached(submitSnapshot.current.body.documentEvidenceIds ?? []);
+        evidence?.refusal.markAttached(submitSnapshot.current.body.refusalEvidenceIds ?? []);
         uncertainSubmit.current = false;
       } catch (failure) {
         if (!uncertainSubmit.current && isApiErrorResponse(failure) && [400, 422].includes(failure.statusCode)) {
           // Save is known to have succeeded. Continue editing that draft, never create a replacement receipt.
           const version = submitSnapshot.current.body.expectedVersion;
-          await draft.clear();
+          await draft.clear(true);
           context.rememberReceipt(id);
           savedReceipt.current = null; submitSnapshot.current = null; submitCommand.current = null; command.current = null;
           setTarget({ ...original, receiptId: id, version });
@@ -137,10 +145,15 @@ export function useReceiptEditor(context: ReceiptContext) {
         } else uncertainSubmit.current = true;
         throw failure;
       }
-      return id;
+      return { id, key: original.key, clear: () => draft.clear(true) };
     },
-    onError: logApiError,
-    onSuccess: async (id) => { await draft.clear(); context.rememberReceipt(id); setTarget(null); setFrozen(false); setSavedNotice(null); form.reset(); await context.refreshWarehouse(); },
+    onSettled: () => draft.settled(), onError: logApiError,
+    onSuccess: async (result) => {
+      await result.clear();
+      if (result.key !== context.contextKey) return;
+      try { context.assertCurrent(P.GOODS_RECEIPTS_CREATE); } catch { return; }
+      context.rememberReceipt(result.id); setTarget(null); setFrozen(false); setSavedNotice(null); form.reset(); await context.refreshWarehouse();
+    },
   });
   function begin() {
     if (lock.current || !context.permission(P.GOODS_RECEIPTS_CREATE)) return;
@@ -183,10 +196,10 @@ export function useReceiptEditor(context: ReceiptContext) {
     } else if (frozen) {
       // Keep the pending draft marker until the server result has been reconciled.
       setTarget(null); void context.refreshWarehouse();
-    } else if (form.formState.isDirty) setDiscard(true); else setTarget(null);
+    } else setTarget(null);
   } }
   return { form, fields, target: visible ? target : null, mutation, discard, setDiscard, begin, addLine, save, close,
     codeSuggestion, markCodeEdited: () => { codeEdited.current = true; },
     frozen, savedNotice,
-    discardChanges: () => { if (!lock.current) { void draft.clear(); setDiscard(false); setTarget(null); form.reset(); } } };
+    discardChanges: () => { if (!lock.current) { void draft.discardAndClose(() => { setDiscard(false); setTarget(null); form.reset(); }); } } };
 }

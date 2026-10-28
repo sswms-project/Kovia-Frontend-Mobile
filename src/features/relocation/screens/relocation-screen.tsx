@@ -1,3 +1,5 @@
+import { WorkCompletionActions } from '@/components/work-completion-actions';
+import { useExitProtection, useModalExit, useScreenSubtitle } from '@/hooks/use-screen-exit';
 import { useCallback } from 'react';
 import { FlatList, Modal, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,8 +20,11 @@ import type { RelocationLine, RelocationTask } from '../relocation.schema';
 type Row = { kind: 'line'; line: RelocationLine } | { kind: 'execution'; execution: RelocationTask['executions'][number] };
 export function RelocationScreen({ taskId }: { readonly taskId: string }) {
   const state = useRelocation(taskId);
+  useScreenSubtitle(state.canView ? state.task?.taskCode : undefined);
+  const closeEditor = useModalExit(state.closeEditor);
   const theme = useTheme();
   const busy = state.mutation.isPending;
+  useExitProtection(() => ({ busy: busy }));
   const rows: Row[] = [...(state.task?.lines ?? []).map(line => ({ kind: 'line' as const, line })),
     ...(state.task?.executions ?? []).map(execution => ({ kind: 'execution' as const, execution }))];
   const renderRow = useCallback(({ item }: { item: Row }) => item.kind === 'line'
@@ -27,10 +32,11 @@ export function RelocationScreen({ taskId }: { readonly taskId: string }) {
     : <AlertBanner title={`Đã chuyển ${item.execution.quantity}: ${item.execution.sourceSlotCode} → ${item.execution.destinationSlotCode}`}
       description={`${taskDate(item.execution.executedAt)}${item.execution.overrideReason ? ` · ${item.execution.overrideReason}` : ''}`} />,
   [state.canExecute, state.openLine, busy]);
-  return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+  return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
     <FlatList data={rows} renderItem={renderRow} keyExtractor={row => row.kind === 'line' ? row.line.id : row.execution.id}
       contentContainerStyle={styles.content} ItemSeparatorComponent={Separator} refreshing={state.detail.isFetching}
       onRefresh={busy ? undefined : () => { void state.refresh(); }} ListHeaderComponent={<View style={styles.header}>
+        <WorkCompletionActions visible={!busy && !state.detail.isFetching && !state.detail.isError && state.task?.executionStatus === 'Completed'} message={'Đã hoàn tất di chuyển hàng.'} />
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{state.task?.taskCode ?? 'Chuyển vị trí trong kho'}</Text>
         {!state.validId && <AlertBanner title="Mã công việc không hợp lệ." />}
         {!state.canView && <AlertBanner title="Chọn kho và xác minh quyền xem công việc cá nhân." description={state.access.selection.notice ?? undefined} />}
@@ -50,7 +56,7 @@ export function RelocationScreen({ taskId }: { readonly taskId: string }) {
         {state.notice && <AlertBanner title={state.notice} />}
         <Button label="Tải lại công việc và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
       </View>} />
-    <Modal visible={!!state.activeEditor} animationType="slide" onRequestClose={busy ? undefined : state.closeEditor}>
+    <Modal visible={!!state.activeEditor} animationType="slide" onRequestClose={busy ? undefined : closeEditor}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
         {state.activeEditor && <RelocationEditor key={`${state.contextKey}:${state.activeEditor.version}:${state.activeEditor.line.id}`} state={state} />}
         <ConfirmationModal visible={state.target?.action === 'Execute'} title="Xác nhận số hàng đã thực tế chuyển?"

@@ -1,3 +1,5 @@
+import { useModalExit, useExitProtection } from '@/hooks/use-screen-exit';
+import { WorkScreenHeader } from '@/components/work-screen-header';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as Crypto from 'expo-crypto';
 import { Camera, ShieldAlert, Trash2, X } from 'lucide-react-native';
@@ -77,15 +79,12 @@ function ReportDamageForm({ stock, disabled = false }: ReportDamageActionProps) 
   const draft = useFormDraft({ form, feature: 'damage-report', documentId: stock.id, version: draftVersion,
     enabled: isOpen && canReport && !disabled, assertCurrent: assertCurrentContext });
 
-  if (!canReport) return null;
-
-  function close() {
+  useExitProtection(() => ({ busy: commandLock.current || mutation.isPending }));
+  const close = useModalExit(() => {
     if (commandLock.current) return;
-    void draft.clear();
-    formContext.current = null;
-    photos.reset();
-    setIsOpen(false);
-  }
+    formContext.current = null; photos.reset(); setIsOpen(false);
+  });
+  if (!canReport) return null;
   function open() {
     if (disabled || commandLock.current) return;
     try { assertCurrentContext(); } catch (error) { toast.error(getApiErrorMessage(error)); return; }
@@ -127,15 +126,17 @@ function ReportDamageForm({ stock, disabled = false }: ReportDamageActionProps) 
     const key = JSON.stringify({ ...fields, expectedStockVersion: undefined });
     if (attemptRef.current?.key !== key) attemptRef.current = { key, body: { ...fields, commandId: Crypto.randomUUID() } };
     const body = attemptRef.current.body;
+    if (!body.commandId) { setErrorMessage('Chưa có mã lệnh báo hỏng.'); return; }
 
     try {
       const assertOriginalContext = formContext.current;
       assertOriginalContext();
       commandLock.current = true;
-      await draft.beforeSubmit();
-      await mutation.mutateAsync({ body, assertCurrentContext: assertOriginalContext });
+      await draft.execute({ operation: 'ReportDamage', commandId: body.commandId, content: JSON.stringify(body),
+        documentId: stock.id, expectedVersion: draftVersion ?? '' },
+      () => mutation.mutateAsync({ body, assertCurrentContext: assertOriginalContext }), () => { attemptRef.current = null; });
       assertOriginalContext();
-      await draft.clear();
+      await draft.clear(true);
       toast.success(
         isConfirmed
           ? 'Đã ghi nhận hàng hỏng và chuyển số lượng xác nhận sang trạng thái giữ.'
@@ -144,7 +145,7 @@ function ReportDamageForm({ stock, disabled = false }: ReportDamageActionProps) 
       formContext.current = null; photos.reset(); setIsOpen(false);
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error, 'Không báo được hàng hỏng. Vui lòng thử lại.'));
-    } finally { commandLock.current = false; }
+    } finally { draft.settled(); commandLock.current = false; }
   }
 
   return (
@@ -158,6 +159,7 @@ function ReportDamageForm({ stock, disabled = false }: ReportDamageActionProps) 
       />
       <Modal visible={isOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
         <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+          <WorkScreenHeader modal title="Báo hàng hỏng" onBack={close} />
           <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={styles.header}>
               <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>

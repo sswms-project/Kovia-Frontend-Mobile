@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 
 import { P } from '@/config/permission-codes';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { useExitProtection } from '@/hooks/use-screen-exit';
 
 import { receivingApi } from '../receiving.api';
 import type { ReceiptContext } from './use-receipt-context';
@@ -14,7 +15,8 @@ export function useDocumentEvidence(context: ReceiptContext) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lock = useRef(false);
-  const files = record?.key === key ? record.files : [];
+  const files = record?.key === key ? record.files.filter(file => !context.receipt.data?.documentEvidence?.some(saved => saved.id === file.id)) : [];
+  useExitProtection(() => ({ busy, photos: files.length > 0, discard: async () => { setRecord(null); } }));
   async function addPhoto(source: 'camera' | 'library') {
     const receipt = context.receipt.data;
     const warehouseId = receipt?.warehouseId ?? context.scope?.warehouseId;
@@ -46,6 +48,8 @@ export function useDocumentEvidence(context: ReceiptContext) {
     finally { lock.current = false; setBusy(false); }
   }
   return { files, busy, error, addPhoto,
+    markAttached: (ids: readonly string[]) => setRecord(previous => previous?.key === key
+      ? { ...previous, files: previous.files.filter(file => !ids.includes(file.id)) } : previous),
     remove: (id: string) => { if (!lock.current) setRecord({ key, files: files.filter(file => file.id !== id) }); },
   };
 }

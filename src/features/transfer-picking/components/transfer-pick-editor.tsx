@@ -1,3 +1,5 @@
+import { WorkScreenHeader } from '@/components/work-screen-header';
+import { useModalExit } from '@/hooks/use-screen-exit';
 import { Controller, useWatch, type UseFormReturn } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from 'react-native';
 
@@ -16,11 +18,13 @@ interface Props { readonly line: TransferPickLine; readonly slotCode: string; re
   readonly busy: boolean; readonly notice: string | null; readonly onReview: () => void; readonly onClose: () => void }
 export function TransferPickEditor({ line, slotCode, form, busy, notice, onReview, onClose }: Props) {
   const theme = useTheme();
+  const close = useModalExit(onClose);
   const quantity = useWatch({ control: form.control, name: 'quantity' });
   const source = line.suggestions.find(location => location.inventoryStockId === form.getValues('inventoryStockId'));
   const maximum = Math.min(line.remainingQuantity, source?.suggestedQuantity ?? 0, source?.reservedQuantity ?? 0);
   return (
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <WorkScreenHeader modal title="Lấy hàng điều chuyển" onBack={close} />
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>Lấy hàng điều chuyển</Text>
         <Text style={[styles.text, { color: theme.text }]}>{line.sku} · {line.productName}</Text>
@@ -46,7 +50,7 @@ export function TransferPickEditor({ line, slotCode, form, busy, notice, onRevie
             form.setValue('scannedProductCode', code, { shouldDirty: true, shouldValidate: true });
           }} />
         <Button label="Kiểm tra lấy hàng" loading={busy} onPress={onReview} />
-        <Button label="Đóng nhập lấy hàng" variant="outline" disabled={busy} onPress={onClose} />
+        <Button label="Đóng nhập lấy hàng" variant="outline" disabled={busy} onPress={close} />
       </ScrollView>
     </KeyboardAvoidingView>
   );

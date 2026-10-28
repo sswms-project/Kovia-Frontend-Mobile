@@ -1,3 +1,5 @@
+import { WorkScreenHeader } from '@/components/work-screen-header';
+import { useModalExit } from '@/hooks/use-screen-exit';
 import { useCallback, useRef } from 'react';
 import { ScanLine } from 'lucide-react-native';
 import { Controller } from 'react-hook-form';
@@ -27,6 +29,7 @@ interface Props {
 }
 export function PutawayAllocationModal({ state, locations, receipt, suggestions, suggesting, suggestionError, onSuggest }: Props) {
   const theme = useTheme();
+  const close = useModalExit(state.close);
   const list = useRef<FlatList<Receipt['items'][number]>>(null);
   const showReason = useCallback(() => list.current?.scrollToEnd({ animated: true }), []);
   const locked = state.frozen || state.mutation.isPending;
@@ -38,12 +41,12 @@ export function PutawayAllocationModal({ state, locations, receipt, suggestions,
   const offPlan = allocation?.rows.some(row => row.offPlan);
   const renderItem = useCallback(({ item }: { item: Receipt['items'][number] }) => <PutawayAllocationItem item={item} state={state}
     suggestions={suggestions} suggesting={suggesting} onSuggest={onSuggest} onShowReason={showReason} />, [state, suggestions, suggesting, onSuggest, showReason]);
-  return <Modal visible={!!state.visible} animationType="slide" onRequestClose={state.mutation.isPending ? undefined : state.close}>
+  return <Modal visible={!!state.visible} animationType="slide" onRequestClose={state.mutation.isPending ? undefined : close}>
     <SafeAreaProvider><SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+      <WorkScreenHeader modal title="Phân bổ cất hàng" subtitle={receipt?.receiptCode} onBack={close} />
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <FlatList ref={list} data={items} keyExtractor={item => item.id} renderItem={renderItem} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}
           ListHeaderComponent={<View style={styles.group}>
-            <Button label="Quay lại phiếu nhận" variant="ghost" disabled={state.mutation.isPending} onPress={state.close} />
             <Text style={[styles.kicker, { color: theme.primary }]}>CẤT HÀNG</Text>
             <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{receipt?.receiptCode}</Text>
             <Text style={[styles.text, { color: theme.textSecondary }]}>{receipt?.inboundRequestCode} · {receipt?.warehouseName}</Text>

@@ -52,10 +52,11 @@ export function usePutawayAllocation(context: ReceiptContext, locations: ReturnT
       };
       guard();
       return receivingApi.putAway(original.receiptId, original.body, guard);
-    }, onError: logApiError,
+    }, onSettled: () => draft.settled(), onError: logApiError,
     onSuccess: async (_, original) => {
-      await draft.clear();
       if (original.key !== context.contextKey) return;
+      try { context.assertCurrent(P.GOODS_RECEIPTS_PUTAWAY); } catch { return; }
+      await draft.clear(true);
       setTarget(null); setReview(null); setFrozen(false); form.reset(); setScans({});
       await context.refreshWarehouse();
     },
@@ -133,7 +134,12 @@ export function usePutawayAllocation(context: ReceiptContext, locations: ReturnT
     if (!review || lock.current) return;
     lock.current = true;
     try {
-      if (!frozen) { assertCurrent(); await draft.beforeSubmit(); setFrozen(true); }
+      if (!frozen) {
+        assertCurrent();
+        await draft.beforeSubmit({ operation: 'PutAway', commandId: review.body.commandId, content: JSON.stringify(review.body),
+          expectedVersion: review.body.expectedVersion, documentId: review.receiptId, receiptId: review.receiptId });
+        setFrozen(true);
+      }
       await mutation.mutateAsync(review);
     } catch (failure) {
       if (!frozen && isApiErrorResponse(failure) && [400, 422].includes(failure.statusCode)) {
@@ -154,7 +160,6 @@ export function usePutawayAllocation(context: ReceiptContext, locations: ReturnT
   }
   function close() {
     if (lock.current) return;
-    if (!frozen && form.formState.isDirty) { setDiscard(true); return; }
     setTarget(null); setReview(null); locations.close(); void context.refreshWarehouse();
   }
   return { form, fields, values, allocation, layout, destinations: metadata, canViewLayout: context.permission(P.WAREHOUSES_VIEW),
@@ -189,6 +194,6 @@ export function usePutawayAllocation(context: ReceiptContext, locations: ReturnT
     },
     cancelReview: () => { if (!lock.current && !frozen) setReview(null); },
     cancelDiscard: () => setDiscard(false),
-    discardChanges: () => { if (!lock.current) { void draft.clear(); setDiscard(false); setTarget(null); form.reset(); locations.close(); } },
+    discardChanges: () => { if (!lock.current) { void draft.discardAndClose(() => { setDiscard(false); setTarget(null); form.reset(); locations.close(); }); } },
   };
 }

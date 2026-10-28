@@ -1,3 +1,5 @@
+import { WorkScreenHeader } from '@/components/work-screen-header';
+import { useModalExit } from '@/hooks/use-screen-exit';
 import { useState } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -16,10 +18,12 @@ interface Props { readonly item: CountItem; readonly form: UseFormReturn<CountFo
   readonly notice: string | null; readonly files: readonly { id: string; fileName: string }[];
   readonly onPhoto: (source: 'camera' | 'library') => void; readonly onReview: () => void; readonly onClose: () => void }
 export function CountEditor({ item, form, busy, canScan, notice, files, onPhoto, onReview, onClose }: Props) {
-  const theme = useTheme(); const [scanner, setScanner] = useState(false);
+  const theme = useTheme();
+  const close = useModalExit(onClose); const [scanner, setScanner] = useState(false);
   const photoCount = files.length + (item.damageEvidence?.length ?? 0);
   return <>
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <WorkScreenHeader modal title="Nhập kết quả kiểm kê" onBack={close} />
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>Ghi nhận số đếm thực tế</Text>
         <Text style={[styles.text, { color: theme.text }]}>{item.productSku} · {item.productName} · {item.slotCode}</Text>
@@ -45,7 +49,7 @@ export function CountEditor({ item, form, busy, canScan, notice, files, onPhoto,
         <Controller control={form.control} name="note" render={({ field, fieldState }) => <TextField label="Ghi chú kiểm đếm"
           value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy} multiline maxLength={501} />} />
         <Button label="Kiểm tra và lưu số đếm" loading={busy} onPress={onReview} />
-        <Button label="Đóng nhập kiểm kê" variant="outline" disabled={busy} onPress={onClose} />
+        <Button label="Đóng nhập kiểm kê" variant="outline" disabled={busy} onPress={close} />
       </ScrollView>
     </KeyboardAvoidingView>
     <Modal visible={scanner && canScan} onRequestClose={() => setScanner(false)}>

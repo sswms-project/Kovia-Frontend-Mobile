@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { useModalExit } from '@/hooks/use-screen-exit';
+import { WorkScreenHeader } from '@/components/work-screen-header';
 
 interface Props {
   readonly visible: boolean; readonly title: string; readonly busy: boolean; readonly children: ReactNode;
@@ -15,15 +17,17 @@ interface Props {
 // Mounted beside the screen list so native/web form scrolling has its own bounded viewport.
 export function FieldActionModal({ visible, title, busy, children, error, reviewDisabled = false, onReview, onClose }: Props) {
   const theme = useTheme();
-  return <Modal visible={visible} animationType="slide" onRequestClose={busy ? undefined : onClose}>
+  const close = useModalExit(onClose);
+  return <Modal visible={visible} animationType="slide" onRequestClose={busy ? undefined : close}>
     <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+      <WorkScreenHeader modal title={title} onBack={close} />
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{title}</Text>
           {children}
           {error && <AlertBanner variant="destructive" title="Chưa thể ghi nhận" description={getApiErrorMessage(error)} />}
           <Button label="Kiểm tra và tiếp tục" disabled={busy || reviewDisabled} onPress={onReview} />
-          <Button label="Quay lại" variant="outline" disabled={busy} onPress={onClose} />
+          <Button label="Quay lại" variant="outline" disabled={busy} onPress={close} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

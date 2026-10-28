@@ -1,3 +1,5 @@
+import { WorkScreenHeader } from '@/components/work-screen-header';
+import { useModalExit } from '@/hooks/use-screen-exit';
 import { useCallback } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import { FlatList, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, View } from 'react-native';
@@ -31,6 +33,7 @@ interface ReceiptEditorModalProps {
 }
 export function ReceiptEditorModal({ state, receipt, locations, documents, refusal, canSubmit }: ReceiptEditorModalProps) {
   const theme = useTheme();
+  const close = useModalExit(state.close);
   const sending = state.mutation.isPending || documents.busy || refusal.busy;
   const busy = sending || state.frozen;
   const correction = state.target?.correction === true;
@@ -55,8 +58,9 @@ export function ReceiptEditorModal({ state, receipt, locations, documents, refus
         onRemove={() => state.fields.remove(index)} />;
   }, [state, correction, busy, receipt?.receivingFlowVersion]);
   const conflict = state.mutation.error instanceof ApiError && state.mutation.error.statusCode === 409;
-  return <Modal visible={!!state.target} animationType="slide" onRequestClose={sending ? undefined : state.close}>
+  return <Modal visible={!!state.target} animationType="slide" onRequestClose={sending ? undefined : close}>
     <SafeAreaProvider><SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+      <WorkScreenHeader modal title="Lập phiếu thực nhận" onBack={close} />
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <FlatList data={lines} keyExtractor={item => item.inboundRequestItemId} renderItem={renderItem}
           contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
@@ -106,7 +110,7 @@ export function ReceiptEditorModal({ state, receipt, locations, documents, refus
                 ...(!correction && hasRefused ? { refusedGoodsHandedBack: true, refusalEvidenceIds: refusal.files.map(file => file.id) } : {}),
                 ...(!correction && documents.files.length ? { documentEvidenceIds: documents.files.map(file => file.id) } : {}),
               }); }} />}
-            <Button label="Đóng nhập liệu" variant="outline" disabled={sending} onPress={state.close} />
+            <Button label="Đóng nhập liệu" variant="outline" disabled={sending} onPress={close} />
           </View>} />
       </KeyboardAvoidingView>
       <ConfirmationModal visible={state.discard} title="Bỏ thay đổi chưa lưu?"

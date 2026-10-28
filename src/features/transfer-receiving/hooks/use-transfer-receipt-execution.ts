@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
+import type { useFormDraft } from '@/hooks/use-form-draft';
 
 import { P } from '@/config/permission-codes';
 import { useAuth } from '@/features/auth/auth.store';
@@ -15,7 +16,8 @@ import type { TransferExecutionTarget } from '../transfer-execution.schema';
 import type { useTransferReceiving } from './use-transfer-receiving';
 import { transferReceiptActionAllowed } from '../transfer-receiving';
 
-export function useTransferReceiptExecution(state: ReturnType<typeof useTransferReceiving>, transferId: string, shipmentId: string) {
+export function useTransferReceiptExecution(state: ReturnType<typeof useTransferReceiving>, transferId: string, shipmentId: string,
+  persistence: { current: ReturnType<typeof useFormDraft> | null }) {
   const client = useQueryClient();
   const { identity, warehouseId, revision, signature } = state.access.selection;
   const key = JSON.stringify([identity, warehouseId, revision, signature, transferId, shipmentId]);
@@ -41,16 +43,23 @@ export function useTransferReceiptExecution(state: ReturnType<typeof useTransfer
         state.data?.receipt.version !== expectedVersion)
         throw new Error('Phiếu, kho hoặc quyền đã thay đổi. Vui lòng mở lại công việc.');
   }
-  const mutation = useMutation<unknown, Error, TransferExecutionTarget & { scopeKey: string }>({ retry: false, mutationFn: async original => {
+  const mutation = useMutation<ReturnType<typeof useFormDraft>, Error, TransferExecutionTarget & { scopeKey: string }>({ retry: false, mutationFn: async original => {
     const check = () => {
       if (original.scopeKey !== key) throw new Error('Kho đã thay đổi.');
       assertCurrent(original.body.expectedVersion);
       if (!allowed(original.action)) throw new Error('Trạng thái công việc không còn cho phép thao tác này. Vui lòng tải lại.');
     };
     check();
-    return transferReceivingApi.execute(transferId, shipmentId, original, check);
-  }, onError: logApiError, onSuccess: async (_, original) => {
+    if (!persistence.current) throw new Error('Chưa kiểm tra được bản nháp.');
+    const sendingDraft = persistence.current;
+    await sendingDraft.execute({ operation: `Transfer${original.action}`, commandId: original.body.commandId,
+      content: JSON.stringify(original.body), documentId: `${transferId}:${shipmentId}`, expectedVersion: original.body.expectedVersion },
+    () => transferReceivingApi.execute(transferId, shipmentId, original, check), () => { memory.current = null; });
+    return sendingDraft;
+  }, onError: logApiError, onSuccess: async (sendingDraft, original) => {
+    await sendingDraft.clear(true);
     if (original.scopeKey !== key) return;
+    try { assertCurrent(original.body.expectedVersion); } catch { return; }
     setTarget(null); setNotice(original.action === 'Start' ? 'Đã bắt đầu nhận tại vị trí đã xác nhận. Chưa ghi nhận số lượng thực nhận.'
       : original.action === 'Submit' ? 'Đã ghi nhận kết quả kiểm hàng. Chỉ hàng đạt đủ điều kiện mới được phân bổ; hàng hỏng cách biệt vẫn bị tạm giữ.'
       : original.action === 'Resume' ? 'Đã tiếp tục công việc cất phần hàng còn khả dụng. Không ghi nhận nhập tồn thêm.'

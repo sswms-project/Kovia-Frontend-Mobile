@@ -6,6 +6,13 @@ const { test } = require('node:test');
 const ts = require('typescript');
 
 function load(relative, overrides) {
+  overrides = {
+    '@/components/work-screen-header': { WorkScreenHeader: 'WorkScreenHeader' },
+    '@/hooks/use-screen-exit': { useScreenExit: () => null, useExitProtection() {}, useModalExit: close => close },
+    './use-screen-exit': { useScreenExit: () => null, useExitProtection() {}, useModalExit: close => close },
+    'expo-crypto': { CryptoDigestAlgorithm: { SHA256: 'sha256' }, digestStringAsync: async (_, value) => require('node:crypto').createHash('sha256').update(value).digest('hex') },
+    ...overrides,
+  };
   const filename = path.resolve(__dirname, '..', relative);
   const output = ts.transpileModule(readFileSync(filename, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
@@ -330,7 +337,7 @@ test('a definitively rejected draft resumes safe autosave without preserving a p
     '@/features/auth/auth.store': { useAuth: { getState: () => ({ signedIn: true }) } },
     '@/features/warehouse-access/warehouse-access.store': { useWarehouseSelection: selection },
     '@/lib/api': { API_BASE_URL: 'http://fixture.local' }, '@/lib/api-error': { getApiErrorMessage: error => error.message },
-    '@/lib/form-draft-storage': { formDraftStorage: { read: async () => null,
+    '@/lib/form-draft-storage': { formDraftStorage: { read: async () => null, pending: async () => [],
       write: async (value, guard) => { guard(); writes.push(structuredClone(value)); }, remove: async () => {} } },
   });
   const draft = runtime.render(() => useFormDraft({ feature: 'putaway-allocation', documentId: 'receipt', version: 'v1', enabled: true, assertCurrent() {},
@@ -391,7 +398,7 @@ test('submit keeps the receipt selected before the completed receiving task disa
     '@hookform/resolvers/zod': { zodResolver: () => undefined },
     '@tanstack/react-query': { useMutation: options => { mutations.push(options); return {}; } },
     'react-hook-form': { useForm: () => ({ reset() {} }) },
-    '@/hooks/use-form-draft': { useFormDraft: () => ({ clear: async () => events.push(['clear']) }) },
+    '@/hooks/use-form-draft': { useFormDraft: () => ({ beforeSubmit: async () => {}, clear: async () => events.push(['clear']) }) },
     '@/config/permission-codes': { P: {} }, '@/lib/api-error': { logApiError() {} },
     '../receiving': {}, '../receiving.api': {}, '../receiving.schema': {},
   });
@@ -399,7 +406,7 @@ test('submit keeps the receipt selected before the completed receiving task disa
   render();
   const success = mutations[0].onSuccess;
   await success(undefined, { key: context.contextKey, receiptId: 'submitted-receipt', action: 'Submit' });
-  assert.deepEqual(events, [['remember', 'submitted-receipt'], ['refresh', 'submitted-receipt']]);
+  assert.deepEqual(events, [['remember', 'submitted-receipt'], ['clear'], ['refresh', 'submitted-receipt']]);
   assert.match(render().notice, /Đã gửi duyệt/);
   events.length = 0;
   await success(undefined, { key: 'other-warehouse', receiptId: 'foreign', action: 'Submit' });
@@ -445,7 +452,7 @@ function editorFixture(receipt = null, apiOverrides = {}) {
       },
     },
     'react-hook-form': { useForm: () => form, useFieldArray: () => ({}) },
-    '@/hooks/use-form-draft': { useFormDraft: () => ({ beforeSubmit: async () => {}, clear: async () => {}, afterRejectedSubmit: async () => {} }) },
+    '@/hooks/use-form-draft': { useFormDraft: () => ({ beforeSubmit: async () => {}, recordResult: async () => {}, clear: async () => {}, afterRejectedSubmit: async () => {} }) },
     '@/config/permission-codes': { P: { GOODS_RECEIPTS_CREATE: 'goods-receipts:create', GOODS_RECEIPTS_SUBMIT: 'goods-receipts:submit' } },
     '@/lib/api': { ApiError: class extends Error {} },
     '@/lib/api-error': { logApiError() {}, isApiErrorResponse: value => typeof value?.statusCode === 'number' && typeof value?.message === 'string' },

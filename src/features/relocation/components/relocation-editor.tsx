@@ -1,3 +1,5 @@
+import { WorkScreenHeader } from '@/components/work-screen-header';
+import { useModalExit } from '@/hooks/use-screen-exit';
 import { useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -17,6 +19,7 @@ import { matchesRelocationSlot } from '../relocation';
 interface Props { readonly state: ReturnType<typeof useRelocation> }
 export function RelocationEditor({ state }: Props) {
   const theme = useTheme();
+  const close = useModalExit(state.closeEditor);
   const [scan, setScan] = useState<'sourceScan' | 'destinationScan' | 'productScan' | null>(null);
   const line = state.activeEditor?.line;
   const busy = state.mutation.isPending;
@@ -26,6 +29,7 @@ export function RelocationEditor({ state }: Props) {
     { name: 'destinationScan', label: 'Mã vị trí đích' }] as const;
   return <>
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <WorkScreenHeader modal title="Di chuyển hàng" onBack={close} />
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>Ghi nhận chuyển vị trí</Text>
         <Text style={[styles.text, { color: theme.text }]}>{line.sku} · {line.productName}</Text>
@@ -60,7 +64,7 @@ export function RelocationEditor({ state }: Props) {
         {state.notice && <AlertBanner title={state.notice} />}
         <Button label="Kiểm tra số hàng đã chuyển" loading={busy} disabled={!source || state.source.isFetching || !state.recommendationsFresh || !state.selectedDestination}
           onPress={() => { void state.review(); }} />
-        <Button label="Đóng nhập chuyển vị trí" variant="outline" disabled={busy} onPress={state.closeEditor} />
+        <Button label="Đóng nhập chuyển vị trí" variant="outline" disabled={busy} onPress={close} />
       </ScrollView>
     </KeyboardAvoidingView>
     <Modal visible={!!scan && !!line && !state.target} onRequestClose={() => setScan(null)}>
