@@ -41,7 +41,7 @@ function hooks() {
 }
 const navigationLogic = load('src/lib/screen-navigation.ts');
 function navigationTree() {
-  return { key: 'root', type: 'stack', stale: false, index: 1, routes: [
+  return { key: 'root', type: 'stack', stale: false, routeNames: ['(app)', '(account)'], index: 1, routes: [
     { key: 'app', name: '(app)', state: { type: 'tab', stale: false, index: 1, history: [{ type: 'route', key: 'tasks-tab' }], routes: [
       { key: 'home', name: 'index', params: { selectedWarehouse: 'warehouse' } },
       { key: 'tasks-tab', name: 'tasks', state: { type: 'stack', stale: false, index: 1, routes: [
@@ -72,12 +72,19 @@ test('task completion returns to actual task list and deep-link fallback builds 
   assert.equal(navigationLogic.homeNavigationState({ routes: [] }, 'tasks').routes[0].state.routes[0].name, 'tasks');
 });
 
-function boundaryFixture({ canGoBack = false } = {}) {
+function boundaryFixture({ canGoBack = false, missingOwner = false, deepLink = false } = {}) {
   const runtime = hooks(); const alerts = []; const errors = []; const actions = []; const queued = [];
   const session = { signedIn: true }; const selection = { identity: 'user', warehouseId: 'warehouse', revision: 1, signature: 'scope' };
   let focused = true; let removal; let focusListener;
   const replayed = new WeakSet();
-  const navigation = { getParent: () => undefined, getState: navigationTree, isFocused: () => focused, canGoBack: () => canGoBack, setOptions() {},
+  const wrapperActions = [];
+  const wrapper = { getParent: () => undefined,
+    getState: () => ({ key: 'expo-root', type: 'stack', routeNames: ['__root', '+not-found', '_sitemap'], index: 0, routes: [{ name: '__root', state: navigationTree() }] }),
+    dispatch: action => wrapperActions.push(action) };
+  const owner = { getParent: () => wrapper,
+    getState: () => missingOwner ? wrapper.getState() : deepLink ? { ...navigationTree(), index: 0, routes: [{ name: '(account)' }] } : navigationTree(),
+    dispatch(action) { navigation.dispatch(action); } };
+  const navigation = { getParent: () => owner, getState: () => ({ key: 'account', type: 'stack', routeNames: ['receiving/[id]'], index: 0, routes: [{ name: 'receiving/[id]' }] }), isFocused: () => focused, canGoBack: () => canGoBack, setOptions() {},
     addListener: (_, listener) => { focusListener = listener; return () => {}; },
     dispatch(action) { if (!replayed.has(action)) { replayed.add(action); removal({ data: { action } }); } else actions.push(action); } };
   const jsx = (type, props) => ({ type, props });
@@ -97,10 +104,36 @@ function boundaryFixture({ canGoBack = false } = {}) {
     '@/lib/api-error': { getApiErrorMessage: failure => failure.message }, '@/lib/screen-navigation': navigationLogic,
   });
   const render = () => runtime.render(() => ScreenExitBoundary({ children: 'screen', standalone: true })).props.value;
-  return { render, alerts, errors, actions, queued, selection, session, remove: action => removal({ data: { action } }),
+  return { render, alerts, errors, actions, wrapperActions, queued, selection, session, remove: action => removal({ data: { action } }),
     focus: () => { focused = true; focusListener(); }, blur: () => { focused = false; }, cleanup: runtime.cleanup };
 }
 const tick = () => new Promise(resolve => setImmediate(resolve));
+
+test('Home and Tasks reset the app owner below Expo 57 __root without dispatching to the wrapper', async () => {
+  for (const target of ['home', 'tasks']) {
+    const f = boundaryFixture(); f.render()[target](); await tick();
+    assert.equal(f.wrapperActions.length, 0);
+    assert.equal(f.errors.length, 0);
+    assert.equal(f.actions.length, 1);
+    assert.equal(f.actions[0].payload.key, 'root');
+    assert.equal(f.actions[0].payload.routes[0].name, '(app)');
+    assert.equal(f.actions[0].payload.routes[0].state.index, target === 'home' ? 0 : 1);
+    f.cleanup();
+  }
+});
+
+test('a deep link without a mounted app route resets only the navigator that registers (app)', async () => {
+  const f = boundaryFixture({ deepLink: true }); f.render().tasks(); await tick();
+  assert.equal(f.wrapperActions.length, 0); assert.equal(f.actions.length, 1);
+  assert.equal(f.actions[0].payload.routes[0].state.routes[0].name, 'tasks'); f.cleanup();
+});
+
+test('missing app navigator reports an error and unlocks exit without an invalid RESET', async () => {
+  const f = boundaryFixture({ missingOwner: true }); f.render().home(); await tick();
+  assert.equal(f.actions.length, 0); assert.equal(f.wrapperActions.length, 0);
+  assert.equal(f.errors.length, 1); assert.equal(f.render().leaving, false);
+  assert.equal(f.render().capture()(), true); f.cleanup();
+});
 test('one clean Home press resets once, cannot be double-tapped, and invalidates previous handoff leases', async () => {
   const f = boundaryFixture(); const exit = f.render(); const lease = exit.capture();
   exit.home(); exit.home(); assert.equal(lease(), false);

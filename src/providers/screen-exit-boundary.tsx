@@ -119,7 +119,12 @@ export function ScreenExitBoundary({ children, standalone = false }: { readonly 
   }, [sessionIsCurrent, navigation]);
   const resetToTab = useCallback((target: 'index' | 'tasks') => {
     let root = navigation;
-    while (root.getParent()) root = root.getParent()!;
+    // Expo 57 adds an outer __root navigator that does not register our app routes.
+    while (!root.getState()?.routeNames.includes('(app)')) {
+      const parent = root.getParent();
+      if (!parent) throw new Error('Chưa xác định được điều hướng hiện tại. Vui lòng thử lại.');
+      root = parent;
+    }
     const state = root.getState();
     if (!state) throw new Error('Chưa xác định được điều hướng hiện tại. Vui lòng thử lại.');
     const profile = client.getQueryData<UserProfile>(profileQueryKey);
