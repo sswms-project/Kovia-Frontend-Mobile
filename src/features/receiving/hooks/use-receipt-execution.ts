@@ -70,9 +70,10 @@ export function useReceiptExecution(context: ReceiptContext, selected: SelectedR
     onError: logApiError,
     onSuccess: async (_, original) => {
       if (original.key !== context.contextKey) return;
+      if (original.action === 'Submit') context.rememberReceipt(original.receiptId);
       if (original.action !== 'Submit') await draft.clear();
       setTarget(null); setEditor(null); form.reset();
-      setNotice(original.action === 'Submit' ? 'Đã ghi nhận kết quả nhận hàng. Chỉ phần chấp nhận được ghi tồn; phần từ chối không vào kho. Gửi lại không nhận thêm hàng.'
+      setNotice(original.action === 'Submit' ? 'Đã gửi duyệt phiếu nhận hàng. Người có quyền sẽ kiểm tra và duyệt trước khi tiếp tục cất hàng.'
         : original.action === 'IsolateDamage' ? 'Đã xác nhận cách biệt hàng hỏng. Tổng tồn không đổi; hàng vẫn không khả dụng.'
         : 'Đã ghi nhận cất hàng và chuyển vị trí. Tổng tồn của kho không thay đổi.');
       await context.refreshWarehouse();

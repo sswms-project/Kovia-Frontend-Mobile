@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { formatInventoryLocation } from '@/features/inventory/inventory.labels';
 
 import type { useReceiptExecution } from '../../hooks/use-receipt-execution';
 import type { Receipt } from '../../receiving.schema';
@@ -23,11 +24,11 @@ export function PutAwaySuggestionsModal({ visible, data, receipt, busy, error, o
     sku: receipt?.items.find(line => line.id === item.goodsReceiptItemId)?.productSKU ?? '',
     unitName: receipt?.items.find(line => line.id === item.goodsReceiptItemId)?.baseUnitName ?? '', slot }))) ?? [];
   const renderItem = useCallback(({ item }: { item: SuggestionRow }) => <View style={[styles.card, { borderColor: theme.border }]}>
-    <Text style={[styles.name, { color: theme.text }]}>{item.sku} · {item.slot.zoneName} · {item.slot.rackCode}-{item.slot.slotCode}</Text>
+    <Text style={[styles.name, { color: theme.text }]}>{item.sku} · {item.slot.zoneName} · {formatInventoryLocation(item.slot)}</Text>
     <Text style={[styles.text, { color: theme.textSecondary }]}>Đề xuất: {item.slot.suggestedQuantity} {item.unitName} · Điểm {item.slot.score}</Text>
     <Text style={[styles.text, { color: theme.textSecondary }]}>{item.slot.reason}</Text>
     {!!item.slot.warnings.length && <AlertBanner title={item.slot.warnings.join(' · ')} />}
-    <Button label={`Chọn vị trí ${item.slot.slotCode}`} variant="outline" disabled={busy || item.slot.slotId === receipt?.receivingSlotId} onPress={() => onChoose(item.slot.slotId)} />
+    <Button label={`Chọn ${formatInventoryLocation(item.slot)}`} variant="outline" disabled={busy || item.slot.slotId === receipt?.receivingSlotId} onPress={() => onChoose(item.slot.slotId)} />
   </View>, [theme, busy, receipt?.receivingSlotId, onChoose]);
   return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
     <SafeAreaProvider><SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>

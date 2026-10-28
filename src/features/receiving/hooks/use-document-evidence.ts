@@ -9,7 +9,7 @@ import type { ReceiptContext } from './use-receipt-context';
 
 /** Photos of the paper delivery slip, attached to the receipt on submit. */
 export function useDocumentEvidence(context: ReceiptContext) {
-  const key = `${context.contextKey}:${context.receipt.data?.id}:${context.receipt.data?.version}`;
+  const key = context.evidenceKey;
   const [record, setRecord] = useState<{ key: string; files: { id: string; fileName: string }[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,8 +17,14 @@ export function useDocumentEvidence(context: ReceiptContext) {
   const files = record?.key === key ? record.files : [];
   async function addPhoto(source: 'camera' | 'library') {
     const receipt = context.receipt.data;
-    if (!receipt || lock.current || files.length >= 5) return;
-    const assertCurrent = () => context.assertAction('Submit', receipt.version, P.GOODS_RECEIPTS_SUBMIT);
+    const warehouseId = receipt?.warehouseId ?? context.scope?.warehouseId;
+    if (!warehouseId || lock.current || files.length >= 5) return;
+    const assertCurrent = () => {
+      context.assertCurrent(P.GOODS_RECEIPTS_SUBMIT);
+      if (receipt) context.assertAction('Submit', receipt.version, P.GOODS_RECEIPTS_SUBMIT);
+      else if (!context.task.data || context.task.isError || context.task.isFetching || context.task.data.assignedTo !== context.userId)
+        throw new Error('Công việc nhận hàng đã thay đổi. Vui lòng tải lại.');
+    };
     lock.current = true; setBusy(true); setError(null);
     try {
       assertCurrent();
@@ -33,7 +39,7 @@ export function useDocumentEvidence(context: ReceiptContext) {
         throw new Error('Vui lòng dùng ảnh JPG hoặc PNG cho phiếu giao hàng.');
       if (image.fileSize !== undefined && (image.fileSize <= 0 || image.fileSize > 10 * 1024 * 1024))
         throw new Error('Ảnh phải có dữ liệu và không vượt quá 10 MB.');
-      const result = await receivingApi.uploadEvidence(receipt.warehouseId,
+      const result = await receivingApi.uploadEvidence(warehouseId,
         { uri: image.uri, mimeType: image.mimeType, fileName: image.fileName ?? `phieu-giao.${image.mimeType === 'image/png' ? 'png' : 'jpg'}`, file: image.file }, assertCurrent);
       setRecord(previous => ({ key, files: [...(previous?.key === key ? previous.files : []), { id: result.id, fileName: result.fileName }] }));
     } catch (failure) { setError(getApiErrorMessage(failure)); }

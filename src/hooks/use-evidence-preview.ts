@@ -14,7 +14,7 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
 
 export interface EvidenceFile { readonly id: string; readonly fileName: string }
-export function useEvidencePreview(kind: 'inventory' | 'cycle-count' = 'inventory') {
+export function useEvidencePreview(kind: 'inventory' | 'cycle-count' | 'goods-receipts' = 'inventory') {
   const access = useWarehouseAccess(); const client = useQueryClient();
   const { identity, warehouseId, signature, revision } = access.selection;
   const key = JSON.stringify([identity, warehouseId, signature, revision]);
@@ -31,7 +31,7 @@ export function useEvidencePreview(kind: 'inventory' | 'cycle-count' = 'inventor
     const assertCurrentContext = () => {
       const selection = useWarehouseSelection.getState(); const profile = client.getQueryData<UserProfile>(profileQueryKey);
       const snapshot = profile ? warehouseSnapshot(profile) : null;
-      const permission = kind === 'inventory' ? P.INVENTORY_VIEW : P.CYCLE_COUNTS_VIEW;
+      const permission = kind === 'inventory' ? P.INVENTORY_VIEW : kind === 'goods-receipts' ? P.GOODS_RECEIPTS_VIEW : P.CYCLE_COUNTS_VIEW;
       if (active.current !== attempt || controller.signal.aborted || !useAuth.getState().signedIn || !access.ready ||
         selection.identity !== identity || selection.warehouseId !== warehouseId || selection.signature !== signature || selection.revision !== revision ||
         !snapshot?.activeUser || snapshot.signature !== signature || !profile?.permissions.includes(permission))
@@ -43,7 +43,7 @@ export function useEvidencePreview(kind: 'inventory' | 'cycle-count' = 'inventor
       const config: AxiosRequestConfig & { assertCurrentContext: () => void } = {
         responseType: 'arraybuffer', signal: controller.signal, assertCurrentContext, maxContentLength: 10 * 1024 * 1024,
       };
-      const response = await api.get<ArrayBuffer>(`/${kind === 'inventory' ? 'inventory' : 'cycle-counts'}/evidence/${file.id}`, config);
+      const response = await api.get<ArrayBuffer>(`/${kind === 'inventory' ? 'inventory' : kind === 'goods-receipts' ? 'goods-receipts' : 'cycle-counts'}/evidence/${file.id}`, config);
       assertCurrentContext();
       const bytes = new Uint8Array(response.data);
       if (!bytes.byteLength || bytes.byteLength > 10 * 1024 * 1024) throw new Error('Ảnh trống hoặc vượt giới hạn xem 10 MB.');

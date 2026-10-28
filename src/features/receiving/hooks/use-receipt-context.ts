@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { P, type PermissionCode } from '@/config/permission-codes';
 import { useAuth } from '@/features/auth/auth.store';
@@ -22,13 +22,15 @@ export function useReceiptContext(mode: 'receiving' | 'putaway', documentId: str
   const scope: TaskScope | null = canView && identity && warehouseId && signature ? { identity, warehouseId, revision, signature } : null;
   const prefix = scope ? ['warehouse', scope.identity, scope.warehouseId, scope.revision, 'receiving'] : ['receiving', 'blocked'];
   const contextKey = JSON.stringify([...prefix, mode, documentId]);
-  const [saved, setSaved] = useState<{ key: string; id: string | null } | null>(null);
+  const [saved, setSaved] = useState<{ key: string; id: string | null; evidenceKey: string } | null>(null);
+  const evidenceSession = useRef(0);
   const userId = access.profile.data?.id ?? '';
   const task = useQuery({
     queryKey: [...prefix, 'task', documentId], enabled: !!scope && mode === 'receiving', retry: false,
     queryFn: ({ signal }) => receivingApi.task(scope!.warehouseId, userId, documentId, signal),
   });
   const receiptId = mode === 'putaway' ? documentId : saved?.key === contextKey ? saved.id : task.data?.activeGoodsReceiptId ?? null;
+  const evidenceKey = saved?.key === contextKey ? saved.evidenceKey : `${contextKey}:${receiptId ?? 'new'}`;
   const receipt = useQuery({
     queryKey: [...prefix, 'receipt', receiptId], enabled: !!scope && !!receiptId, retry: false,
     queryFn: ({ signal }) => receivingApi.receipt(receiptId!, scope!.warehouseId, userId, mode, mode === 'receiving' ? documentId : undefined, signal),
@@ -55,8 +57,10 @@ export function useReceiptContext(mode: 'receiving' | 'putaway', documentId: str
   async function refreshWarehouse() {
     if (scope) await client.invalidateQueries({ queryKey: ['warehouse', scope.identity, scope.warehouseId, scope.revision] });
   }
-  function rememberReceipt(id: string | null) { setSaved({ key: contextKey, id }); }
+  function rememberReceipt(id: string | null) {
+    setSaved({ key: contextKey, id, evidenceKey: id === null ? `${contextKey}:new:${++evidenceSession.current}` : evidenceKey });
+  }
   return { access, client, scope, prefix, contextKey, mode, documentId, canView, validId, userId,
-    task, receiptId, receipt, actions, assertCurrent, assertAction, permission, allowed, refresh, refreshWarehouse, rememberReceipt };
+    task, receiptId, receipt, actions, assertCurrent, assertAction, permission, allowed, refresh, refreshWarehouse, rememberReceipt, evidenceKey };
 }
 export type ReceiptContext = ReturnType<typeof useReceiptContext>;

@@ -9,7 +9,8 @@ const nullableText = text.nullable();
 const quantity = z.number().finite().min(0);
 const version = text.min(1, 'Thiếu phiên bản. Vui lòng tải lại dữ liệu.');
 export const locationSearchSchema = z.object({ searchTerm: text.trim().max(100, 'Từ khóa tối đa 100 ký tự.') });
-export const receivingLocationSchema = z.object({ id, zoneCode: text, rackCode: text, slotCode: text, displayPath: text });
+export const receivingLocationSchema = z.object({ id, zoneCode: text, rackCode: text, slotCode: text, displayPath: text,
+  isSuggested: z.boolean().optional(), isPutAwayLocation: z.boolean().optional() });
 export const receivingLocationsSchema = z.object({ items: z.array(receivingLocationSchema), totalCount: quantity.int() });
 export const receivingTaskLineSchema = z.object({
   inboundRequestItemId: id, productId: id, productSKU: text, productName: text, barcodeValue: nullableText,
@@ -30,7 +31,7 @@ export const receivingTasksSchema = z.object({
   taskStats: z.object({ totalOpenCount: quantity.int(), unassignedCount: quantity.int(), inProgressCount: quantity.int(), pausedCount: quantity.int() }),
 });
 export { evidenceSchema };
-const planSchema = z.object({ id, slotId: id, slotCode: text, rackCode: text, isSystemDefaultSlot: z.boolean(), quantity });
+const planSchema = z.object({ id, slotId: id, slotCode: text, rackCode: text, zoneCode: nullableText.optional(), zoneName: nullableText.optional(), isSystemDefaultSlot: z.boolean(), quantity });
 const putAwayDetailSchema = z.object({
   id, inventoryStockId: id, stockMovementId: id, warehouseId: id, slotId: id, slotCode: text, rackCode: text,
   isSystemDefaultSlot: z.boolean(), lotId: id.nullable(), lotNumber: nullableText, qualityStatus: text,
@@ -85,15 +86,51 @@ export const updateReceiptFormSchema = z.object({ receiptCode: text.trim().min(1
 export const createReceiptCommandSchema = createReceiptFormSchema.extend({ inboundRequestId: id, expectedInboundVersion: version, commandId: id });
 export const updateReceiptCommandSchema = updateReceiptFormSchema.extend({ expectedVersion: version, commandId: id });
 export const submitReceiptCommandSchema = z.object({ expectedVersion: version, commandId: id, receivingSlotId: id.nullable(),
-  refusedGoodsHandedBack: z.boolean().optional(), refusalEvidenceIds: z.array(id).max(5).optional(), documentEvidenceIds: z.array(id).max(5).optional() });
+  refusedGoodsHandedBack: z.boolean().optional(), refusalEvidenceIds: z.array(id).max(5).optional(), documentEvidenceIds: z.array(id).max(5).optional() })
+  .refine(value => new Set(value.refusalEvidenceIds).size === (value.refusalEvidenceIds?.length ?? 0),
+    { path: ['refusalEvidenceIds'], message: 'Không chọn trùng bằng chứng từ chối.' })
+  .refine(value => new Set(value.documentEvidenceIds).size === (value.documentEvidenceIds?.length ?? 0),
+    { path: ['documentEvidenceIds'], message: 'Không chọn trùng ảnh phiếu giao hàng.' })
+  .refine(value => !(value.documentEvidenceIds ?? []).some(id => value.refusalEvidenceIds?.includes(id)),
+    { path: ['documentEvidenceIds'], message: 'Không dùng cùng một ảnh cho phiếu giao hàng và bằng chứng từ chối.' });
 export const putAwayFormSchema = z.object({
   goodsReceiptItemId: id, slotId: id, quantity: z.number({ error: 'Vui lòng nhập số lượng thực cất hợp lệ.' }).finite().positive('Số lượng cất phải lớn hơn 0.').lt(1e16, 'Số lượng vượt giới hạn cho phép.').multipleOf(0.01, 'Số lượng chỉ được có tối đa hai chữ số thập phân.'),
   confirmedSlotCode: text.trim().max(100, 'Mã vị trí tối đa 100 ký tự.'), overrideReason: text.trim().max(500, 'Lý do tối đa 500 ký tự.'),
 });
+const putAwayCommandLine = z.object({ goodsReceiptItemId: id, slotId: id, confirmedSlotCode: text.max(100).optional() });
+export const PUTAWAY_REASON_OPTIONS = [
+  { code: 'SlotFull', label: 'Vị trí đã đầy' }, { code: 'SlotBlocked', label: 'Vị trí hỏng hoặc bị chắn' },
+  { code: 'LabelMismatch', label: 'Sai nhãn hoặc không tìm thấy vị trí' },
+  { code: 'Consolidation', label: 'Gom cùng sản phẩm hoặc cùng lô' }, { code: 'Other', label: 'Lý do khác' },
+] as const;
+const putAwayReasonCodeSchema = z.enum(PUTAWAY_REASON_OPTIONS.map(option => option.code));
 export const putAwayCommandSchema = z.object({ expectedVersion: version, commandId: id,
-  lines: z.array(z.object({ goodsReceiptItemId: id, slotId: id, quantity: z.number().positive().multipleOf(0.01), confirmedSlotCode: text.max(100) })).min(1),
+  lines: z.array(z.union([
+    putAwayCommandLine.extend({ quantity: z.number().positive().lt(1e16).multipleOf(0.01) }).strict(),
+    putAwayCommandLine.extend({ enteredQuantity: z.number().positive().lt(1e12).multipleOf(0.000001), enteredUnitId: id }).strict(),
+  ])).min(1).refine(lines => new Set(lines.map(line => `${line.goodsReceiptItemId}:${line.slotId}`)).size === lines.length, 'Không phân bổ trùng sản phẩm và vị trí.'),
   overrideReason: text.max(500).optional(),
+  overrideReasonCode: putAwayReasonCodeSchema.optional(),
 });
+export const putAwayDestinationSchema = z.object({ id, slotCode: text, displayPath: text, rackCode: text.optional(), zoneCode: text.optional(),
+  rackId: id.optional(), slotBarcode: nullableText.optional(), isSystemDefaultSlot: z.boolean().optional(), capacityLabel: text.optional() });
+export const putAwayAllocationFormSchema = z.object({ lines: z.array(z.object({ goodsReceiptItemId: id,
+  destination: putAwayDestinationSchema.nullable(), enteredUnitId: id,
+  enteredQuantity: z.number({ error: 'Nhập số lượng cất hợp lệ.' }).finite().positive('Số lượng cất phải lớn hơn 0.').lt(1e12).multipleOf(0.000001),
+})).min(1, 'Thêm ít nhất một phân bổ vị trí.'), overrideReason: text.trim().max(500, 'Lý do tối đa 500 ký tự.'),
+  overrideReasonCode: putAwayReasonCodeSchema.or(z.literal('')).optional() });
+// Read only the layout metadata needed to identify physical rack/slot labels and show capacity.
+export const putAwayLayoutSchema = z.array(z.object({ id, zoneCode: text, zoneName: text, status: text,
+  isDefaultOutboundStagingPoint: z.boolean(), isDefaultIsolationPoint: z.boolean(), racks: z.array(z.object({
+  id, rackCode: text, rackName: text, status: text, storageMode: text, isIsolationPoint: z.boolean(), isOutboundStaging: z.boolean().optional(),
+  capacityUsed: quantity.nullable(), capacity: quantity.nullable(), remainingCapacity: quantity.nullable(), capacityUnitName: nullableText,
+  slots: z.array(z.object({ id, slotCode: text, slotName: text,
+    barcodeValue: nullableText, isActive: z.boolean(), isOutboundStaging: z.boolean(), isIsolationPoint: z.boolean(),
+    capacityUsed: quantity.nullable(), capacity: quantity.nullable(), remainingCapacity: quantity.nullable(), capacityUnitName: nullableText,
+  }).passthrough()), defaultSlotId: id.nullable(),
+}).passthrough()) }).passthrough());
+export type PutAwayDestination = z.infer<typeof putAwayDestinationSchema>;
+export type PutAwayAllocationForm = z.infer<typeof putAwayAllocationFormSchema>;
 export const isolateDamageCommandSchema = z.object({ goodsReceiptItemId: id, destinationSlotId: id,
   quantity: z.number().positive().multipleOf(0.01), confirmedSlotCode: text.trim().min(1).max(100),
   physicallySeparated: z.literal(true), expectedVersion: version, commandId: id });

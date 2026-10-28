@@ -1,5 +1,6 @@
 import { ScanLine } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ interface Props {
   readonly label: string;
   readonly title: string;
   readonly disabled?: boolean;
+  readonly renderIcon?: (color: string) => ReactNode;
   /** Small chip for label rows and card headers instead of a full-width button. */
   readonly compact?: boolean;
   /** Keep the scanner open after an accepted code, e.g. counting items one scan at a time. */
@@ -25,7 +27,7 @@ interface Props {
   readonly onBeforeClose?: () => boolean | Promise<boolean>;
 }
 
-export function ScanCodeButton({ label, title, disabled = false, compact = false, continuous = false, status, onScan, onOpen, confirm, onBeforeClose }: Props) {
+export function ScanCodeButton({ label, title, disabled = false, renderIcon, compact = false, continuous = false, status, onScan, onOpen, confirm, onBeforeClose }: Props) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
   const session = useRef(0);
@@ -40,7 +42,7 @@ export function ScanCodeButton({ label, title, disabled = false, compact = false
         <ScanLine size={16} color={theme.primary} />
         <Text style={[styles.chipLabel, { color: theme.primary }]} numberOfLines={1}>{label}</Text>
       </Pressable>
-      : <Button label={label} variant="outline" disabled={disabled} onPress={start} />}
+      : <Button label={label} variant="outline" disabled={disabled} renderIcon={renderIcon} onPress={start} />}
     <Modal visible={open && !disabled} animationType="slide" onRequestClose={() => { void requestClose(); }}>
       <View style={styles.root}>{open && !disabled && <ScannerScreen title={title} status={status} repeatGuardMs={continuous ? 1000 : undefined}
         onClose={() => { void requestClose(); }}

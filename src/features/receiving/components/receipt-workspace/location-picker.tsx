@@ -17,12 +17,13 @@ import { parseLocationScan } from '../../receiving-scan';
 
 interface LocationPickerProps {
   readonly state: ReturnType<typeof useReceivingLocations>; readonly title: string; readonly excludedId?: string | null;
+  readonly onChoose?: (location: ReceivingLocation) => void;
 }
-export function LocationPicker({ state, title, excludedId }: LocationPickerProps) {
+export function LocationPicker({ state, title, excludedId, onChoose }: LocationPickerProps) {
   const theme = useTheme();
   const renderItem = useCallback(({ item }: { item: ReceivingLocation }) => <Button
     label={item.displayPath} variant="outline" disabled={state.query.isFetching || item.id === excludedId}
-    onPress={() => state.choose(item)} />, [excludedId, state]);
+    onPress={() => onChoose ? onChoose(item) : state.choose(item)} />, [excludedId, state, onChoose]);
   const total = state.query.data?.totalCount ?? 0;
   return <Modal visible={state.isOpen} animationType="slide" onRequestClose={state.close}>
     <SafeAreaProvider><SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>

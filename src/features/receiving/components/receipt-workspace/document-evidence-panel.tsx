@@ -16,10 +16,10 @@ export function DocumentEvidencePanel({ state }: { readonly state: ReturnType<ty
     {state.files.length === 0 && <Text style={[styles.hint, { color: theme.textSecondary }]}>Chụp phiếu giao hàng có chữ ký để đính kèm vào phiếu nhận.</Text>}
     {state.files.map(file => <EvidenceFileRow key={file.id} fileName={file.fileName} disabled={state.busy} onRemove={() => state.remove(file.id)} />)}
     <View style={styles.actions}>
-      <View style={styles.action}><Button label="Chụp phiếu" variant="outline" loading={state.busy} disabled={full}
-        renderIcon={color => <Camera size={18} color={color} />} onPress={() => { void state.addPhoto('camera'); }} /></View>
-      <View style={styles.action}><Button label="Thư viện" accessibilityLabel="Chọn ảnh phiếu từ thư viện" variant="outline" disabled={state.busy || full}
-        renderIcon={color => <Images size={18} color={color} />} onPress={() => { void state.addPhoto('library'); }} /></View>
+      <Button label="Chụp phiếu giao hàng" variant="outline" loading={state.busy} disabled={full}
+        renderIcon={color => <Camera size={18} color={color} />} onPress={() => { void state.addPhoto('camera'); }} />
+      <Button label="Chọn ảnh từ thư viện" accessibilityLabel="Chọn ảnh phiếu từ thư viện" variant="outline" disabled={state.busy || full}
+        renderIcon={color => <Images size={18} color={color} />} onPress={() => { void state.addPhoto('library'); }} />
     </View>
     {state.error && <AlertBanner variant="destructive" title={state.error} />}
   </View>;
@@ -28,6 +28,5 @@ export function DocumentEvidencePanel({ state }: { readonly state: ReturnType<ty
 const styles = StyleSheet.create({
   root: { gap: 8 },
   hint: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 19 },
-  actions: { flexDirection: 'row', gap: 8, marginTop: 2 },
-  action: { flex: 1 },
+  actions: { gap: 8, marginTop: 2 },
 });

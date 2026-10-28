@@ -7,6 +7,8 @@ import { useTheme } from '@/hooks/use-theme';
 
 interface TextFieldProps extends Omit<TextInputProps, 'style' | 'secureTextEntry'> {
   readonly label: string;
+  /** Keep the input's accessible label when a shared row displays labels separately. */
+  readonly hideLabel?: boolean;
   readonly error?: string;
   readonly hint?: string;
   /** Renders a show/hide toggle and masks the value. */
@@ -18,6 +20,7 @@ interface TextFieldProps extends Omit<TextInputProps, 'style' | 'secureTextEntry
 
 export function TextField({
   label,
+  hideLabel = false,
   error,
   hint,
   isPassword = false,
@@ -34,10 +37,10 @@ export function TextField({
 
   return (
     <View style={styles.field}>
-      <View style={styles.labelRow}>
+      {!hideLabel && <View style={styles.labelRow}>
         <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
         {labelAccessory}
-      </View>
+      </View>}
       <View style={[styles.inputWrapper, { borderColor, backgroundColor: theme.card }]}>
         <TextInput
           ref={inputRef}

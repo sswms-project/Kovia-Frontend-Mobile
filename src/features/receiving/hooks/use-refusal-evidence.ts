@@ -8,7 +8,7 @@ import { receivingApi } from '../receiving.api';
 import type { ReceiptContext } from './use-receipt-context';
 
 export function useRefusalEvidence(context: ReceiptContext) {
-  const key = `${context.contextKey}:${context.receipt.data?.id}:${context.receipt.data?.version}`;
+  const key = context.evidenceKey;
   const [record, setRecord] = useState<{ key: string; files: { id: string; fileName: string }[]; acknowledged: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,8 +17,14 @@ export function useRefusalEvidence(context: ReceiptContext) {
   const acknowledged = record?.key === key && record.acknowledged;
   async function addPhoto() {
     const receipt = context.receipt.data;
-    if (!receipt || lock.current || files.length >= 5) return;
-    const assertCurrent = () => context.assertAction('Submit', receipt.version, P.GOODS_RECEIPTS_SUBMIT);
+    const warehouseId = receipt?.warehouseId ?? context.scope?.warehouseId;
+    if (!warehouseId || lock.current || files.length >= 5) return;
+    const assertCurrent = () => {
+      context.assertCurrent(P.GOODS_RECEIPTS_SUBMIT);
+      if (receipt) context.assertAction('Submit', receipt.version, P.GOODS_RECEIPTS_SUBMIT);
+      else if (!context.task.data || context.task.isError || context.task.isFetching || context.task.data.assignedTo !== context.userId)
+        throw new Error('Công việc nhận hàng đã thay đổi. Vui lòng tải lại.');
+    };
     lock.current = true; setBusy(true); setError(null);
     try {
       assertCurrent();
@@ -30,7 +36,7 @@ export function useRefusalEvidence(context: ReceiptContext) {
         throw new Error('Vui lòng chọn ảnh JPG hoặc PNG làm bằng chứng.');
       if (image.fileSize !== undefined && (image.fileSize <= 0 || image.fileSize > 10 * 1024 * 1024))
         throw new Error('Ảnh phải có dữ liệu và không vượt quá 10 MB.');
-      const result = await receivingApi.uploadEvidence(receipt.warehouseId,
+      const result = await receivingApi.uploadEvidence(warehouseId,
         { uri: image.uri, mimeType: image.mimeType, fileName: image.fileName ?? `kiem-hang.${image.mimeType === 'image/png' ? 'png' : 'jpg'}`, file: image.file }, assertCurrent);
       setRecord(previous => ({ key, acknowledged: previous?.key === key && previous.acknowledged,
         files: [...(previous?.key === key ? previous.files : []), { id: result.id, fileName: result.fileName }] }));

@@ -89,6 +89,11 @@ export function useFormDraft<T extends FieldValues>(options: Options<T>) {
       if (!ready.current) throw new Error('Đang kiểm tra bản nháp. Vui lòng hoàn tất bước khôi phục trước khi gửi.');
       pending.current = true; cancelTimer(); await save(true);
     },
+    // Only call after an authoritative rejection, never after a timeout or an uncertain replay.
+    afterRejectedSubmit: async () => {
+      await save(false);
+      pending.current = false; dirty.current = false;
+    },
     clear: async () => { stopped.current = true; cancelTimer(); await formDraftStorage.remove(scope).catch(failure => toast.error(`Chưa xóa được bản nháp: ${getApiErrorMessage(failure)}`)); },
   };
 }

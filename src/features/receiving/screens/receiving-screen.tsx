@@ -15,9 +15,11 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { useEvidencePreview } from '@/hooks/use-evidence-preview';
 import { EvidenceLinks, EvidencePreview } from '@/components/ui/evidence-preview';
 
-import { ConfirmationModal, LocationPicker, PutAwayEditorModal, ReceiptEditorModal, ReceiptItemCard, ReceiptHistoryModal, PutAwaySuggestionsModal, RefusalEvidencePanel, DocumentEvidencePanel, ReceiptStep } from '../components/receipt-workspace';
+import { ConfirmationModal, LocationPicker, PutAwayEditorModal, PutawayAllocationModal, ReceiptEditorModal, ReceiptItemCard, ReceiptHistoryModal, RefusalEvidencePanel, DocumentEvidencePanel, ReceiptStep } from '../components/receipt-workspace';
+import { usePutawayAllocation } from '../hooks/use-putaway-allocation';
 import { useDocumentEvidence } from '../hooks/use-document-evidence';
 import { useReceiptContext } from '../hooks/use-receipt-context';
+import { useReceiptHandoff } from '../hooks/use-receipt-handoff';
 import { useReceiptEditor } from '../hooks/use-receipt-editor';
 import { useReceiptExecution } from '../hooks/use-receipt-execution';
 import { useReceivingLocations } from '../hooks/use-receiving-locations';
@@ -34,25 +36,27 @@ const STATUS_TONES: Readonly<Record<string, PillTone>> = {
 };
 export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
   const context = useReceiptContext(mode, documentId);
-  const evidence = useEvidencePreview();
+  const evidence = useEvidencePreview('goods-receipts');
   const locations = useReceivingLocations(context);
+  const allocation = usePutawayAllocation(context, locations);
   const editor = useReceiptEditor(context);
   const refusal = useRefusalEvidence(context);
   const documents = useDocumentEvidence(context);
   const execution = useReceiptExecution(context, locations.selected, refusal, documents);
   const beginPlacement = execution.beginPlacement;
   const [historyKey, setHistoryKey] = useState<string | null>(null);
-  const [suggestionsKey, setSuggestionsKey] = useState<string | null>(null);
   const theme = useTheme();
   const receipt = context.receipt.data;
   const task = context.task.data;
-  const busy = editor.mutation.isPending || execution.mutation.isPending || refusal.busy || documents.busy;
+  const busy = editor.mutation.isPending || execution.mutation.isPending || allocation.mutation.isPending || refusal.busy || documents.busy;
+  const handoff = useReceiptHandoff(context, busy || !!editor.target || !!execution.editor || !!allocation.visible ||
+    !!execution.target || locations.isOpen || historyKey === context.contextKey || !!evidence.preview);
   const canPutAway = mode === 'putaway' && context.allowed('PutAway') && context.permission(P.GOODS_RECEIPTS_PUTAWAY) &&
     !!receipt?.items.some(item => item.remainingPutAwayQuantity > 0) &&
     receipt?.putAwayTaskExecutionStatus !== 'Cancelled' && !receipt?.putAwayTaskRequiresReconciliation;
   const renderItem = useCallback(({ item }: { item: Receipt['items'][number] }) => <ReceiptItemCard item={item}
-    canPutAway={canPutAway} canIsolate={context.allowed('IsolateDamage')} busy={busy} onPutAway={beginPlacement}
-    onIsolate={id => beginPlacement(id, true)} />, [canPutAway, context, busy, beginPlacement]);
+    canPutAway={false} canIsolate={context.allowed('IsolateDamage')} busy={busy} onPutAway={beginPlacement}
+    onIsolate={id => beginPlacement(id, true)} />, [context, busy, beginPlacement]);
   const suggestions = execution.suggestions.data?.key === context.contextKey && execution.suggestions.data.version === receipt?.version
     ? execution.suggestions.data.data : null;
   if (!context.canView) return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
@@ -102,7 +106,18 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
             </View>
           </View>
           {receipt.arrivalConfirmedAt && !receipt.arrivalStockPostedAt && <AlertBanner title="Phiếu nhận cũ cần quản lý đối soát tồn thực nhận có bằng chứng trước khi tiếp tục." />}
-          {receipt.status === 'PendingApproval' && <AlertBanner title="Hàng đã nhận đang chờ duyệt kiểm hàng. Hàng tạm giữ chưa được dùng cho xuất kho." />}
+          {receipt.status === 'PendingApproval' && <AlertBanner title="Phiếu đang chờ quản lý duyệt"
+            description={handoff.watching ? 'Bạn có thể ở lại màn hình này. App tự cập nhật; nếu bạn được giao cất hàng, app sẽ chuyển sang màn cất sau khi phiếu được duyệt.'
+              : 'Hàng tạm giữ chưa được dùng cho xuất kho. Trạng thái sẽ cập nhật khi bạn tải lại phiếu.'} />}
+          {mode === 'receiving' && receipt.status === 'Approved' && <AlertBanner title="Phiếu nhận hàng đã được duyệt"
+            description={receipt.putAwayAssignedTo === context.userId ? 'Đang kiểm tra quyền và công việc cất hàng được giao cho bạn.'
+              : receipt.putAwayAssignedToName ? `Công việc cất hàng được giao cho ${receipt.putAwayAssignedToName}.`
+                : 'Đang chờ quản lý giao việc cất hàng. Nếu được giao cho bạn, app sẽ tự chuyển sang màn cất.'} />}
+          {mode === 'putaway' && <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Tiến độ cất hàng</Text>
+            <Text style={[styles.text, { color: theme.textSecondary }]}>Đã cất đủ {receipt.items.filter(item => item.usableQuantity > 0 && item.remainingPutAwayQuantity === 0).length}/{receipt.items.filter(item => item.usableQuantity > 0).length} sản phẩm</Text>
+            {canPutAway && <Button label="Cất hàng" disabled={busy || fetching} onPress={allocation.begin} />}
+          </View>}
           {receipt.rejectionReason && <AlertBanner title="Yêu cầu chỉnh sửa" description={receipt.rejectionReason} />}
           {mode === 'receiving' && context.allowed('Submit') && context.permission(P.GOODS_RECEIPTS_SUBMIT) && (() => {
             const pending = !receipt.arrivalConfirmedAt;
@@ -110,15 +125,20 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
             const needRefusal = pending && receipt.items.some(item => item.rejectedQuantity > 0);
             let step = 0;
             return <>
-              {needLocation && <ReceiptStep step={++step} title="Vị trí nhận hàng" done={!!locations.selected}>
+              {needLocation && <ReceiptStep step={++step} title="Vị trí tại khu chờ cất hàng" done={!!locations.selected}>
+                <Text style={[styles.text, { color: theme.textSecondary }]}>Nơi hàng đang đặt để chờ kiểm duyệt, trước khi cất vào từng vị trí lưu trữ. Tự chọn theo gợi ý của kho; bạn có thể đổi theo thực tế.</Text>
                 <Pressable accessibilityRole="button" accessibilityLabel={locations.selected ? `Vị trí nhận: ${locations.selected.displayPath}` : 'Chọn vị trí thực tế nhận'}
                   accessibilityState={{ disabled: busy }} disabled={busy} onPress={locations.open}
                   style={({ pressed }) => [styles.picker, { borderColor: theme.border, backgroundColor: theme.backgroundElement }, (busy || pressed) && styles.dim]}>
                   <MapPin size={18} color={locations.selected ? theme.primary : theme.textSecondary} />
                   <Text style={[styles.pickerText, { color: locations.selected ? theme.text : theme.textSecondary }]} numberOfLines={2}>
-                    {locations.selected?.displayPath ?? 'Chạm để chọn vị trí thực tế'}</Text>
+                    {locations.selected?.displayPath ?? (locations.query.isFetching ? 'Đang tải điểm chờ nhận…' : 'Chạm để chọn vị trí tại khu chờ cất hàng')}</Text>
                   <ChevronRight size={18} color={theme.textSecondary} />
                 </Pressable>
+                {locations.query.isError && <AlertBanner title="Chưa tải được vị trí nhận hàng."
+                  description={getApiErrorMessage(locations.query.error)}>
+                  <Button label="Tải lại vị trí nhận" variant="outline" onPress={() => { void locations.query.refetch(); }} loading={locations.query.isFetching} />
+                </AlertBanner>}
               </ReceiptStep>}
               {pending && <ReceiptStep step={++step} title="Ảnh phiếu giao hàng" done={documents.files.length > 0}
                 meta={documents.files.length > 0 ? `${documents.files.length}/5` : 'Không bắt buộc'}>
@@ -128,28 +148,21 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
                 meta={`${refusal.files.length}/5 ảnh`}>
                 <RefusalEvidencePanel state={refusal} />
               </ReceiptStep>}
-              <Button label={pending ? 'Xác nhận chấp nhận / từ chối nhận' : 'Gửi lại kết quả kiểm hàng'} disabled={busy || fetching}
+              <Button label={pending ? 'Gửi duyệt phiếu nhận hàng' : 'Gửi lại kết quả kiểm hàng'}
+                disabled={busy || fetching || (needLocation && (locations.query.isFetching || locations.query.isError))}
                 renderIcon={color => <CircleCheck size={18} color={color} />} onPress={execution.beginArrival} />
             </>;
           })()}
-          {(canPutAway || context.allowed('IsolateDamage')) && <>
-            {context.allowed('IsolateDamage') && <Button label="Chọn vị trí riêng cho hàng hỏng" variant="outline" disabled={busy} onPress={locations.openIsolation} />}
-            <AlertBanner title="Chỉ cất phần hàng đủ điều kiện. Hàng hỏng tiếp tục được tạm giữ; cất hàng không tăng tổng tồn." />
-            <Button label={locations.selected ? `Vị trí cất: ${locations.selected.displayPath}` : 'Chọn vị trí cất thực tế'}
-              variant="outline" disabled={busy} onPress={locations.open} />
-            {canPutAway && <Button label="Xem gợi ý vị trí cất" variant="outline" disabled={busy} loading={execution.suggestions.isPending}
-              onPress={() => { setSuggestionsKey(context.contextKey); execution.suggestions.mutate(); }} />}
-            {execution.suggestions.error && <AlertBanner title="Chưa tải được gợi ý. Bạn có thể chọn vị trí hợp lệ bằng tay."
-              description={getApiErrorMessage(execution.suggestions.error)} />}
-            {suggestions && <>
-              <Text style={[styles.text, { color: theme.textSecondary }]}>{suggestions.summary ?? 'Gợi ý chỉ để tham khảo. Cần xác nhận vị trí thực tế.'}</Text>
-              {suggestions.items.every(item => item.suggestions.length === 0) && <AlertBanner title="Chưa có vị trí gợi ý phù hợp. Hãy chọn vị trí hợp lệ khác hoặc để công việc chờ xử lý." />}
-              {suggestions.aiNotice && <Text style={[styles.text, { color: theme.textSecondary }]}>{suggestions.aiNotice}</Text>}
-            </>}
+          {context.allowed('IsolateDamage') && <>
+            <Button label="Chọn vị trí riêng cho hàng hỏng" variant="outline" disabled={busy} onPress={locations.openIsolation} />
+            {locations.isolation && locations.selected && <Text style={[styles.text, { color: theme.textSecondary }]}>Vị trí cách biệt: {locations.selected.displayPath}</Text>}
+            <AlertBanner title="Hàng hỏng được cách biệt riêng; thao tác không làm tăng tổng tồn kho." />
           </>}
           <Button label="Lịch sử phiếu và các lần cất" variant="ghost" disabled={busy} onPress={() => setHistoryKey(context.contextKey)} />
           <EvidenceLinks files={receipt.documentEvidence} onOpen={file => { void evidence.open(file); }} />
           <EvidenceLinks files={receipt.refusalEvidence} onOpen={file => { void evidence.open(file); }} />
+          <Text accessibilityRole="header" style={[styles.sectionTitle, { color: theme.text }]}>Hàng hóa thực nhận · {receipt.items.length}</Text>
+          <Text style={[styles.text, { color: theme.textSecondary }]}>Số lượng hỏng không được đưa vào cất hàng.</Text>
         </>}
         {!loading && !error && !receipt && task && <>
           <Text style={[styles.code, { color: theme.text }]}>{task.inboundRequestCode}</Text>
@@ -163,23 +176,24 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
       ListFooterComponent={!loading && !error && receipt && task && task.remainingQuantity > 0 && ['Approved', 'Completed'].includes(receipt.status) ? <Button
         label="Nhận đợt tiếp theo của yêu cầu" variant="outline" disabled={busy || fetching}
         onPress={() => { context.rememberReceipt(null); void context.task.refetch(); }} /> : undefined} />
-    <LocationPicker state={locations} title={locations.isolation ? 'Chọn vị trí riêng cách biệt hàng hỏng' : mode === 'putaway' ? 'Chọn vị trí cất' : 'Chọn vị trí thực tế nhận hàng'} excludedId={mode === 'putaway' ? receipt?.receivingSlotId : null} />
-    <ReceiptEditorModal state={editor} receipt={receipt} />
+    {!editor.target && !allocation.visible && <LocationPicker state={locations} title={locations.isolation ? 'Chọn vị trí riêng cách biệt hàng hỏng' : mode === 'putaway' ? 'Chọn vị trí cất' : 'Vị trí tại khu chờ cất hàng'} excludedId={mode === 'putaway' ? receipt?.receivingSlotId : null} />}
+    <PutawayAllocationModal state={allocation} locations={locations} receipt={receipt} suggestions={suggestions}
+      suggesting={execution.suggestions.isPending} suggestionError={execution.suggestions.error} onSuggest={() => execution.suggestions.mutate()} />
+    <ReceiptEditorModal state={editor} receipt={receipt} locations={locations} documents={documents} refusal={refusal}
+      canSubmit={context.permission(P.GOODS_RECEIPTS_SUBMIT)} />
     <PutAwayEditorModal state={execution} receipt={receipt} />
     {!execution.editor && <ConfirmationModal visible={!!execution.target} title="Xác nhận kết quả nhận hàng?"
       description={receipt?.arrivalConfirmedAt ? 'Gửi lại phiên bản phân loại để người có quyền duyệt. Hàng đã nhận vẫn được tạm giữ và không được cộng thêm.'
         : 'Chỉ phần chấp nhận sau kiểm được ghi tồn. Phần từ chối đã được bên giao giữ/mang về và không ghi vào kho. Chỉ xác nhận sau khi kiểm và đối chiếu bằng chứng.'}
       busy={busy} error={execution.mutation.error} onConfirm={() => { void execution.confirm(); }} onCancel={execution.cancelConfirmation} />}
     <ReceiptHistoryModal visible={historyKey === context.contextKey} receipt={receipt} onClose={() => setHistoryKey(null)} onOpenEvidence={file => { void evidence.open(file); }} />
-    <PutAwaySuggestionsModal visible={suggestionsKey === context.contextKey} data={suggestions} receipt={receipt}
-      busy={execution.suggestions.isPending} error={execution.suggestions.error} onClose={() => setSuggestionsKey(null)}
-      onChoose={id => { locations.chooseSuggested(execution.suggestions.data, id); setSuggestionsKey(null); }} />
     <EvidencePreview state={evidence} />
   </SafeAreaView>;
 }
 
 const styles = StyleSheet.create({ root: { flex: 1 }, content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', padding: 20, gap: 16 },
   group: { gap: 14 }, title: { fontFamily: FontFamily.bold, fontSize: 26, lineHeight: 35 }, kicker: { fontFamily: FontFamily.semibold, fontSize: 13 },
+  sectionTitle: { fontFamily: FontFamily.semibold, fontSize: 18, lineHeight: 26 },
   code: { flex: 1, fontFamily: FontFamily.mono, fontSize: 18, lineHeight: 27 }, text: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 23 },
   card: { gap: 10, padding: 16, borderWidth: 1, borderRadius: Radius.xl }, cardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   edit: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, paddingHorizontal: 12, borderWidth: 1, borderRadius: Radius.xl },
