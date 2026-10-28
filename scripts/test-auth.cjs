@@ -107,6 +107,8 @@ test('merged API preserves dev auth messages and local profile/settings payloads
   const calls = [];
   const response = { data: { isSuccess: true, statusCode: 200, message: 'Thông báo', data: { id: 'profile' } } };
   const { authApi } = loadSource('src/features/auth/auth.api.ts', {
+    '@/config/permission-codes': loadSource('src/config/permission-codes.ts'),
+    '@/config/roles': loadSource('src/config/roles.ts'),
     '@/lib/api': {
       api: {
         get: async (...args) => { calls.push(['get', ...args]); return response; },
@@ -235,7 +237,8 @@ test('late refresh cannot overwrite a session cleared by logout', async () => {
 
 test('SecureStore serializes refresh and logout and rejects a stale refresh write', async () => {
   const saved = new Map();
-  const { tokenStorage } = loadSource('src/lib/token-storage.ts', {
+  const secureStore = loadSource('src/lib/secure-store.ts', {
+    'react-native': { Platform: { OS: 'android' } },
     'expo-secure-store': {
       getItemAsync: async (key) => saved.get(key) ?? null,
       setItemAsync: async (key, value) => {
@@ -246,6 +249,7 @@ test('SecureStore serializes refresh and logout and rejects a stale refresh writ
       },
     },
   });
+  const { tokenStorage } = loadSource('src/lib/token-storage.ts', { './secure-store': secureStore });
   await tokenStorage.set({ accessToken: 'a', refreshToken: 'r' });
   await Promise.all([
     tokenStorage.replaceIfCurrent('r', { accessToken: 'b', refreshToken: 's' }),
@@ -303,6 +307,7 @@ test('session cleanup removes cached data from the previous account', async () =
     '@/features/warehouse-access/warehouse-access.store': loadSource('src/features/warehouse-access/warehouse-access.store.ts'),
     '@/lib/query-client': shared,
     'expo-network': { addNetworkStateListener: () => ({ remove() {} }) },
+    'react-native': { Platform: { OS: 'android' } },
   });
   assert.equal(queryClient, shared.queryClient);
   queryClient.setQueryData(['auth', 'profile'], { fullName: 'Previous account' });
@@ -317,6 +322,7 @@ test('offline logout still clears credentials, cached queries and pending 2FA', 
   const { useAuth } = loadSource('src/features/auth/auth.store.ts', {
     '@/lib/api': { setSessionExpiredHandler: () => undefined },
     '@/lib/token-storage': { tokenStorage: { clear: async () => events.push('tokens') } },
+    '@/lib/form-draft-storage': { formDraftStorage: { clear: async () => events.push('drafts') } },
     '@/providers/query-provider': { clearSessionQueries: async () => events.push('queries') },
     './auth.api': {
       authApi: {
@@ -329,7 +335,7 @@ test('offline logout still clears credentials, cached queries and pending 2FA', 
   useAuth.setState({ signedIn: true });
   useAuth.getState().beginTwoFactor('temporary');
   await useAuth.getState().signOut();
-  assert.deepEqual(events, ['tokens', 'queries']);
+  assert.deepEqual(events, ['tokens', 'drafts', 'queries']);
   assert.equal(useAuth.getState().signedIn, false);
   assert.equal(useAuth.getState().twoFactor, null);
   assert.match(useAuth.getState().notice, /Không kết nối/);

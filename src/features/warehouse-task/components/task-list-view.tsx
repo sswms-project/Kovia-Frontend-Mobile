@@ -47,6 +47,8 @@ interface TaskListViewProps {
   readonly onStatusChange: (value: WarehouseTaskExecutionStatus | null) => void;
   readonly typeFilter: WarehouseTaskType | null;
   readonly onTypeChange: (value: WarehouseTaskType | null) => void;
+  readonly recentlyAssignedFirst?: boolean;
+  readonly onRecentlyAssignedFirstChange?: (value: boolean) => void;
   readonly tasks: readonly MyWarehouseTask[];
   readonly isLoading: boolean;
   readonly error: unknown;
@@ -71,6 +73,8 @@ export function TaskListView({
   onStatusChange,
   typeFilter,
   onTypeChange,
+  recentlyAssignedFirst = false,
+  onRecentlyAssignedFirstChange,
   tasks,
   isLoading,
   error,
@@ -85,7 +89,7 @@ export function TaskListView({
 }: TaskListViewProps) {
   const theme = useTheme();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const activeFilters = Number(statusFilter !== null) + Number(typeFilter !== null);
+  const activeFilters = Number(statusFilter !== null) + Number(typeFilter !== null) + Number(recentlyAssignedFirst);
   const hasNativeHeader = title === undefined;
 
   const blocked = !!error && (tasks.length === 0 || (isApiErrorResponse(error) && [401, 403, 404].includes(error.statusCode)));
@@ -105,7 +109,7 @@ export function TaskListView({
 
       <View style={styles.chips}>
         <FilterToggle open={filtersOpen} activeCount={activeFilters} onToggle={() => setFiltersOpen((value) => !value)}
-          onClear={() => { onStatusChange(null); onTypeChange(null); }} />
+          onClear={() => { onStatusChange(null); onTypeChange(null); onRecentlyAssignedFirstChange?.(false); }} />
       </View>
       {filtersOpen && <View style={styles.chips}>
         <View style={[styles.panel, { borderColor: theme.border, backgroundColor: theme.card }]}>
@@ -115,6 +119,12 @@ export function TaskListView({
           <SelectionField label="Loại công việc" value={typeFilter ?? ''}
             options={[{ value: '', label: 'Mọi loại công việc' }, ...TASK_TYPE_FILTERS]}
             onChange={(value) => onTypeChange(value ? taskTypeSchema.parse(value) : null)} />
+          {onRecentlyAssignedFirstChange && <SelectionField label="Sắp xếp" value={recentlyAssignedFirst ? 'newest' : 'priority'}
+            options={[
+              { value: 'priority', label: 'Ưu tiên và thời hạn' },
+              { value: 'newest', label: 'Ngày giao: mới nhất → cũ nhất' },
+            ]}
+            onChange={(value) => onRecentlyAssignedFirstChange(value === 'newest')} />}
         </View>
       </View>}
 

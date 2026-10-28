@@ -12,6 +12,7 @@ import { getApiErrorKind, logApiError } from '@/lib/api-error';
 import { warehouseCommand, type WarehouseCommandMemory } from '@/lib/warehouse-command';
 
 import { receiptReviewApi } from '../receipt-review.api';
+import { useCommandDraft } from '@/hooks/use-command-draft';
 import { AllocationScopeError } from '../smart-allocation.api';
 
 type Target = { receiptId: string; key: string; expectedVersion: string; commandId: string; keepAtReceiving: boolean; selfApprovalAcknowledged: boolean };
@@ -38,6 +39,11 @@ export function useReceiptReview() {
   const canApprove = !!data && !context.isError && !context.isFetching && data.receipt.status === 'PendingApproval' &&
     data.actions.currentVersion === data.receipt.version && data.actions.allowedActions.includes('Approve');
   const canKeep = canApprove && data?.receipt.receivingFlowVersion === 1 && data.receipt.items.some(item => item.usableQuantity > 0) && data.receipt.items.every(item => item.damagedQuantity === 0);
+  const draft = useCommandDraft({ feature: 'approve-receipt', documentId: selected ?? '', version: data?.receipt.version,
+    enabled: ready && !!selected, assertCurrent: () => {
+      if (!identity || !warehouseId || !signature || !useAuth.getState().signedIn ||
+        !taskScopeMatches({ identity, warehouseId, revision, signature }, useWarehouseSelection.getState())) throw new Error('Phiên duyệt đã thay đổi.');
+    } });
   const mutation = useMutation<unknown, Error, Target>({ retry: false, mutationFn: async (original: Target) => {
     const check = () => {
       const profile = client.getQueryData<UserProfile>(profileQueryKey);
@@ -50,10 +56,16 @@ export function useReceiptReview() {
         throw new Error('Phiếu, kho hoặc quyền đã thay đổi. Vui lòng tải lại trước khi duyệt.');
     };
     check();
-    return receiptReviewApi.approve(original.receiptId, { expectedVersion: original.expectedVersion, commandId: original.commandId,
-      keepAtReceiving: original.keepAtReceiving, selfApprovalAcknowledged: original.selfApprovalAcknowledged }, check);
-  }, onError: logApiError, onSuccess: async (_, original) => {
+    return draft.execute({ operation: 'ApproveReceipt', commandId: original.commandId, content: JSON.stringify(original),
+      expectedVersion: original.expectedVersion, documentId: original.receiptId, receiptId: original.receiptId },
+    () => receiptReviewApi.approve(original.receiptId, { expectedVersion: original.expectedVersion, commandId: original.commandId,
+      keepAtReceiving: original.keepAtReceiving, selfApprovalAcknowledged: original.selfApprovalAcknowledged }, check),
+    () => { command.current = null; });
+  }, onSettled: () => draft.settled(), onError: logApiError, onSuccess: async (_, original) => {
     if (original.key !== key) return;
+    if (!identity || !warehouseId || !signature || !useAuth.getState().signedIn ||
+      !taskScopeMatches({ identity, warehouseId, revision, signature }, useWarehouseSelection.getState())) return;
+    await draft.clear(true);
     setTarget(null); setNotice(original.keepAtReceiving ? 'Đã duyệt. Hàng đạt khả dụng tại vị trí nhận, không ghi nhận cất giả hoặc tăng tồn lần nữa.' : 'Đã duyệt kiểm hàng. Tiếp tục cất hoặc cách biệt theo công việc được giao.');
     await client.invalidateQueries({ queryKey: ['warehouse', identity, warehouseId, revision] });
   } });

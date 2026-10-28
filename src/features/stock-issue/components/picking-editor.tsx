@@ -1,3 +1,5 @@
+import { WorkScreenHeader } from '@/components/work-screen-header';
+import { useModalExit } from '@/hooks/use-screen-exit';
 import { Controller, useWatch, type UseFormReturn } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from 'react-native';
 
@@ -17,11 +19,13 @@ interface Props { readonly item: StockIssueItem; readonly slotCode: string; read
   readonly busy: boolean; readonly notice: string | null; readonly onReview: () => void; readonly onClose: () => void }
 export function PickingEditor({ item, slotCode, destinationPath, form, busy, notice, onReview, onClose }: Props) {
   const theme = useTheme();
+  const close = useModalExit(onClose);
   const quantity = useWatch({ control: form.control, name: 'pickedQuantity' });
   const source = item.pickLocations.find(location => location.inventoryStockId === form.getValues('inventoryStockId'));
   const maximum = Math.min(item.quantity - item.pickedQuantity, source?.reservedQuantity ?? 0);
   return (
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <WorkScreenHeader modal title="Lấy hàng thực tế" onBack={close} />
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>Lấy hàng thực tế</Text>
         <Text style={[styles.text, { color: theme.text }]}>{item.sku} · {item.productName}</Text>
@@ -48,7 +52,7 @@ export function PickingEditor({ item, slotCode, destinationPath, form, busy, not
             form.setValue('scannedBarcode', code, { shouldDirty: true, shouldValidate: true });
           }} />
         <Button label="Kiểm tra và xác nhận lấy hàng" loading={busy} onPress={onReview} />
-        <Button label="Đóng nhập lấy hàng" variant="outline" disabled={busy} onPress={onClose} />
+        <Button label="Đóng nhập lấy hàng" variant="outline" disabled={busy} onPress={close} />
       </ScrollView>
     </KeyboardAvoidingView>
   );

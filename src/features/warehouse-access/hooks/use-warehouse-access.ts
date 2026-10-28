@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef } fr
 import { AppState, Platform } from 'react-native';
 
 import { authApi } from '@/features/auth/auth.api';
+import type { UserProfile } from '@/features/auth/auth.types';
 import { subscribeAccessDenied } from '@/lib/api';
 
 import { clearWarehouseQueries, profileQueryKey, reconcileWarehouseAccess,
@@ -35,14 +36,23 @@ export function useWarehouseAccessState(enabled = true) {
   const refresh = useCallback(async () => {
     if (!enabled) return;
     if (refreshing.current) return refreshing.current;
+    const original = useWarehouseSelection.getState();
+    const isCurrent = () => {
+      const current = useWarehouseSelection.getState();
+      return current.identity === original.identity && current.revision === original.revision;
+    };
     // Keep the navigator and selected warehouse mounted. Reconciliation clears scoped
     // data only when the server actually changes membership, permissions or assignments.
     const request = client.fetchQuery({ queryKey: profileQueryKey,
       queryFn: ({ signal }) => authApi.profile(signal), staleTime: 0 })
       .then(async (updated) => {
-        if (client.getQueryData(profileQueryKey) !== updated) return;
-        await reconcileWarehouseAccess(client, warehouseSnapshot(updated));
+        if (!isCurrent()) return;
+        const cached = client.getQueryData<UserProfile>(profileQueryKey);
+        // Query structural sharing can change object identity; compare effective access instead.
+        if (!cached || warehouseSnapshot(cached).signature !== warehouseSnapshot(updated).signature) return;
+        await reconcileWarehouseAccess(client, warehouseSnapshot(cached));
       }).catch(() => {
+        if (!isCurrent()) return;
         if (client.getQueryState(profileQueryKey)?.status !== 'error') return;
         suspendWarehouseAccess('Chưa thể xác minh quyền. Kết nối lại và thử tải lại.');
         return clearWarehouseQueries(client);

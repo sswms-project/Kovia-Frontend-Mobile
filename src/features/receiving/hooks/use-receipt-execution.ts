@@ -29,9 +29,10 @@ export function useReceiptExecution(context: ReceiptContext, selected: SelectedR
   const form = useForm<PutAwayForm>({ resolver: zodResolver(putAwayFormSchema),
     defaultValues: { goodsReceiptItemId: '', slotId: '', quantity: Number.NaN, confirmedSlotCode: '', overrideReason: '' } });
   const draft = useFormDraft({ form, feature: editor?.isolation ? 'isolate-damage' : 'putaway', documentId: context.receiptId ?? context.documentId,
-    lineId: editor ? `${form.getValues('goodsReceiptItemId')}:${editor.destination.id}` : undefined, version: editor?.version,
-    enabled: editor?.key === context.contextKey && context.permission(P.GOODS_RECEIPTS_PUTAWAY),
-    assertCurrent: () => context.assertAction(editor?.isolation ? 'IsolateDamage' : 'PutAway', editor?.version ?? '', P.GOODS_RECEIPTS_PUTAWAY) });
+    lineId: editor ? `${form.getValues('goodsReceiptItemId')}:${editor.destination.id}` : undefined, version: editor?.version ?? target?.version,
+    enabled: (editor?.key === context.contextKey || target?.key === context.contextKey) && context.canView,
+    assertCurrent: () => context.assertAction(target?.action === 'Submit' ? 'Submit' : editor?.isolation ? 'IsolateDamage' : 'PutAway',
+      editor?.version ?? target?.version ?? '', target?.action === 'Submit' ? P.GOODS_RECEIPTS_SUBMIT : P.GOODS_RECEIPTS_PUTAWAY) });
   const mutation = useMutation<unknown, Error, ExecutionTarget>({ retry: false,
     mutationFn: async (original: ExecutionTarget) => {
       if (original.key !== context.contextKey) throw new Error('Công việc đã thay đổi.');
@@ -43,10 +44,13 @@ export function useReceiptExecution(context: ReceiptContext, selected: SelectedR
           ...(original.refusalEvidenceIds ? { refusedGoodsHandedBack: true, refusalEvidenceIds: original.refusalEvidenceIds } : {}),
           ...(original.documentEvidenceIds ? { documentEvidenceIds: original.documentEvidenceIds } : {}) };
         command.current = receiptCommand(command.current, { receiptId: original.receiptId, action: original.action, ...body });
-        return receivingApi.submit(original.receiptId, { ...body, commandId: command.current.commandId }, assertCurrentContext);
+        const sending = { ...body, commandId: command.current.commandId };
+        const result = await draft.execute({ operation: 'SubmitReceipt', ...command.current, documentId: original.receiptId, receiptId: original.receiptId, expectedVersion: original.version },
+          () => receivingApi.submit(original.receiptId, sending, assertCurrentContext), () => { command.current = null; });
+        documents.markAttached(original.documentEvidenceIds ?? []); refusal.markAttached(original.refusalEvidenceIds ?? []);
+        return result;
       }
       if (!original.placement) throw new Error('Chưa có phân bổ cất hàng.');
-      await draft.beforeSubmit();
       const placement = putAwayFormSchema.parse(original.placement);
       if (!context.receipt.data) throw new Error('Chưa tải phiếu nhận.');
       if (original.action === 'IsolateDamage') {
@@ -58,21 +62,26 @@ export function useReceiptExecution(context: ReceiptContext, selected: SelectedR
         const body = { goodsReceiptItemId: placement.goodsReceiptItemId, destinationSlotId: placement.slotId,
           quantity: placement.quantity, confirmedSlotCode: placement.confirmedSlotCode, physicallySeparated: true as const, expectedVersion: original.version };
         command.current = receiptCommand(command.current, { receiptId: original.receiptId, action: original.action, ...body });
-        return receivingApi.isolateDamage(original.receiptId, { ...body, commandId: command.current.commandId }, assertCurrentContext);
+        const sending = { ...body, commandId: command.current.commandId };
+        return draft.execute({ operation: 'IsolateDamage', ...command.current, documentId: original.receiptId, receiptId: original.receiptId, expectedVersion: original.version },
+          () => receivingApi.isolateDamage(original.receiptId, sending, assertCurrentContext), () => { command.current = null; });
       }
       assertPlacement(placement, context.receipt.data);
       const body = { expectedVersion: original.version, lines: [{ goodsReceiptItemId: placement.goodsReceiptItemId,
         slotId: placement.slotId, quantity: placement.quantity, confirmedSlotCode: placement.confirmedSlotCode }],
         ...(placement.overrideReason ? { overrideReason: placement.overrideReason } : {}) };
       command.current = receiptCommand(command.current, { receiptId: original.receiptId, action: original.action, ...body });
-      return receivingApi.putAway(original.receiptId, { ...body, commandId: command.current.commandId }, assertCurrentContext);
+      const sending = { ...body, commandId: command.current.commandId };
+      return draft.execute({ operation: 'PutAway', ...command.current, documentId: original.receiptId, receiptId: original.receiptId, expectedVersion: original.version },
+        () => receivingApi.putAway(original.receiptId, sending, assertCurrentContext), () => { command.current = null; });
     },
-    onError: logApiError,
+    onSettled: () => draft.settled(), onError: logApiError,
     onSuccess: async (_, original) => {
       if (original.key !== context.contextKey) return;
-      if (original.action !== 'Submit') await draft.clear();
+      if (original.action === 'Submit') context.rememberReceipt(original.receiptId);
+      await draft.clear(true);
       setTarget(null); setEditor(null); form.reset();
-      setNotice(original.action === 'Submit' ? 'Đã ghi nhận kết quả nhận hàng. Chỉ phần chấp nhận được ghi tồn; phần từ chối không vào kho. Gửi lại không nhận thêm hàng.'
+      setNotice(original.action === 'Submit' ? 'Đã gửi duyệt phiếu nhận hàng. Người có quyền sẽ kiểm tra và duyệt trước khi tiếp tục cất hàng.'
         : original.action === 'IsolateDamage' ? 'Đã xác nhận cách biệt hàng hỏng. Tổng tồn không đổi; hàng vẫn không khả dụng.'
         : 'Đã ghi nhận cất hàng và chuyển vị trí. Tổng tồn của kho không thay đổi.');
       await context.refreshWarehouse();
@@ -121,7 +130,7 @@ export function useReceiptExecution(context: ReceiptContext, selected: SelectedR
     finally { lock.current = false; }
   }
   function closeEditor() {
-    if (!lock.current) { if (form.formState.isDirty) setDiscard(true); else setEditor(null); }
+    if (!lock.current) { setEditor(null); setTarget(null); }
   }
   const suggestions = useMutation<{ key: string; version: string; data: PutAwaySuggestions }, Error, void>({ retry: false,
     mutationFn: async () => {
@@ -135,6 +144,6 @@ export function useReceiptExecution(context: ReceiptContext, selected: SelectedR
   return { form, editor: editor?.key === context.contextKey ? editor : null, target: target?.key === context.contextKey ? target : null,
     discard, setDiscard, notice, mutation, suggestions, beginArrival, beginPlacement, reviewPlacement, confirm, closeEditor,
     cancelConfirmation: () => { if (!lock.current) setTarget(null); },
-    discardChanges: () => { if (!lock.current) { void draft.clear(); setEditor(null); setDiscard(false); form.reset(); } },
+    discardChanges: () => { if (!lock.current) { void draft.discardAndClose(() => { setEditor(null); setDiscard(false); form.reset(); }); } },
   };
 }
