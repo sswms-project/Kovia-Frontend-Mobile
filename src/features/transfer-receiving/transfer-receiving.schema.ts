@@ -39,5 +39,6 @@ export type TransferReceivingMode = 'Receive' | 'PutAway';
 export type TransferReceiptSheet = z.infer<typeof transferReceiptSheetSchema>;
 export type TransferReceiptLine = z.infer<typeof transferReceiptLineSchema>;
 export type TransferPutAwayRow = z.infer<typeof transferPutAwayRowSchema>;
+export type TransferPutAwaySheet = z.infer<typeof transferPutAwaySheetSchema>;
 export type TransferPutAwayEvent = z.infer<typeof transferPutAwayEventSchema>;
 export type TransferDestinationScope = z.infer<typeof transferDestinationScopeSchema>;

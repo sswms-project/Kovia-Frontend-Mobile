@@ -5,6 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
+import { SelectionField } from '@/components/ui/selection-field';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -12,23 +13,26 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import type { TransferExecutionSlot } from '../transfer-execution.schema';
 import { transferReceivingApi } from '../transfer-receiving.api';
 
-export function TransferLocationSelector({ warehouseId, scopeKey, title, selected, onSelect, disabled }: {
+export function TransferLocationSelector({ warehouseId, scopeKey, title, selected, onSelect, disabled, includeIsolation = false }: {
   readonly warehouseId: string; readonly scopeKey: string; readonly title: string; readonly selected: TransferExecutionSlot | null;
   readonly onSelect: (slot: TransferExecutionSlot) => void; readonly disabled: boolean;
+  readonly includeIsolation?: boolean;
 }) {
   const theme = useTheme();
   const [input, setInput] = useState('');
   const [search, setSearch] = useState('');
-  const slots = useQuery({ queryKey: ['warehouse', scopeKey, warehouseId, 'transfer-locations', search], retry: false,
-    queryFn: ({ signal }) => transferReceivingApi.slots(warehouseId, search, signal) });
+  const slots = useQuery({ queryKey: ['warehouse', scopeKey, warehouseId, 'transfer-locations', includeIsolation, search], retry: false,
+    queryFn: ({ signal }) => transferReceivingApi.slots(warehouseId, search, signal, includeIsolation) });
   return <View style={styles.section}>
     <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
     {selected && <Text style={[styles.text, { color: theme.textSecondary }]}>Đã chọn: {selected.path}</Text>}
     <TextField label="Tìm mã vị trí / kệ" value={input} onChangeText={setInput} maxLength={100} editable={!disabled} autoCapitalize="characters" />
     <Button label="Tìm vị trí" variant="outline" disabled={disabled || slots.isFetching} onPress={() => setSearch(input.trim())} />
     {slots.error && <AlertBanner title="Chưa tải được vị trí" description={getApiErrorMessage(slots.error)} />}
-    {!slots.isError && (slots.data ?? []).map(slot => <Button key={slot.id} label={slot.path} variant="outline"
-      disabled={disabled || slots.isFetching} onPress={() => onSelect(slot)} />)}
+    <SelectionField label="Vị trí phù hợp" value={selected?.id ?? ''} disabled={disabled || slots.isFetching || slots.isError}
+      options={(slots.data ?? []).map(slot => ({ value: slot.id, label: slot.path, description: slot.code }))}
+      placeholder={slots.isFetching ? 'Đang tìm vị trí…' : 'Chọn vị trí từ kết quả tìm kiếm'}
+      onChange={value => { const slot = slots.data?.find(slot => slot.id === value); if (slot) onSelect(slot); }} />
     {slots.data?.length === 20 && <Text style={[styles.text, { color: theme.textSecondary }]}>Đang hiển thị tối đa 20 vị trí. Thu hẹp từ khóa nếu chưa thấy vị trí cần chọn.</Text>}
     {slots.isSuccess && !slots.data.length && <Text style={[styles.text, { color: theme.textSecondary }]}>Không có vị trí phù hợp.</Text>}
   </View>;

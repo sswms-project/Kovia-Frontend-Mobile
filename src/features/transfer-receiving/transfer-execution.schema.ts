@@ -15,17 +15,29 @@ export const submitTransferReceivingSchema = z.object({ ...common, keepAtReceivi
 export const putAwayTransferSchema = z.object({ ...common, planVersion: text.min(1), entries: z.array(z.object({
   lineId: id, lotId: id.nullable(), qualityStatus: z.literal('Good'), destinationSlotId: id, quantity: quantity.positive(),
   scannedSlotCode: text.trim().min(1).max(100), scannedProductCode: text.trim().min(1).max(100),
-  deviationReasonCode: z.literal('Other').nullable(), note: text.trim().max(500).nullable(), slotCodeUnreadable: z.literal(false),
-})).length(1) });
+  deviationReasonCode: z.enum(['SlotFull', 'SlotBlocked', 'LabelMismatch', 'Consolidation', 'Other']).nullable(), note: text.trim().max(500).nullable(), slotCodeUnreadable: z.literal(false),
+})).min(1).max(500) });
 export const transferExecutionSlotsSchema = z.array(z.object({ id, code: text, path: text }));
 export type TransferExecutionSlot = z.infer<typeof transferExecutionSlotsSchema>[number];
+export const transferAllocationSchema = z.object({ lines: z.array(z.object({ lineId: id, lotId: id.nullable(),
+  destination: transferExecutionSlotsSchema.element.nullable(), quantity: text.max(20), note: text.max(500),
+  reasonCode: z.enum(['SlotFull', 'SlotBlocked', 'LabelMismatch', 'Consolidation', 'Other']).nullable(),
+})).min(1).max(500) });
+export type TransferAllocationForm = z.infer<typeof transferAllocationSchema>;
+export const transferSuggestionsSchema = z.object({ items: z.array(z.object({ itemId: id, remaining: quantity,
+  suggestions: z.array(z.object({ slotId: id, slotCode: text, path: text, suggestedQuantity: quantity,
+    available: quantity.nullable(), reason: text, warnings: z.array(text) })), unallocatedQuantity: quantity })),
+  isAiAssisted: z.boolean(), notice: text.nullable(), summary: text.nullable(), risks: z.array(text) });
+export type TransferSuggestions = z.infer<typeof transferSuggestionsSchema>;
 export type TransferReceiptEntry = z.infer<typeof submitTransferReceivingSchema>['entries'][number];
 export const transferReceiptDraftSchema = z.object({ action: z.enum(['Start', 'Receipt', 'PutAway']),
+  keepAtReceiving: z.boolean().nullable().optional(),
   counts: z.record(z.string(), z.object({ good: text.max(20), damaged: text.max(20), missing: text.max(20), reason: text.max(50) })),
   scan: text.max(200), damageScan: text.max(200), productScan: text.max(200), putQuantity: text.max(20), note: text.max(500),
 }).superRefine((value, context) => {
   const numeric = (input: string) => input.trim() ? Number(input.trim().replace(',', '.')) : Number.NaN;
   if (value.action === 'Receipt') {
+    if (typeof value.keepAtReceiving !== 'boolean') context.addIssue({ code: 'custom', path: ['keepAtReceiving'], message: 'Chọn cách xử lý hàng đạt trước khi xác nhận.' });
     for (const [key, row] of Object.entries(value.counts)) for (const field of ['good', 'damaged', 'missing'] as const)
       if (!Number.isFinite(numeric(row[field])) || numeric(row[field]) < 0)
         context.addIssue({ code: 'custom', path: ['counts', key, field], message: 'Nhập số thực tế không âm.' });

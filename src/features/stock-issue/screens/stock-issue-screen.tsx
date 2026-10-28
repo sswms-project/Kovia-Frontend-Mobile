@@ -1,6 +1,8 @@
 import { WorkCompletionActions } from '@/components/work-completion-actions';
 import { useExitProtection, useModalExit, useScreenSubtitle } from '@/hooks/use-screen-exit';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import { WorkActionBar } from '@/components/work-action-bar';
+import { WorkListTools, matchesWorkLine, type WorkFilter } from '@/components/work-list-tools';
 import { FlatList, Modal, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -34,8 +36,14 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
     busy={busy} onPick={state.beginPick} onReport={report.open} />, [canPick, busy, state.beginPick, report.open]);
   const error = state.detail.error ?? state.actions.error;
   const pending = state.detail.data ? outstandingPicks(state.detail.data) : [];
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<WorkFilter>('all');
+  const items = state.canView ? state.detail.data?.items ?? [] : [];
+  const visible = items.filter(item => matchesWorkLine(search, item.pickedQuantity < item.quantity, filter,
+    [item.sku, item.productName, ...item.pickLocations.flatMap(location => [location.slotCode, location.rackCode, location.lotNumber])]));
+  const canDispatch = state.allowed('Dispatch') && state.permission(P.STOCK_ISSUE_REQUESTS_DISPATCH);
   return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
-    <FlatList data={state.canView ? state.detail.data?.items ?? [] : []} keyExtractor={item => item.id} renderItem={renderItem}
+    <FlatList style={styles.root} data={visible} keyExtractor={item => item.id} renderItem={renderItem} keyboardShouldPersistTaps="handled"
       contentContainerStyle={styles.content} refreshing={state.detail.isFetching || state.actions.isFetching}
       onRefresh={() => { void state.refresh(); }} ItemSeparatorComponent={Separator}
       ListHeaderComponent={<View style={styles.header}>
@@ -53,12 +61,16 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
               description="Lấy hàng giữ nguyên tổng tồn. Chỉ xác nhận xuất sau khi phần hàng liệt kê đã thực tế rời kho. Phần chưa lấy hoặc chưa xuất tiếp tục mở." />
             {!state.detail.data.items.length && <AlertBanner title="Phiếu không có dòng hàng." />}
             {state.actions.data?.denialReasonCode === 'DAMAGE_WORKFLOW_OUT_OF_SCOPE' && <AlertBanner title="Phiếu này thuộc quy trình xử lý hàng hỏng ngoài phạm vi mobile hiện tại." />}
-            {state.allowed('Dispatch') && state.permission(P.STOCK_ISSUE_REQUESTS_DISPATCH) && <Button
-              label="Chọn phần hàng đã rời kho" disabled={busy} onPress={state.beginDispatch} />}
+            <Text style={[styles.text, { color: theme.primary }]}>{items.filter(item => item.pickedQuantity >= item.quantity).length}/{items.length} dòng đã lấy đủ</Text>
+            <WorkListTools search={search} onSearch={setSearch} filter={filter} onFilter={setFilter}
+              shown={visible.length} total={items.length} disabled={busy} />
           </>}
         </>}
         <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
-      </View>} />
+      </View>} ListEmptyComponent={items.length > 0 ? <Text style={[styles.text, { color: theme.textSecondary }]}>Không có dòng hàng phù hợp. Đổi bộ lọc để xem lại.</Text> : null} />
+    {canDispatch && <WorkActionBar hint={`${pending.length} lượt đang chờ xuất · Chỉ chọn phần hàng đã thực tế rời kho.`}>
+      <Button label="Chọn phần hàng đã rời kho" disabled={busy} onPress={state.beginDispatch} />
+    </WorkActionBar>}
     <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : closeEditor}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>{state.editor && <PickingEditor
         key={`${state.contextKey}:${state.editor.item.id}:${state.form.getValues('inventoryStockId')}`}

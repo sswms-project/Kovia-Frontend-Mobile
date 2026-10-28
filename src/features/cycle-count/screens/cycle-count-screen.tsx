@@ -1,5 +1,8 @@
 import { WorkCompletionActions } from '@/components/work-completion-actions';
 import { useExitProtection, useModalExit, useScreenSubtitle } from '@/hooks/use-screen-exit';
+import { useState } from 'react';
+import { WorkActionBar } from '@/components/work-action-bar';
+import { WorkListTools, matchesWorkLine, type WorkFilter } from '@/components/work-list-tools';
 import { FlatList, Modal, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -30,8 +33,14 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
   useExitProtection(() => ({ busy: busy }));
   const canRecord = state.allowed('Record') && !!state.access.profile.data?.permissions.includes(P.CYCLE_COUNTS_RECORD);
   const error = state.detail.error ?? state.actions.error;
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<WorkFilter>('all');
+  const items = state.canView ? document?.items ?? [] : [];
+  const visible = items.filter(item => matchesWorkLine(search, item.countedQuantity === null, filter,
+    [item.productSku, item.productName, item.slotCode, item.rackCode, item.lotNumber]));
+  const remaining = items.filter(item => item.countedQuantity === null).length;
   return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
-    <FlatList data={state.canView ? document?.items ?? [] : []} keyExtractor={item => item.id} contentContainerStyle={styles.content}
+    <FlatList style={styles.root} data={visible} keyExtractor={item => item.id} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
       refreshing={state.detail.isFetching || state.actions.isFetching} onRefresh={busy ? undefined : () => { void state.refresh(); }}
       ItemSeparatorComponent={Separator} renderItem={({ item }) => <CountItemCard item={item} busy={busy}
         canRecord={canRecord && !!document && canRecordCountItem(document, item)} onRecord={state.beginRecord} onOpenEvidence={file => { void evidence.open(file); }} />}
@@ -53,15 +62,19 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
             {state.actions.data?.denialReasonCode === 'NOT_YET_SCHEDULED' && <AlertBanner title="Chưa đến thời gian kiểm kê theo lịch." />}
             {state.actions.data?.denialReasonCode === 'SNAPSHOT_RECONCILIATION_REQUIRED' && <AlertBanner title="Phiếu cũ chưa có mốc tồn xác thực. Cần quản lý yêu cầu đếm lại." />}
             {state.actions.data?.denialReasonCode === 'TASK_PAUSED_OR_CANCELLED' && <AlertBanner title="Công việc đang tạm dừng hoặc đã hủy. Mở Công việc để tiếp tục khi đủ điều kiện." />}
-            {state.allowed('Start') && <Button label="Bắt đầu kiểm kê" disabled={busy} onPress={() => state.begin('Start')} />}
-            {state.allowed('Submit') && <Button label="Gửi kết quả kiểm kê" disabled={busy} onPress={() => state.begin('Submit')} />}
+            <Text style={[styles.text, { color: theme.primary }]}>{items.length - remaining}/{items.length} dòng đã ghi đếm</Text>
+            <WorkListTools search={search} onSearch={setSearch} filter={filter} onFilter={setFilter} shown={visible.length} total={items.length} disabled={busy} />
             {canRecord && state.allowed('Scan') && !busy && <CountLineLocator key={`${state.contextKey}:${document.version}`}
               document={document} onRecord={state.beginRecord} />}
             {!document.items.length && <AlertBanner title="Phiếu không có dòng kiểm kê." />}
           </>}
         </>}
         <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
-      </View>} />
+      </View>} ListEmptyComponent={items.length > 0 ? <Text style={[styles.text, { color: theme.textSecondary }]}>Không có dòng kiểm kê phù hợp.</Text> : null} />
+    {(state.allowed('Start') || state.allowed('Submit')) && <WorkActionBar hint={`Còn ${remaining} dòng chưa ghi đếm. Gửi kết quả không điều chỉnh tồn kho.`}>
+      {state.allowed('Start') && <Button label="Bắt đầu kiểm kê" disabled={busy} onPress={() => state.begin('Start')} />}
+      {state.allowed('Submit') && <Button label="Gửi kết quả kiểm kê" disabled={busy} onPress={() => state.begin('Submit')} />}
+    </WorkActionBar>}
     <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : closeEditor}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>{state.editor && <CountEditor key={`${state.contextKey}:${state.editor.item.id}:${state.editor.version}`}
         item={state.editor.item} form={state.form} busy={busy} canScan={state.allowed('Scan')} notice={state.notice} files={state.files}

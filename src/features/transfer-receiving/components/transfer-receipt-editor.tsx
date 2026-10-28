@@ -13,6 +13,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { useFormDraft } from '@/hooks/use-form-draft';
 import { useExitProtection, useModalExit } from '@/hooks/use-screen-exit';
 import { WorkScreenHeader } from '@/components/work-screen-header';
+import { WorkActionBar } from '@/components/work-action-bar';
+import { SelectionField } from '@/components/ui/selection-field';
 import { P } from '@/config/permission-codes';
 import { StagingPointField } from '@/features/warehouse-access/components/staging-point-field';
 import { ScanCodeButton } from '@/features/scanner/components/scan-code-button';
@@ -37,7 +39,7 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
   const execution = useTransferReceiptExecution(state, transferId, shipmentId, persistence);
   const theme = useTheme();
   const form = useForm<TransferReceiptDraft>({ resolver: zodResolver(transferReceiptDraftSchema), defaultValues: {
-    action: 'Start', counts: {}, scan: '', damageScan: '', productScan: '', putQuantity: '', note: '',
+    action: 'Start', keepAtReceiving: null, counts: {}, scan: '', damageScan: '', productScan: '', putQuantity: '', note: '',
   } });
   const [location, setLocation] = useState<TransferExecutionSlot | null>(null);
   const [receivingChoice, setReceivingChoice] = useState('');
@@ -46,7 +48,7 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
   const [damageLocation, setDamageLocation] = useState<TransferExecutionSlot | null>(null);
   const damageScan = useWatch({ control: form.control, name: 'damageScan' });
   const setDamageScan = (value: string) => form.setValue('damageScan', value, { shouldDirty: true });
-  const [keep, setKeep] = useState(true);
+  const keep = useWatch({ control: form.control, name: 'keepAtReceiving' });
   const counts = useWatch({ control: form.control, name: 'counts' });
   const [open, setOpen] = useState(false);
   const [discard, setDiscard] = useState(false);
@@ -75,7 +77,7 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
   const close = useModalExit(() => { setOpen(false); execution.cancel(); });
   const lots = data?.receipt.lines.flatMap(line => line.lots.map(lot => ({ line, lot, key: countKey(line.lineId, lot.lotId) }))) ?? [];
   const hasDamage = lots.some(row => actual(counts[row.key]?.damaged ?? '0') > 0);
-  const scanLocation = (selected: TransferExecutionSlot | null, onChange: (code: string) => void) => <ScanCodeButton compact
+  const scanLocation = (selected: TransferExecutionSlot | null, onChange: (code: string) => void, includeIsolation = false) => <ScanCodeButton compact
     label="Quét" title="Quét mã vị trí đã chọn" disabled={busy || !selected}
     onOpen={() => { scanGeneration.current++; }} onBeforeClose={() => { scanGeneration.current++; return true; }}
     onScan={async code => {
@@ -84,7 +86,7 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
       try {
         // The location DTO has only code/path. Resolve rack QR/custom labels within the assigned destination warehouse.
         if (!matchesWarehouseLocation(code, { slotId: selected.id, slotCode: selected.code })) {
-          const slots = await transferReceivingApi.slots(data.document.destinationWarehouseId, code.trim());
+          const slots = await transferReceivingApi.slots(data.document.destinationWarehouseId, code.trim(), undefined, includeIsolation);
           if (!slots.some(slot => slot.id === selected.id)) return false;
         }
         if (generation !== scanGeneration.current) return false;
@@ -94,14 +96,14 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
   function openReceipt() {
     if (!data?.receipt.version) return;
     setVersion(data.receipt.version); setError(null); setPutRow(null);
-    form.reset({ action: 'Receipt', counts: Object.fromEntries(lots.map(row => [row.key, { good: '', damaged: '0', missing: '0', reason: '' }])),
+    form.reset({ action: 'Receipt', keepAtReceiving: data.receipt.receiptFlowVersion === 2, counts: Object.fromEntries(lots.map(row => [row.key, { good: '', damaged: '0', missing: '0', reason: '' }])),
       scan: '', damageScan: '', productScan: '', putQuantity: '', note: '' });
-    setKeep(data.receipt.receiptFlowVersion === 2); setOpen(true);
+    setOpen(true);
   }
   function openPutAway(row: TransferPutAwayRow) {
     if (!data?.receipt.version) return;
     setVersion(data.receipt.version); setError(null); setPutRow(row);
-    form.reset({ action: 'PutAway', counts: {}, scan: '', damageScan: '', productScan: '', putQuantity: '', note: '' });
+    form.reset({ action: 'PutAway', keepAtReceiving: false, counts: {}, scan: '', damageScan: '', productScan: '', putQuantity: '', note: '' });
     setLocation(null); setOpen(true);
   }
   function review() {
@@ -138,7 +140,7 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
       if (hasDamage && data.receipt.receiptFlowVersion === 2 && (!damageLocation || !damageScan.trim() || damageLocation.id === data.receipt.receivingSlotId))
         throw new Error('Hãy chọn và xác nhận vị trí thực tế cách biệt hàng hỏng, khác vị trí nhận.');
       execution.prepare({ action: 'Submit', body: { expectedVersion: version, commandId: '', entries,
-        keepAtReceiving: keep && data.receipt.receiptFlowVersion === 2,
+        keepAtReceiving: keep === true && data.receipt.receiptFlowVersion === 2,
         damagedSlotId: hasDamage ? damageLocation?.id ?? null : null, scannedDamagedSlotCode: hasDamage ? damageScan.trim() : null } });
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Dữ liệu chưa hợp lệ.'); }
   }
@@ -200,17 +202,22 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
           </View>}
           ListFooterComponent={<View style={styles.section}>
             {!putRow && data.receipt.receiptFlowVersion === 2 && <>
-              <Button label={keep ? 'Đã chọn giữ hàng đạt tại khu nhận' : 'Đã chọn tiếp tục cất hàng đạt'} variant="outline" disabled={busy} onPress={() => setKeep(!keep)} />
+              <SelectionField label="Xử lý hàng đạt" value={keep === true ? 'receiving' : keep === false ? 'putaway' : ''}
+                placeholder="Chọn giữ tại khu nhận hoặc tiếp tục cất" disabled={busy}
+                options={[{ value: 'receiving', label: 'Giữ tại khu nhận', description: 'Khả dụng theo FEFO, không bắt buộc cất lên kệ' },
+                  { value: 'putaway', label: 'Tiếp tục cất hàng đạt', description: 'Hàng chờ cất theo kế hoạch trước khi khả dụng' }]}
+                onChange={value => form.setValue('keepAtReceiving', value === 'receiving', { shouldDirty: true, shouldValidate: true })} />
               {hasDamage && <>
-                <TransferLocationSelector warehouseId={data.document.destinationWarehouseId} scopeKey={execution.key} title="Vị trí thực tế cách biệt hàng hỏng" selected={damageLocation} onSelect={setDamageLocation} disabled={busy} />
+                <TransferLocationSelector warehouseId={data.document.destinationWarehouseId} scopeKey={execution.key} title="Vị trí thực tế cách biệt hàng hỏng" selected={damageLocation} onSelect={setDamageLocation} disabled={busy} includeIsolation />
                 <TextField label="Quét hoặc nhập mã vị trí cách biệt" value={damageScan} onChangeText={setDamageScan} maxLength={200} editable={!busy} autoCapitalize="characters"
-                  labelAccessory={scanLocation(damageLocation, setDamageScan)} />
+                  labelAccessory={scanLocation(damageLocation, setDamageScan, true)} />
               </>}
             </>}
-            <Button label="Kiểm tra trước khi xác nhận" disabled={!execution.allowed(putRow ? 'PutAway' : 'Submit') || busy}
-              onPress={() => { void form.handleSubmit(review, () => setError('Dữ liệu chưa hợp lệ. Kiểm tra số thực tế và mã xác nhận.'))(); }} />
-            <Button label="Đóng biểu mẫu" variant="outline" disabled={busy} onPress={close} />
           </View>} />
+          <WorkActionBar hint={putRow ? 'Cất chỉ chuyển vị trí; không cộng tồn lần nữa.' : 'Đối chiếu từng lô và cách xử lý hàng đạt trước khi xác nhận.'}>
+            <Button label="Kiểm tra trước khi xác nhận" disabled={!execution.allowed(putRow ? 'PutAway' : 'Submit') || busy}
+              onPress={() => { void form.handleSubmit(review, () => setError('Dữ liệu chưa hợp lệ. Kiểm tra số thực tế và cách xử lý hàng đạt.'))(); }} />
+          </WorkActionBar>
         </KeyboardAvoidingView>
         <ConfirmationModal visible={!!execution.target && execution.target.action !== 'Start'} title="Xác nhận đã thực hiện thực tế?"
           description={putRow ? 'Chỉ xác nhận số lượng đã cất đúng vị trí, lô và mã sản phẩm.' : keep ? 'Xác nhận số thực nhận đã kiểm. Hàng đạt ở khu nhận có thể được phân bổ FEFO ngay; hàng hỏng đã đặt cách biệt và vẫn bị Hold.' : 'Xác nhận số thực nhận đã kiểm. Hàng đạt tiếp tục chờ cất; hàng hỏng đã cách biệt và vẫn bị Hold.'}

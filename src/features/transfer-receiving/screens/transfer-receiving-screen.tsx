@@ -1,7 +1,11 @@
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
+import { WorkActionBar } from '@/components/work-action-bar';
+import { useTransferPutawayAllocation } from '../hooks/use-transfer-putaway-allocation';
+import { TransferPutawayWorkspace } from '../components/transfer-putaway-workspace';
 import { WorkCompletionActions } from '@/components/work-completion-actions';
 import { useScreenSubtitle } from '@/hooks/use-screen-exit';
 import { router } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, type ReactNode } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -27,15 +31,18 @@ export function TransferReceivingScreen({ transferId, shipmentId, mode }: {
   readonly transferId: string; readonly shipmentId: string; readonly mode: TransferReceivingMode;
 }) {
   const state = useTransferReceiving(transferId, shipmentId, mode);
+  const allocation = useTransferPutawayAllocation(state, transferId, shipmentId);
   const theme = useTheme();
   const data = state.data;
   useScreenSubtitle(data?.receipt.transferCode);
   const rows = useMemo(() => {
     const result: Row[] = [];
     if (!data) return result;
-    result.push({ key: 'receipt-heading', kind: 'Title', text: 'Đối chiếu nhận hàng theo lô' });
-    for (const line of data.receipt.lines) for (const lot of line.lots)
-      result.push({ key: `receipt:${line.lineId}:${lot.lotId ?? 'none'}`, kind: 'Receipt', line, lot, submitted: !!data.receipt.receiptSubmittedAt });
+    if (mode === 'Receive') {
+      result.push({ key: 'receipt-heading', kind: 'Title', text: 'Đối chiếu nhận hàng theo lô' });
+      for (const line of data.receipt.lines) for (const lot of line.lots)
+        result.push({ key: `receipt:${line.lineId}:${lot.lotId ?? 'none'}`, kind: 'Receipt', line, lot, submitted: !!data.receipt.receiptSubmittedAt });
+    }
     if (mode === 'PutAway' && data.putAway) {
       result.push({ key: 'putaway-heading', kind: 'Title', text: 'Hàng tốt và vị trí dự kiến' });
       for (const row of data.putAway.rows)
@@ -56,11 +63,7 @@ export function TransferReceivingScreen({ transferId, shipmentId, mode }: {
   }, [theme.text]);
   const otherAssigned = data && (mode === 'Receive' ? data.shipment.putAwayTaskId && data.shipment.putAwayAssigneeId === state.access.profile.data?.id
     : data.shipment.receiveTaskId && data.shipment.receiveAssigneeId === state.access.profile.data?.id);
-  // Web modals preserve React context; own them outside FlatList so their lists scroll independently.
-  return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
-    <TransferReceiptEditor key={JSON.stringify([state.access.selection.identity, state.access.selection.warehouseId, state.access.selection.revision, state.access.selection.signature, transferId, shipmentId, mode])}
-      state={state} transferId={transferId} shipmentId={shipmentId} mode={mode}>
-    {controls => <FlatList data={rows} renderItem={renderRow} keyExtractor={row => row.key} ItemSeparatorComponent={Separator}
+  const content = (controls: ReactNode) => <FlatList style={styles.root} data={rows} keyboardShouldPersistTaps="handled" renderItem={renderRow} keyExtractor={row => row.key} ItemSeparatorComponent={Separator}
       contentContainerStyle={styles.content} refreshing={state.detail.isFetching} onRefresh={() => { void state.refresh(); }}
       ListHeaderComponent={<View style={styles.header}>
         <WorkCompletionActions visible={!state.detail.isFetching && !state.detail.isError &&
@@ -83,7 +86,7 @@ export function TransferReceivingScreen({ transferId, shipmentId, mode }: {
           {controls}
           {!data.receipt.lines.length && <AlertBanner title="Chưa có dòng hàng đã xuất trong đợt này." />}
           {data.receipt.keptAtReceiving && <AlertBanner title="Đã chọn giữ hàng đạt tại khu nhận" description="Hàng đủ điều kiện được lấy theo FEFO từ vị trí thực tế hiện tại. Cất sau chỉ chuyển vị trí, không ghi nhập tồn thêm; hàng hỏng vẫn không khả dụng." />}
-          {(data.document.isLegacyWorkflow || ![1, 2].includes(data.receipt.receiptFlowVersion)) && <AlertBanner
+          {(data.document.isLegacyWorkflow || (![1, 2].includes(data.receipt.receiptFlowVersion) && data.receipt.status !== 'InTransit')) && <AlertBanner
             title="Phiếu thuộc luồng nhận hàng cũ" description="Đang hiển thị thông tin đối chiếu. Không suy ra số lượng chờ cất từ phiếu cũ." />}
           {mode === 'PutAway' && data.putAway && !data.putAway.rows.length && <AlertBanner title="Không có dòng hàng tốt trong phiếu cất hiện tại." />}
           {mode === 'PutAway' && data.putAway && !data.putAway.putAwayLines.length && <AlertBanner title="Chưa có lịch sử cất thực tế." />}
@@ -92,8 +95,24 @@ export function TransferReceivingScreen({ transferId, shipmentId, mode }: {
               params: { id: transferId, shipmentId } })} />}
         </>}
         <Button label="Tải lại dữ liệu" variant="outline" loading={state.detail.isFetching} onPress={() => { void state.refresh(); }} />
-      </View>} />}
-    </TransferReceiptEditor>
+      </View>} />;
+  return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
+    {mode === 'PutAway' ? <>
+      {content(allocation.execution.notice ? <AlertBanner title={allocation.execution.notice} /> : null)}
+      {allocation.execution.allowed('PutAway') && <WorkActionBar hint="Chia theo vị trí thực cất, xác nhận mã từng phân bổ. Tổng tồn kho không tăng thêm.">
+        <Button label="Phân bổ và cất hàng điều chuyển" disabled={allocation.execution.mutation.isPending} onPress={allocation.open} />
+      </WorkActionBar>}
+      {allocation.execution.allowed('Resume') && <WorkActionBar hint="Chỉ tiếp tục cất phần còn đủ điều kiện, không chạm hàng đã giữ cho phiếu khác.">
+        <Button label="Tiếp tục cất phần hàng còn ở khu nhận" onPress={() => allocation.execution.prepare({ action: 'Resume', body: {
+          expectedVersion: data!.receipt.version!, commandId: '' } })} />
+      </WorkActionBar>}
+      <TransferPutawayWorkspace state={allocation} warehouseId={data?.document.destinationWarehouseId ?? ''} code={data?.receipt.transferCode ?? ''} />
+      <ConfirmationModal visible={allocation.execution.target?.action === 'Resume'} title="Tiếp tục cất hàng?"
+        description="Chỉ cất phần hàng còn đủ điều kiện. Thao tác không tăng tồn thêm."
+        busy={allocation.execution.mutation.isPending} error={allocation.execution.mutation.error}
+        onConfirm={() => { void allocation.execution.confirm(); }} onCancel={allocation.execution.cancel} />
+    </> : <TransferReceiptEditor key={JSON.stringify([state.access.selection.identity, state.access.selection.warehouseId, state.access.selection.revision, state.access.selection.signature, transferId, shipmentId, mode])}
+      state={state} transferId={transferId} shipmentId={shipmentId} mode={mode}>{content}</TransferReceiptEditor>}
   </SafeAreaView>;
 }
 function Separator() { return <View style={styles.separator} />; }

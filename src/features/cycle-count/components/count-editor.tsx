@@ -1,4 +1,5 @@
 import { WorkScreenHeader } from '@/components/work-screen-header';
+import { WorkActionBar } from '@/components/work-action-bar';
 import { useModalExit } from '@/hooks/use-screen-exit';
 import { useState } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
@@ -48,9 +49,10 @@ export function CountEditor({ item, form, busy, canScan, notice, files, onPhoto,
         </Text>} />
         <Controller control={form.control} name="note" render={({ field, fieldState }) => <TextField label="Ghi chú kiểm đếm"
           value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy} multiline maxLength={501} />} />
-        <Button label="Kiểm tra và lưu số đếm" loading={busy} onPress={onReview} />
-        <Button label="Đóng nhập kiểm kê" variant="outline" disabled={busy} onPress={close} />
       </ScrollView>
+      <WorkActionBar hint="Số hỏng nằm trong tổng số đếm. Lưu kết quả không điều chỉnh tồn.">
+        <Button label="Kiểm tra và lưu số đếm" loading={busy} onPress={onReview} />
+      </WorkActionBar>
     </KeyboardAvoidingView>
     <Modal visible={scanner && canScan} onRequestClose={() => setScanner(false)}>
       <SafeAreaView style={styles.root}>{scanner && canScan && <ScannerScreen title="Quét sản phẩm đang kiểm đếm" onClose={() => setScanner(false)}

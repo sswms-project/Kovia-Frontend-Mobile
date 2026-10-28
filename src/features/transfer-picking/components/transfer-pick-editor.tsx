@@ -1,4 +1,5 @@
 import { WorkScreenHeader } from '@/components/work-screen-header';
+import { WorkActionBar } from '@/components/work-action-bar';
 import { useModalExit } from '@/hooks/use-screen-exit';
 import { Controller, useWatch, type UseFormReturn } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from 'react-native';
@@ -49,9 +50,10 @@ export function TransferPickEditor({ line, slotCode, form, busy, notice, onRevie
             form.setValue('quantity', value, { shouldDirty: true, shouldValidate: true });
             form.setValue('scannedProductCode', code, { shouldDirty: true, shouldValidate: true });
           }} />
-        <Button label="Kiểm tra lấy hàng" loading={busy} onPress={onReview} />
-        <Button label="Đóng nhập lấy hàng" variant="outline" disabled={busy} onPress={close} />
       </ScrollView>
+      <WorkActionBar hint={`Tối đa ${maximum} ${line.baseUnitName} tại nguồn đã chọn.`}>
+        <Button label="Kiểm tra lấy hàng" loading={busy} onPress={onReview} />
+      </WorkActionBar>
     </KeyboardAvoidingView>
   );
 }
