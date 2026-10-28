@@ -6,14 +6,27 @@ import { assertTransferDestinationScope } from './transfer-receiving';
 import { transferDestinationScopeSchema, transferPutAwaySheetSchema, transferReceiptSheetSchema,
   type TransferReceivingMode } from './transfer-receiving.schema';
 import { putAwayTransferSchema, startTransferReceivingSchema, submitTransferReceivingSchema,
-  resumeTransferPutAwaySchema, transferExecutionSlotsSchema, type TransferExecutionTarget } from './transfer-execution.schema';
+  resumeTransferPutAwaySchema, transferExecutionSlotsSchema, transferSuggestionsSchema, type TransferExecutionTarget } from './transfer-execution.schema';
 
 const id = nonEmptyDotNetGuidSchema('Mã điều chuyển không hợp lệ.');
 export const transferReceivingApi = {
-  slots: async (warehouseId: string, search: string, signal?: AbortSignal) => {
+  resolveSlot: async (warehouseId: string, code: string) => {
+    id.parse(warehouseId);
+    const value = code.trim();
+    if (!value || value.length > 100) throw new Error('Mã vị trí phải có từ 1 đến 100 ký tự.');
+    const result = unwrap(await api.get<ApiResponse<unknown>>('/transfers/receivable-slot', { params: { warehouseId, code: value } }));
+    return result === null ? null : transferExecutionSlotsSchema.element.parse(result);
+  },
+  suggestions: async (transferId: string, shipmentId: string, signal?: AbortSignal) => {
+    id.parse(transferId); id.parse(shipmentId);
+    return transferSuggestionsSchema.parse(unwrap(await api.get<ApiResponse<unknown>>(`/transfers/${transferId}/putaway-plan-suggestions`, {
+      params: { shipmentId }, signal,
+    })));
+  },
+  slots: async (warehouseId: string, search: string, signal?: AbortSignal, includeIsolation = false) => {
     id.parse(warehouseId);
     return transferExecutionSlotsSchema.parse(unwrap(await api.get<ApiResponse<unknown>>('/transfers/putaway-slots', {
-      params: { warehouseId, search: search.trim().slice(0, 100), top: 20 }, signal,
+      params: { warehouseId, search: search.trim().slice(0, 100), top: 20, includeIsolation }, signal,
     })));
   },
   execute: async (transferId: string, shipmentId: string, target: TransferExecutionTarget, assertCurrentContext: () => void) => {

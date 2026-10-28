@@ -1,4 +1,5 @@
 import { WorkScreenHeader } from '@/components/work-screen-header';
+import { WorkActionBar } from '@/components/work-action-bar';
 import { useModalExit } from '@/hooks/use-screen-exit';
 import { Controller, useWatch, type UseFormReturn } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from 'react-native';
@@ -51,9 +52,10 @@ export function PickingEditor({ item, slotCode, destinationPath, form, busy, not
             form.setValue('pickedQuantity', value, { shouldDirty: true, shouldValidate: true });
             form.setValue('scannedBarcode', code, { shouldDirty: true, shouldValidate: true });
           }} />
-        <Button label="Kiểm tra và xác nhận lấy hàng" loading={busy} onPress={onReview} />
-        <Button label="Đóng nhập lấy hàng" variant="outline" disabled={busy} onPress={close} />
       </ScrollView>
+      <WorkActionBar hint={`Còn được lấy ${maximum} đơn vị cơ sở tại nguồn đã chọn.`}>
+        <Button label="Kiểm tra và xác nhận lấy hàng" loading={busy} onPress={onReview} />
+      </WorkActionBar>
     </KeyboardAvoidingView>
   );
 }

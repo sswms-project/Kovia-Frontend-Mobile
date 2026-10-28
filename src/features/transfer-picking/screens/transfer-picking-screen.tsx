@@ -1,6 +1,8 @@
 import { useExitProtection, useModalExit, useScreenSubtitle } from '@/hooks/use-screen-exit';
 import { WorkCompletionActions } from '@/components/work-completion-actions';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import { WorkActionBar } from '@/components/work-action-bar';
+import { WorkListTools, matchesWorkLine, type WorkFilter } from '@/components/work-list-tools';
 import { FlatList, Modal, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -27,11 +29,17 @@ export function TransferPickingScreen({ transferId, shipmentId }: { readonly tra
   const busy = state.mutation.isPending || exceptions.mutation.isPending || exceptions.visible;
   useExitProtection(() => ({ busy: state.mutation.isPending || exceptions.mutation.isPending }));
   const sheet = state.detail.data?.sheet;
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<WorkFilter>('all');
+  const lines = state.canView ? sheet?.lines ?? [] : [];
+  const visible = lines.filter(line => matchesWorkLine(search, line.remainingQuantity > 0 || line.pendingReturnQuantity > 0 || line.status === 'PendingManager', filter,
+    [line.sku, line.productName, ...line.suggestions.flatMap(source => [source.slotCode, source.rackCode, source.lotNumber])]));
+  const blocked = lines.filter(line => line.remainingQuantity > 0 || line.pendingReturnQuantity > 0 || line.status === 'PendingManager').length;
   useScreenSubtitle(state.canView ? sheet?.transferCode : undefined);
   const renderLine = useCallback(({ item }: { item: TransferPickLine }) => <TransferPickLineCard
     line={item} canPick={state.canPick} busy={busy} onPick={state.beginPick} onException={exceptions.open} />, [state.canPick, state.beginPick, exceptions.open, busy]);
   return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
-    <FlatList data={state.canView ? sheet?.lines ?? [] : []} keyExtractor={line => line.lineId} renderItem={renderLine}
+    <FlatList style={styles.root} data={visible} keyExtractor={line => line.lineId} renderItem={renderLine} keyboardShouldPersistTaps="handled"
       contentContainerStyle={styles.content} ItemSeparatorComponent={Separator} refreshing={state.detail.isFetching}
       onRefresh={busy ? undefined : () => { void state.refresh(); }} ListHeaderComponent={<View style={styles.header}>
         <WorkCompletionActions visible={!busy && !state.detail.isFetching && !state.detail.isError && sheet?.shipmentStatus === 'ReadyToDispatch'} message="Đã hoàn tất bước lấy hàng điều chuyển." />
@@ -52,11 +60,15 @@ export function TransferPickingScreen({ transferId, shipmentId }: { readonly tra
           {!sheet.lines.length && <AlertBanner title="Đợt xuất không có dòng hàng." />}
           {state.staged && <StagingPointField label="Điểm chờ xuất thực tế" points={sheet.stagingPoints} value={state.stagingSlotId}
             frozen={!!sheet.outboundStagingSlotId} disabled={busy || !state.canPick} onChange={state.chooseStaging} />}
-          <Button label="Hoàn tất lấy hàng, chuyển chờ xuất" disabled={busy || !state.canComplete} onPress={state.beginComplete} />
+          <Text style={[styles.text, { color: theme.primary }]}>{lines.length - blocked}/{lines.length} dòng sẵn sàng chuyển chờ xuất</Text>
+          <WorkListTools search={search} onSearch={setSearch} filter={filter} onFilter={setFilter} shown={visible.length} total={lines.length} disabled={busy} />
         </>}
         {state.notice && <AlertBanner title={state.notice} />}
         <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
-      </View>} />
+      </View>} ListEmptyComponent={lines.length > 0 ? <Text style={[styles.text, { color: theme.textSecondary }]}>Không có dòng phù hợp với bộ lọc.</Text> : null} />
+    {state.canPick && <WorkActionBar hint={blocked ? `${blocked} dòng còn thiếu hàng, cần trả hoặc chờ quản lý. Hoàn tất các dòng trước khi chuyển chờ xuất.` : 'Đã đủ điều kiện hoàn tất lấy hàng. Tổng tồn chưa giảm.'}>
+      <Button label="Hoàn tất lấy hàng, chuyển chờ xuất" disabled={busy || !state.canComplete} onPress={state.beginComplete} />
+    </WorkActionBar>}
     <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : closeEditor}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>{state.editor && <TransferPickEditor
         key={`${state.contextKey}:${state.editor.line.lineId}:${state.form.getValues('inventoryStockId')}`}
