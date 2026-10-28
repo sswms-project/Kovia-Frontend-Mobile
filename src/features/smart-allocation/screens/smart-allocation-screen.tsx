@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { useExitProtection } from '@/hooks/use-screen-exit';
 import { useRef } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,9 +27,11 @@ function SmartAllocationWorkspace() {
   const demand = data?.demand;
   const active = !!demand && !demand.completedAt && !demand.revokedAt;
   const busy = state.mutation.isPending;
+  useExitProtection(() => ({ busy, dirty: !!state.pickerId || state.acknowledged || state.hours !== 8,
+    discard: async () => { state.setPickerId(''); state.setAcknowledged(false); state.setHours(8); state.cancel(); } }));
   const canAuthorize = !!data && data.order.status === 'Pending' && !!data.plan.documentVersion && data.plan.automationEnabled &&
     !active && !!state.pickerId && !state.context.isFetching && !state.context.isError;
-  return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+  return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
     <FlatList ref={list} data={state.queueData?.items ?? []} keyExtractor={order => order.id}
       contentContainerStyle={styles.content} refreshing={state.queue.isFetching || state.context.isFetching}
       onRefresh={() => { void state.refresh(); }}
@@ -39,7 +41,6 @@ function SmartAllocationWorkspace() {
           variant="outline" disabled={busy} onPress={() => { state.select(item.id); list.current?.scrollToOffset({ offset: 0, animated: true }); }} />
       </View>}
       ListHeaderComponent={<View style={styles.section}>
-        <Button label="Về tổng quan" variant="outline" onPress={() => router.navigate('/')} />
         <Text accessibilityRole="header" style={[styles.heading, { color: theme.text }]}>Phân bổ kho thông minh</Text>
         <Text style={[styles.text, { color: theme.textSecondary }]}>{state.access.warehouse?.warehouseName}</Text>
         <AlertBanner title="FEFO trước, giảm thao tác sau" description="Hệ thống so hạn dùng trên toàn kho. Phần được chọn ở khu nhận có thể đi thẳng đến khu chờ xuất; nhân viên vẫn quét và xác nhận hàng thực tế." />

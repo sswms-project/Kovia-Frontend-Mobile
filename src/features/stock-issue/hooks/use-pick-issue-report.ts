@@ -38,33 +38,33 @@ export function usePickIssueReport(documentId: string, execution: Execution) {
   const mutation = useMutation<unknown, Error, Target>({ retry: false, mutationFn: async (original: Target) => {
     guard(original);
     if (uncertain || attempted === storageScope || !attempt.isSuccess || attempt.isFetching) throw new Error('Hãy kiểm tra kết quả báo cáo trước khi gửi thêm.');
-    await draft.beforeSubmit(); guard(original);
     const fresh = await stockIssueApi.detail(documentId, execution.access.selection.warehouseId!, execution.access.profile.data!.id);
     guard(original);
     if (fresh.version !== original.version) throw new Error('Phiếu đã thay đổi. Vui lòng tải lại.');
-    await formDraftStorage.write({ scope: storageScope, version: original.version, values: {}, pending: true }, () => guard(original));
-    guard(original); setAttempted(storageScope);
-    return stockIssueApi.reportIssue(documentId, { stockIssueRequestItemId: original.stockIssueRequestItemId, reason: original.reason }, () => guard(original));
-  }, onError: logApiError, onSuccess: async (_, original) => {
-    await formDraftStorage.remove(storageScope);
+    return draft.execute(undefined, async () => {
+      guard(original);
+      await formDraftStorage.write({ scope: storageScope, version: original.version, values: {}, pending: true }, () => guard(original));
+      guard(original); setAttempted(storageScope);
+      return stockIssueApi.reportIssue(documentId, { stockIssueRequestItemId: original.stockIssueRequestItemId, reason: original.reason }, () => guard(original));
+    }, async () => {
+      await formDraftStorage.remove(storageScope, true); setAttempted(null); setTarget(null);
+      await client.invalidateQueries({ queryKey: ['pick-issue-attempt', storageScope] });
+    });
+  }, onSettled: () => draft.settled(), onError: logApiError, onSuccess: async (_, original) => {
     if (latest.current.contextKey !== original.key) return;
-    await draft.clear(); setAttempted(null); setTarget(null); setEditor(null);
+    await formDraftStorage.remove(storageScope, true);
+    await draft.clear(true); setAttempted(null); setTarget(null); setEditor(null);
     toast.success('Đã gửi báo cáo sự cố cho người lập phiếu. Tồn kho chưa thay đổi.');
     await client.invalidateQueries({ queryKey: ['pick-issue-attempt', storageScope] });
     await client.invalidateQueries({ queryKey: ['notifications'] });
     await client.invalidateQueries({ queryKey: ['audit-logs'] });
   } });
   function close() {
-    if (lock.current) return;
-    const discard = () => { void draft.clear(); setEditor(null); setTarget(null); };
-    if (form.formState.isDirty || uncertain) Alert.alert('Rời báo cáo?', uncertain
-      ? 'Chưa rõ máy chủ đã nhận báo cáo hay chưa. Hãy kiểm tra nhật ký, không gửi lại ngay.' : 'Bỏ nội dung chưa gửi?',
-    [{ text: 'Ở lại', style: 'cancel' }, { text: 'Rời báo cáo', onPress: discard }]);
-    else setEditor(null);
+    if (!lock.current) { setEditor(null); setTarget(null); }
   }
   return { form, active, uncertain: uncertain && !mutation.isPending, attempt, error: error ?? mutation.error, mutation, target: active ? target : null, close,
     canReadAudit: execution.permission(P.AUDIT_LOGS_VIEW),
-    closeToAudit: () => { if (!lock.current) { void draft.clear(); setEditor(null); setTarget(null); } },
+    closeToAudit: close,
     open: (item: StockIssueItem) => {
       try {
         const version = execution.detail.data?.version ?? ''; execution.assertFieldReport(execution.contextKey, version);
@@ -85,16 +85,7 @@ export function usePickIssueReport(documentId: string, execution: Execution) {
       try { await mutation.mutateAsync(target); } catch { /* Legacy command has no idempotency key; never replay automatically. */ }
       finally { lock.current = false; }
     },
-    acknowledge: () => Alert.alert('Đã đối chiếu nhật ký?', 'Chỉ mở lại chức năng sau khi đã xác minh lần gửi trước với quản lý. Gửi báo cáo mới có thể tạo thêm thông báo.', [
-      { text: 'Chưa kiểm tra', style: 'cancel' }, { text: 'Đã kiểm tra', onPress: () => {
-        if (lock.current || !editor) return;
-        try { guard(editor); } catch { return; }
-        void formDraftStorage.remove(storageScope).then(async () => {
-          guard(editor); await draft.clear();
-          setAttempted(null); setTarget(null); setEditor(null); mutation.reset();
-          await client.invalidateQueries({ queryKey: ['pick-issue-attempt', storageScope] });
-        }).catch(failure => setError(new Error(getApiErrorMessage(failure))));
-      } },
-    ]),
+    acknowledge: () => Alert.alert('Cần đối soát kết quả',
+      'Hãy kiểm tra nhật ký và liên hệ quản lý để xác minh báo cáo. Đóng thông báo không xóa lệnh chưa xác định và không mở lại việc gửi báo cáo trùng.', [{ text: 'Đã hiểu' }]),
   };
 }

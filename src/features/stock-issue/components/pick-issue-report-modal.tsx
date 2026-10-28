@@ -1,4 +1,6 @@
-import { router } from 'expo-router';
+import { useScreenExit } from '@/hooks/use-screen-exit';
+import { router, useNavigation } from 'expo-router';
+import { CommonActions } from 'expo-router/react-navigation';
 import { Controller } from 'react-hook-form';
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { TextField } from '@/components/ui/text-field';
@@ -9,6 +11,8 @@ import type { usePickIssueReport } from '../hooks/use-pick-issue-report';
 
 export function PickIssueReportModal({ state }: { readonly state: ReturnType<typeof usePickIssueReport> }) {
   const busy = state.mutation.isPending;
+  const exit = useScreenExit();
+  const navigation = useNavigation();
   return <>
     <FieldActionModal visible={state.active && (!state.target || state.uncertain)} title="Báo sự cố khi lấy hàng" busy={busy}
       error={state.error ?? state.attempt.error} reviewDisabled={state.uncertain || !state.attempt.isSuccess || state.attempt.isFetching}
@@ -18,8 +22,14 @@ export function PickIssueReportModal({ state }: { readonly state: ReturnType<typ
         maxLength={500} value={field.value} onChangeText={field.onChange} error={fieldState.error?.message} editable={!busy && !state.uncertain} />} />
       {state.uncertain && <>
         <AlertBanner title="Cần đối chiếu lần gửi trước" description="Chưa có phản hồi chắc chắn từ máy chủ. Không gửi lại ngay vì API hiện tại có thể tạo báo cáo trùng." />
-        {state.canReadAudit && <Button label="Mở nhật ký hoạt động" variant="outline" disabled={busy} onPress={() => { state.closeToAudit(); router.push('/catalog/audit-logs'); }} />}
-        <Button label="Đã đối chiếu, lập báo cáo mới" variant="outline" disabled={busy} onPress={state.acknowledge} />
+        {state.canReadAudit && <Button label="Mở nhật ký hoạt động" variant="outline" disabled={busy} onPress={() => {
+          if (exit) void exit.request(() => {
+            navigation.dispatch(CommonActions.navigate('(app)', { screen: 'catalog', params: { screen: 'audit-logs' } }));
+            state.closeToAudit();
+          }, 'mở nhật ký');
+          else { state.closeToAudit(); router.push('/catalog/audit-logs'); }
+        }} />}
+        <Button label="Hướng dẫn đối soát kết quả" variant="outline" disabled={busy} onPress={state.acknowledge} />
       </>}
     </FieldActionModal>
     <ConfirmationModal visible={!!state.target && !state.uncertain} title="Gửi báo cáo sự cố?" description={`${state.target?.reason ?? ''}\nTồn kho chưa thay đổi. Quản lý/người lập phiếu tiếp tục xử lý trên web.`}

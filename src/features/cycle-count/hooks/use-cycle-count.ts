@@ -5,6 +5,7 @@ import { captureEvidence } from '@/lib/evidence-camera';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useFormDraft } from '@/hooks/use-form-draft';
+import { useExitProtection } from '@/hooks/use-screen-exit';
 
 import { P } from '@/config/permission-codes';
 import { useAuth } from '@/features/auth/auth.store';
@@ -39,6 +40,8 @@ export function useCycleCount(documentId: string) {
   const [notice, setNotice] = useState<{ key: string; message: string } | null>(null);
   const [photos, setPhotos] = useState<{ key: string; version: string; itemId: string; files: { id: string; fileName: string }[] } | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false); const [discard, setDiscard] = useState(false);
+  useExitProtection(() => ({ busy: photoBusy, photos: photos?.key === contextKey && !!photos.files.length,
+    discard: async () => { setPhotos(null); } }));
   const lock = useRef(false); const command = useRef<WarehouseCommandMemory | null>(null);
   const form = useForm<CountForm>({ resolver: zodResolver(countFormSchema), defaultValues: { countedQuantity: Number.NaN,
     countedDamagedQuantity: 0, note: '', countMethod: 'Manual', scannedBarcode: '', damageReason: '', damageEvidenceIds: [] } });
@@ -52,25 +55,29 @@ export function useCycleCount(documentId: string) {
       !profile.permissions.includes(P.CYCLE_COUNTS_RECORD) || !allowed(action) || detail.data?.version !== version)
       throw new Error('Kho, quyền, phân công hoặc phiên bản kiểm kê đã thay đổi. Vui lòng tải lại.');
   }
-  const draft = useFormDraft({ form, feature: 'cycle-count', documentId, lineId: editor?.item.id, version: editor?.version,
-    enabled: editor?.key === contextKey && canView, assertCurrent: () => assertAction('Record', editor?.version ?? '') });
+  const draft = useFormDraft({ form, feature: 'cycle-count', documentId, lineId: editor?.item.id, version: editor?.version ?? target?.version,
+    enabled: (editor?.key === contextKey || target?.key === contextKey) && canView,
+    assertCurrent: () => assertAction(target?.action ?? 'Record', editor?.version ?? target?.version ?? '') });
   const mutation = useMutation<unknown, Error, Target>({ retry: false, mutationFn: async original => {
     const assertCurrent = () => { if (original.key !== contextKey) throw new Error('Phiếu kiểm kê đã thay đổi.'); assertAction(original.action, original.version); };
     assertCurrent();
-    if (original.action === 'Record') await draft.beforeSubmit();
     const payload = { documentId, action: original.action, version: original.version, itemId: original.itemId, values: original.values };
     command.current = warehouseCommand(command.current, payload);
     const body = { expectedVersion: original.version, commandId: command.current.commandId };
-    if (original.action !== 'Record') return cycleCountApi.execute(documentId, original.action === 'Start' ? 'start' : 'submit', body, assertCurrent);
+    if (original.action !== 'Record') {
+      return draft.execute({ operation: original.action, ...command.current, documentId, expectedVersion: original.version },
+        () => cycleCountApi.execute(documentId, original.action === 'Start' ? 'start' : 'submit', body, assertCurrent), () => { command.current = null; });
+    }
     const values = countFormSchema.parse(original.values);
     const item = detail.data?.items.find(value => value.id === original.itemId);
     if (!detail.data || !item) throw new Error('Không tìm thấy dòng kiểm kê.');
     assertCountRecord(detail.data, item, values);
     if (values.countMethod === 'Scanned' && !allowed('Scan')) throw new Error('Gói dịch vụ hoặc quyền hiện tại chưa cho phép quét kiểm kê.');
-    return cycleCountApi.record(documentId, item.id, values, body, assertCurrent);
-  }, onError: logApiError, onSuccess: async (_, original) => {
+    return draft.execute({ operation: 'RecordCount', ...command.current, documentId, expectedVersion: original.version },
+      () => cycleCountApi.record(documentId, item.id, values, body, assertCurrent), () => { command.current = null; });
+  }, onSettled: () => draft.settled(), onError: logApiError, onSuccess: async (_, original) => {
     if (original.key !== contextKey) return;
-    if (original.action === 'Record') await draft.clear();
+    await draft.clear(true);
     setEditor(null); setTarget(null); setPhotos(null); form.reset();
     setNotice({ key: contextKey, message: original.action === 'Start' ? 'Đã bắt đầu kiểm kê và chốt mốc tồn.'
       : original.action === 'Record' ? 'Đã ghi nhận số đếm. Số lượng tồn kho chưa thay đổi.' : 'Đã gửi kết quả kiểm kê để quản lý rà soát. Số lượng tồn kho chưa thay đổi.' });
@@ -136,7 +143,7 @@ export function useCycleCount(documentId: string) {
     notice: notice?.key === contextKey ? notice.message : null, files: photos?.key === contextKey && photos.version === editor?.version && photos.itemId === editor.item.id ? photos.files : [],
     begin, beginRecord, reviewRecord, addPhoto, confirm,
     refresh: async () => { await client.invalidateQueries({ queryKey: prefix }); },
-    closeEditor: () => { if (!lock.current) { if (form.formState.isDirty) setDiscard(true); else setEditor(null); } },
-    discardChanges: () => { if (!lock.current) { void draft.clear(); setEditor(null); setPhotos(null); setDiscard(false); form.reset(); } },
+    closeEditor: () => { if (!lock.current) { setEditor(null); setTarget(null); } },
+    discardChanges: () => { if (!lock.current) { void draft.discardAndClose(() => { setEditor(null); setPhotos(null); setDiscard(false); form.reset(); }); } },
     cancelConfirmation: () => { if (!lock.current) setTarget(null); } };
 }

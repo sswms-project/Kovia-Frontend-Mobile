@@ -1,3 +1,5 @@
+import { useExitProtection, useModalExit, useScreenSubtitle } from '@/hooks/use-screen-exit';
+import { WorkCompletionActions } from '@/components/work-completion-actions';
 import { useCallback } from 'react';
 import { FlatList, Modal, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,16 +21,20 @@ import type { TransferPickLine } from '../transfer-picking.schema';
 
 export function TransferPickingScreen({ transferId, shipmentId }: { readonly transferId: string; readonly shipmentId: string }) {
   const state = useTransferPicking(transferId, shipmentId);
+  const closeEditor = useModalExit(state.closeEditor);
   const exceptions = useTransferExceptions(transferId, shipmentId, state);
   const theme = useTheme();
   const busy = state.mutation.isPending || exceptions.mutation.isPending || exceptions.visible;
+  useExitProtection(() => ({ busy: state.mutation.isPending || exceptions.mutation.isPending }));
   const sheet = state.detail.data?.sheet;
+  useScreenSubtitle(state.canView ? sheet?.transferCode : undefined);
   const renderLine = useCallback(({ item }: { item: TransferPickLine }) => <TransferPickLineCard
     line={item} canPick={state.canPick} busy={busy} onPick={state.beginPick} onException={exceptions.open} />, [state.canPick, state.beginPick, exceptions.open, busy]);
-  return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+  return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
     <FlatList data={state.canView ? sheet?.lines ?? [] : []} keyExtractor={line => line.lineId} renderItem={renderLine}
       contentContainerStyle={styles.content} ItemSeparatorComponent={Separator} refreshing={state.detail.isFetching}
       onRefresh={busy ? undefined : () => { void state.refresh(); }} ListHeaderComponent={<View style={styles.header}>
+        <WorkCompletionActions visible={!busy && !state.detail.isFetching && !state.detail.isError && sheet?.shipmentStatus === 'ReadyToDispatch'} message="Đã hoàn tất bước lấy hàng điều chuyển." />
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{sheet?.transferCode ?? 'Lấy hàng điều chuyển'}</Text>
         {!state.validId && <AlertBanner variant="destructive" title="Liên kết điều chuyển không hợp lệ." />}
         {!state.canView && <AlertBanner title="Chọn kho được giao và kiểm tra quyền xem điều chuyển để mở công việc." />}
@@ -51,7 +57,7 @@ export function TransferPickingScreen({ transferId, shipmentId }: { readonly tra
         {state.notice && <AlertBanner title={state.notice} />}
         <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
       </View>} />
-    <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : state.closeEditor}>
+    <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : closeEditor}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>{state.editor && <TransferPickEditor
         key={`${state.contextKey}:${state.editor.line.lineId}:${state.form.getValues('inventoryStockId')}`}
         line={state.editor.line} slotCode={state.editor.slotCode} form={state.form} busy={busy} notice={state.notice}

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getApiErrorMessage } from '@/lib/api-error';
 import { captureEvidence } from '@/lib/evidence-camera';
+import { useExitProtection } from './use-screen-exit';
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png'];
@@ -49,6 +50,7 @@ export function useEvidencePhotos({
     setPhotos([]);
     setError(null);
   }, []);
+  useExitProtection(() => ({ busy: isUploading, photos: photos.length > 0, discard: async () => { reset(); } }));
 
   const remove = useCallback((id: string) => {
     setPhotos((current) => current.filter((photo) => photo.id !== id));

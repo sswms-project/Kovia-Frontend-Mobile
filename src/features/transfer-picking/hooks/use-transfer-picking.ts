@@ -60,26 +60,29 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
       throw new Error('Kho, quyền hoặc đợt xuất đã thay đổi. Vui lòng tải lại công việc.');
   }
   const draft = useFormDraft({ form, feature: 'transfer-pick', documentId: `${transferId}:${shipmentId}`,
-    lineId: editor ? `${editor.line.lineId}:${form.getValues('inventoryStockId')}` : undefined, version: editor?.version,
-    enabled: editor?.key === contextKey && canView && !!access.profile.data?.permissions.includes(P.TRANSFERS_PICK),
-    assertCurrent: () => assertCurrent({ key: contextKey, action: 'Pick', version: editor?.version ?? '' }) });
+    lineId: editor ? `${editor.line.lineId}:${form.getValues('inventoryStockId')}` : undefined, version: editor?.version ?? target?.version,
+    enabled: (editor?.key === contextKey || target?.key === contextKey) && canView && !!access.profile.data?.permissions.includes(P.TRANSFERS_PICK),
+    assertCurrent: () => assertCurrent({ key: contextKey, action: target?.action ?? 'Pick', version: editor?.version ?? target?.version ?? '' }) });
   const mutation = useMutation<unknown, Error, Target>({ retry: false, mutationFn: async original => {
     const guard = () => assertCurrent(original); guard();
     if (original.action === 'Pick') {
-      await draft.beforeSubmit();
       const values = transferPickFormSchema.parse(original.values);
       assertTransferPick(values, data!.sheet);
       const body = { transferId, shipmentId, ...values };
       command.current = warehouseCommand(command.current, { ...body, contextKey, version: original.version });
-      return transferPickingApi.pick({ ...body, commandId: command.current.commandId }, guard);
+      const sending = { ...body, commandId: command.current.commandId };
+      return draft.execute({ operation: 'TransferPick', ...command.current, documentId: `${transferId}:${shipmentId}`, expectedVersion: original.version },
+        () => transferPickingApi.pick(sending, guard), () => { command.current = null; });
     }
     const body = { transferId, shipmentId, expectedVersion: original.version,
       ...(original.stagingSlotId ? { outboundStagingSlotId: original.stagingSlotId } : {}) };
     command.current = warehouseCommand(command.current, { action: 'Complete', contextKey, ...body });
-    return transferPickingApi.complete({ ...body, commandId: command.current.commandId }, guard);
-  }, onError: logApiError, onSuccess: async (_, original) => {
+    const sending = { ...body, commandId: command.current.commandId };
+    return draft.execute({ operation: 'CompleteTransferPick', ...command.current, documentId: `${transferId}:${shipmentId}`, expectedVersion: original.version },
+      () => transferPickingApi.complete(sending, guard), () => { command.current = null; });
+  }, onSettled: () => draft.settled(), onError: logApiError, onSuccess: async (_, original) => {
     if (original.key !== contextKey) return;
-    if (original.action === 'Pick') await draft.clear();
+    await draft.clear(true);
     setTarget(null); setEditor(null); form.reset();
     setNotice({ key: contextKey, message: original.action === 'Pick' ? 'Đã ghi nhận số lượng thực tế lấy. Tổng tồn kho chưa giảm.'
       : 'Đã hoàn tất lấy hàng. Hàng chờ người có quyền xác nhận xuất thực tế.' });
@@ -119,7 +122,7 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
     editor: activeEditor, target: target?.key === contextKey && canPick && target.version === data?.sheet.version ? target : null,
     notice: notice?.key === contextKey ? notice.message : null, discard: discard && !!activeEditor, setDiscard,
     refresh: async () => { if (lock.current) return; setTarget(null); setEditor(null); await access.refresh(); await detail.refetch(); },
-    closeEditor: () => { if (!lock.current) { if (form.formState.isDirty) setDiscard(true); else setEditor(null); } },
-    discardChanges: () => { if (!lock.current) { void draft.clear(); setEditor(null); setDiscard(false); form.reset(); } },
+    closeEditor: () => { if (!lock.current) { setEditor(null); setTarget(null); } },
+    discardChanges: () => { if (!lock.current) { void draft.discardAndClose(() => { setEditor(null); setDiscard(false); form.reset(); }); } },
     cancelConfirmation: () => { if (!lock.current) setTarget(null); } };
 }

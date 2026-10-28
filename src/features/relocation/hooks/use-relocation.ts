@@ -54,13 +54,12 @@ export function useRelocation(taskId: string) {
     lineId: '', quantity: Number.NaN, destinationSlotId: '', sourceScan: '', destinationScan: '', productScan: '', overrideReason: '',
   } });
   const quantity = useWatch({ control: form.control, name: 'quantity' });
-  const dirty = form.formState.isDirty;
   const destinationId = useWatch({ control: form.control, name: 'destinationSlotId' });
   const activeEditor = editor?.key === contextKey && canExecute && editor.version === task?.rowVersion ? editor : null;
-  const draft = useFormDraft({ form, feature: 'relocation', documentId: taskId, lineId: editor?.line.id, version: editor?.version,
-    enabled: editor?.key === contextKey && canReadSource, assertCurrent: () => {
+  const draft = useFormDraft({ form, feature: 'relocation', documentId: taskId, lineId: editor?.line.id, version: editor?.version ?? target?.version,
+    enabled: (editor?.key === contextKey || target?.key === contextKey) && canView, assertCurrent: () => {
       if (!scope || !taskScopeMatches(scope, useWarehouseSelection.getState()) || !useAuth.getState().signedIn ||
-        !canExecute || task?.rowVersion !== activeEditor?.version) throw new Error('Công việc chuyển vị trí đã thay đổi.');
+        !(target?.action === 'Start' ? canStart : canExecute) || task?.rowVersion !== (editor?.version ?? target?.version)) throw new Error('Công việc chuyển vị trí đã thay đổi.');
     } });
   const source = useQuery({ queryKey: [...prefix, 'source', activeEditor?.line.id, activeEditor?.version],
     enabled: !!activeEditor, retry: false, queryFn: ({ signal }) => relocationApi.source(warehouseId!, activeEditor!.line, signal) });
@@ -94,12 +93,14 @@ export function useRelocation(taskId: string) {
   }
   const mutation = useMutation<unknown, Error, Target>({ retry: false, mutationFn: async original => {
     const guard = () => assertCurrent(original); guard();
-    if (original.action === 'Execute') await draft.beforeSubmit();
-    return original.action === 'Start' ? myTasksApi.action('Relocation', taskId, { action: 'Start', reason: '' }, guard)
-      : relocationApi.execute(taskId, original.body, guard);
-  }, onError: logApiError, onSuccess: async (_, original) => {
+    const sending = original.action === 'Execute' ? { commandId: original.body.commandId, content: JSON.stringify(original.body) }
+      : (memory.current = warehouseCommand(memory.current, { taskId, action: 'Start', version: original.version }));
+    return draft.execute({ operation: original.action, ...sending, documentId: taskId, expectedVersion: original.version },
+      () => original.action === 'Start' ? myTasksApi.action('Relocation', taskId, { action: 'Start', reason: '' }, guard)
+        : relocationApi.execute(taskId, original.body, guard), () => { memory.current = null; });
+  }, onSettled: () => draft.settled(), onError: logApiError, onSuccess: async (_, original) => {
     if (original.key !== contextKey) return;
-    if (original.action === 'Execute') await draft.clear();
+    await draft.clear(true);
     setTarget(null); setEditor(null); setRequest(null); form.reset();
     setNotice({ key: contextKey, message: original.action === 'Start' ? 'Đã bắt đầu công việc chuyển vị trí.' : 'Đã ghi nhận chuyển vị trí. Tổng tồn của kho không thay đổi.' });
     await client.invalidateQueries({ queryKey: ['warehouse', identity, warehouseId, revision] });
@@ -143,8 +144,8 @@ export function useRelocation(taskId: string) {
     notice: notice?.key === contextKey ? notice.message : null, openLine, discard: discard && !!activeEditor,
     start: () => { if (canStart && task?.rowVersion && !lock.current) { mutation.reset(); setTarget({ key: contextKey, version: task.rowVersion, action: 'Start' }); } },
     cancelConfirmation: () => { if (!lock.current) setTarget(null); },
-    closeEditor: () => { if (!lock.current) { if (dirty) setDiscard(true); else { setEditor(null); setTarget(null); } } },
-    discardChanges: () => { if (!lock.current) { void draft.clear(); setEditor(null); setTarget(null); setDiscard(false); form.reset(); } },
+    closeEditor: () => { if (!lock.current) { setEditor(null); setTarget(null); } },
+    discardChanges: () => { if (!lock.current) { void draft.discardAndClose(() => { setEditor(null); setTarget(null); setDiscard(false); form.reset(); }); } },
     cancelDiscard: () => setDiscard(false),
     selectDestination: (destinationSlotId: string) => { form.setValue('destinationSlotId', destinationSlotId, { shouldDirty: true, shouldValidate: true }); form.setValue('destinationScan', ''); },
     refresh: async () => { if (!lock.current) { setTarget(null); setEditor(null); setRequest(null); await access.refresh(); await detail.refetch(); } },

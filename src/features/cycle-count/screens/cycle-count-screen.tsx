@@ -1,4 +1,5 @@
-import { router } from 'expo-router';
+import { WorkCompletionActions } from '@/components/work-completion-actions';
+import { useExitProtection, useModalExit, useScreenSubtitle } from '@/hooks/use-screen-exit';
 import { FlatList, Modal, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -22,17 +23,20 @@ import { useCycleCount } from '../hooks/use-cycle-count';
 const STATES: Readonly<Record<string, string>> = { Scheduled: 'Đã lên lịch', Counting: 'Đang kiểm đếm', Recount: 'Đang đếm lại', Submitted: 'Đã gửi quản lý', Completed: 'Đã hoàn tất', Cancelled: 'Đã hủy' };
 export function CycleCountScreen({ documentId }: { readonly documentId: string }) {
   const state = useCycleCount(documentId); const theme = useTheme(); const document = state.detail.data;
+  useScreenSubtitle(state.canView ? document?.code : undefined);
+  const closeEditor = useModalExit(state.closeEditor);
   const evidence = useEvidencePreview('cycle-count');
   const busy = state.mutation.isPending || state.photoBusy;
+  useExitProtection(() => ({ busy: busy }));
   const canRecord = state.allowed('Record') && !!state.access.profile.data?.permissions.includes(P.CYCLE_COUNTS_RECORD);
   const error = state.detail.error ?? state.actions.error;
-  return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+  return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
     <FlatList data={state.canView ? document?.items ?? [] : []} keyExtractor={item => item.id} contentContainerStyle={styles.content}
       refreshing={state.detail.isFetching || state.actions.isFetching} onRefresh={busy ? undefined : () => { void state.refresh(); }}
       ItemSeparatorComponent={Separator} renderItem={({ item }) => <CountItemCard item={item} busy={busy}
         canRecord={canRecord && !!document && canRecordCountItem(document, item)} onRecord={state.beginRecord} onOpenEvidence={file => { void evidence.open(file); }} />}
       ListHeaderComponent={<View style={styles.header}>
-        <Button label="Về công việc" variant="outline" disabled={busy} onPress={() => router.back()} />
+        <WorkCompletionActions visible={!busy && !state.detail.isFetching && !state.detail.isError && !!document && ['Completed', 'Submitted'].includes(document.status)} message={document?.status === 'Submitted' ? 'Đã gửi kết quả kiểm kê.' : 'Đã hoàn tất kiểm kê.'} />
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{document?.code || 'Kiểm kê được giao'}</Text>
         {!state.access.ready && <WarehouseWorkspaceControl access={state.access} />}
         {!state.canView ? <AlertBanner title={state.validId ? 'Chọn kho được giao và kiểm tra quyền xem kiểm kê.' : 'Mã kiểm kê không hợp lệ.'} /> : <>
@@ -58,7 +62,7 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
         </>}
         <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
       </View>} />
-    <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : state.closeEditor}>
+    <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : closeEditor}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>{state.editor && <CountEditor key={`${state.contextKey}:${state.editor.item.id}:${state.editor.version}`}
         item={state.editor.item} form={state.form} busy={busy} canScan={state.allowed('Scan')} notice={state.notice} files={state.files}
         onPhoto={(source) => { void state.addPhoto(source); }} onReview={() => { void state.reviewRecord(); }} onClose={state.closeEditor} />}

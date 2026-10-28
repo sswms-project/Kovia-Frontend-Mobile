@@ -17,10 +17,12 @@ export function MyTasksScreen() {
   const notifications = useNotifications(1);
   const [statusFilter, setStatusFilter] = useState<WarehouseTaskExecutionStatus | null>(null);
   const [typeFilter, setTypeFilter] = useState<WarehouseTaskType | null>(null);
+  const [recentlyAssignedFirst, setRecentlyAssignedFirst] = useState(false);
 
   const query = useMyWarehouseTasksQuery({
     executionStatus: statusFilter ?? undefined,
     taskType: typeFilter ?? undefined,
+    recentlyAssignedFirst,
   });
 
   const actions: readonly TaskListHeaderAction[] = [
@@ -49,6 +51,8 @@ export function MyTasksScreen() {
       onStatusChange={setStatusFilter}
       typeFilter={typeFilter}
       onTypeChange={setTypeFilter}
+      recentlyAssignedFirst={recentlyAssignedFirst}
+      onRecentlyAssignedFirstChange={setRecentlyAssignedFirst}
       tasks={flattenTasks(query.data)}
       isLoading={query.isPending}
       error={query.error}

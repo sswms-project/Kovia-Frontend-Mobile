@@ -70,6 +70,7 @@ export interface MyWarehouseTaskQuery {
   status?: string;
   executionStatus?: WarehouseTaskExecutionStatus;
   deadlineStatus?: WarehouseTaskDeadlineStatus;
+  recentlyAssignedFirst?: boolean;
   assignedTo?: string;
 }
 

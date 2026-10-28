@@ -1,3 +1,5 @@
+import { WorkScreenHeader } from '@/components/work-screen-header';
+import { useModalExit } from '@/hooks/use-screen-exit';
 import { Controller } from 'react-hook-form';
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -18,11 +20,13 @@ import { parseQuantity, quantityInput } from './receipt-line-fields';
 interface PutAwayEditorModalProps { readonly state: ReturnType<typeof useReceiptExecution>; readonly receipt?: Receipt }
 export function PutAwayEditorModal({ state, receipt }: PutAwayEditorModalProps) {
   const theme = useTheme();
+  const close = useModalExit(state.closeEditor);
   const busy = state.mutation.isPending;
   const isolation = state.editor?.isolation === true;
   const item = receipt?.items.find(value => value.id === state.form.getValues('goodsReceiptItemId'));
-  return <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : state.closeEditor}>
+  return <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : close}>
     <SafeAreaProvider><SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+      <WorkScreenHeader modal title="Cất / cách biệt hàng" onBack={close} />
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{isolation ? 'Cách biệt hàng hỏng đã nhập' : 'Ghi nhận cất hàng thực tế'}</Text>
@@ -45,7 +49,7 @@ export function PutAwayEditorModal({ state, receipt }: PutAwayEditorModalProps) 
             label="Lý do cất khác kế hoạch hoặc không xác nhận mã" value={field.value} multiline editable={!busy} maxLength={501}
             onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} hint="Mô tả ít nhất 5 ký tự khi áp dụng." />} />}
           <Button label={isolation ? 'Kiểm tra và xác nhận cách biệt' : 'Kiểm tra và xác nhận cất hàng'} loading={busy} onPress={() => { void state.reviewPlacement(); }} />
-          <Button label="Đóng nhập cất hàng" variant="outline" disabled={busy} onPress={state.closeEditor} />
+          <Button label="Đóng nhập cất hàng" variant="outline" disabled={busy} onPress={close} />
         </ScrollView>
       </KeyboardAvoidingView>
       <ConfirmationModal visible={!!state.target} title={isolation ? 'Xác nhận đã cách biệt hàng hỏng?' : 'Xác nhận đã cất hàng?'}

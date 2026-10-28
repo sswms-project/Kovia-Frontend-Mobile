@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { useExitProtection } from '@/hooks/use-screen-exit';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -21,12 +21,12 @@ function ReceiptReviewWorkspace() {
   const theme = useTheme();
   const receipt = state.data?.receipt;
   const busy = state.mutation.isPending;
-  return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+  useExitProtection(() => ({ busy, dirty: state.acknowledged, discard: async () => { state.setAcknowledged(false); state.cancel(); } }));
+  return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
     <FlatList data={state.queueData?.items ?? []} keyExtractor={item => item.id} contentContainerStyle={styles.content}
       refreshing={state.queue.isFetching || state.context.isFetching} onRefresh={() => { void state.refresh(); }}
       renderItem={({ item }) => <Button label={`Kiểm tra ${item.receiptCode}`} disabled={busy} variant="outline" onPress={() => state.select(item.id)} />}
       ListHeaderComponent={<View style={styles.section}>
-        <Button label="Về tổng quan" variant="outline" onPress={() => router.navigate('/')} />
         <Text accessibilityRole="header" style={[styles.heading, { color: theme.text }]}>Duyệt hàng tại khu nhận</Text>
         <Text style={[styles.text, { color: theme.textSecondary }]}>{state.access.warehouse?.warehouseName}</Text>
         {!state.ready && <AlertBanner title="Cần chọn kho và có quyền xem, duyệt phiếu nhận." />}

@@ -1,13 +1,13 @@
 import type { AxiosRequestConfig } from 'axios';
-import type { z } from 'zod';
+import { z } from 'zod';
 
 import { api, unwrap, type ApiResponse } from '@/lib/api';
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
 
 import { assertReceiptScope, assertReceivingTask } from './receiving';
-import { createReceiptCommandSchema, locationSearchSchema, putAwayCommandSchema, putAwaySuggestionsSchema,
+import { createReceiptCommandSchema, createReceiptFormSchema, locationSearchSchema, putAwayCommandSchema, putAwaySuggestionsSchema,
   receiptActionsSchema, receiptSchema, receivingLocationsSchema, receivingTasksSchema,
-  submitReceiptCommandSchema, updateReceiptCommandSchema, evidenceSchema, isolateDamageCommandSchema } from './receiving.schema';
+  submitReceiptCommandSchema, updateReceiptCommandSchema, evidenceSchema, isolateDamageCommandSchema, putAwayLayoutSchema } from './receiving.schema';
 
 const guid = nonEmptyDotNetGuidSchema('Mã chứng từ không hợp lệ.');
 function guarded(assertCurrentContext: () => void): AxiosRequestConfig & { assertCurrentContext: () => void } { return { assertCurrentContext }; }
@@ -18,6 +18,12 @@ function normalizeLines<T extends { lines: z.infer<typeof createReceiptCommandSc
   })) };
 }
 export const receivingApi = {
+  layout: async (warehouseId: string, signal?: AbortSignal) => {
+    guid.parse(warehouseId);
+    return putAwayLayoutSchema.parse(unwrap(await api.get<ApiResponse<unknown>>(`/warehouses/${warehouseId}/layout`, { signal })));
+  },
+  nextCode: async (signal?: AbortSignal) => createReceiptFormSchema.shape.receiptCode.parse(
+    unwrap(await api.get<ApiResponse<unknown>>('/goods-receipts/next-code', { signal }))),
   uploadEvidence: async (warehouseId: string, asset: { uri: string; mimeType: string; fileName: string; file?: File }, assertCurrentContext: () => void) => {
     guid.parse(warehouseId);
     assertCurrentContext();
@@ -49,13 +55,16 @@ export const receivingApi = {
     guid.parse(receiptId);
     return receiptActionsSchema.parse(unwrap(await api.get<ApiResponse<unknown>>(`/goods-receipts/${receiptId}/allowed-actions`, { signal })));
   },
-  locations: async (warehouseId: string, searchTerm: string, pageNumber: number, signal?: AbortSignal, forDamageIsolation = false) => {
+  locations: async (warehouseId: string, searchTerm: string, pageNumber: number, signal?: AbortSignal, forDamageIsolation = false, forPutAway = false) => {
     guid.parse(warehouseId);
     const parsed = locationSearchSchema.parse({ searchTerm });
     if (!Number.isInteger(pageNumber) || pageNumber < 1) throw new Error('Trang vị trí không hợp lệ.');
-    return receivingLocationsSchema.parse(unwrap(await api.get<ApiResponse<unknown>>('/goods-receipts/receiving-locations', {
-      params: { warehouseId, ...parsed, pageNumber, ...(forDamageIsolation ? { forDamageIsolation: true } : {}) }, signal,
+    const result = receivingLocationsSchema.parse(unwrap(await api.get<ApiResponse<unknown>>('/goods-receipts/receiving-locations', {
+      params: { warehouseId, ...parsed, pageNumber, ...(forDamageIsolation ? { forDamageIsolation: true } : {}), ...(forPutAway ? { forPutAway: true } : {}) }, signal,
     })));
+    if (forPutAway && result.items.some(item => item.isPutAwayLocation !== true))
+      throw new Error('Máy chủ chưa hỗ trợ danh sách vị trí cất an toàn. Cần cập nhật BE trước khi cất hàng trên mobile.');
+    return result;
   },
   create: async (body: z.infer<typeof createReceiptCommandSchema>, assertCurrentContext: () => void) =>
     guid.parse(unwrap(await api.post<ApiResponse<unknown>>('/goods-receipts', normalizeLines(createReceiptCommandSchema.parse(body)), guarded(assertCurrentContext)))),
@@ -65,6 +74,13 @@ export const receivingApi = {
   },
   submit: async (receiptId: string, body: z.infer<typeof submitReceiptCommandSchema>, assertCurrentContext: () => void) => {
     guid.parse(receiptId);
+    if (body.documentEvidenceIds?.length) {
+      assertCurrentContext();
+      const detail = unwrap(await api.get<ApiResponse<unknown>>(`/goods-receipts/${receiptId}`));
+      assertCurrentContext();
+      if (!z.object({ documentEvidence: z.array(evidenceSchema) }).safeParse(detail).success)
+        throw new Error('Máy chủ chưa hỗ trợ lưu ảnh phiếu giao hàng. Phiếu vẫn là nháp; cập nhật BE trước khi gửi kèm ảnh.');
+    }
     return unwrap(await api.post<ApiResponse<unknown>>(`/goods-receipts/${receiptId}/submit`, submitReceiptCommandSchema.parse(body), guarded(assertCurrentContext)));
   },
   putAway: async (receiptId: string, body: z.infer<typeof putAwayCommandSchema>, assertCurrentContext: () => void) => {

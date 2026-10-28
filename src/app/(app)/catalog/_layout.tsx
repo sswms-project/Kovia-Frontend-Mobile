@@ -4,6 +4,7 @@ import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useMe } from '@/features/auth/hooks/use-me';
 import { USER_ROLES } from '@/config/roles';
+import { ScreenExitBoundary } from '@/providers/screen-exit-boundary';
 
 export default function LookupLayout() {
   const theme = useTheme();
@@ -11,6 +12,7 @@ export default function LookupLayout() {
 
   return (
     <Stack
+      screenLayout={({ children }) => <ScreenExitBoundary>{children}</ScreenExitBoundary>}
       screenOptions={{
         headerStyle: { backgroundColor: theme.background },
         headerTintColor: theme.primary,

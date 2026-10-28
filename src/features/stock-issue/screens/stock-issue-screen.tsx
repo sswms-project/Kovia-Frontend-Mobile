@@ -1,4 +1,5 @@
-import { router } from 'expo-router';
+import { WorkCompletionActions } from '@/components/work-completion-actions';
+import { useExitProtection, useModalExit, useScreenSubtitle } from '@/hooks/use-screen-exit';
 import { useCallback } from 'react';
 import { FlatList, Modal, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,20 +23,23 @@ import type { StockIssueItem } from '../stock-issue.schema';
 
 export function StockIssueScreen({ documentId }: { readonly documentId: string }) {
   const state = useStockIssue(documentId);
+  useScreenSubtitle(state.canView ? state.detail.data?.stockIssueRequestCode : undefined);
+  const closeEditor = useModalExit(state.closeEditor);
   const report = usePickIssueReport(documentId, state);
   const theme = useTheme();
   const busy = state.mutation.isPending || report.mutation.isPending || report.active;
+  useExitProtection(() => ({ busy: state.mutation.isPending || report.mutation.isPending }));
   const canPick = state.allowed('Pick') && state.permission(P.STOCK_ISSUE_REQUESTS_PICK);
   const renderItem = useCallback(({ item }: { item: StockIssueItem }) => <StockIssueItemCard item={item} canPick={canPick}
     busy={busy} onPick={state.beginPick} onReport={report.open} />, [canPick, busy, state.beginPick, report.open]);
   const error = state.detail.error ?? state.actions.error;
   const pending = state.detail.data ? outstandingPicks(state.detail.data) : [];
-  return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+  return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
     <FlatList data={state.canView ? state.detail.data?.items ?? [] : []} keyExtractor={item => item.id} renderItem={renderItem}
       contentContainerStyle={styles.content} refreshing={state.detail.isFetching || state.actions.isFetching}
       onRefresh={() => { void state.refresh(); }} ItemSeparatorComponent={Separator}
       ListHeaderComponent={<View style={styles.header}>
-        <Button label="Về công việc" variant="outline" onPress={() => router.back()} disabled={busy} />
+        <WorkCompletionActions visible={!busy && !state.detail.isFetching && !state.detail.isError && state.detail.data?.status === 'Dispatched'} message={'Đã hoàn tất xuất hàng.'} />
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{state.canView ? state.detail.data?.stockIssueRequestCode ?? 'Phiếu xuất được giao' : 'Chưa thể mở phiếu xuất'}</Text>
         {!state.canView ? <AlertBanner title={state.validId ? 'Chọn kho được giao và kiểm tra quyền xem phiếu xuất.' : 'Mã phiếu xuất không hợp lệ.'} /> : <>
           {state.detail.isPending && <AlertBanner title="Đang tải phiếu xuất…" />}
@@ -55,7 +59,7 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
         </>}
         <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
       </View>} />
-    <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : state.closeEditor}>
+    <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : closeEditor}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>{state.editor && <PickingEditor
         key={`${state.contextKey}:${state.editor.item.id}:${state.form.getValues('inventoryStockId')}`}
         item={state.editor.item} slotCode={state.editor.slotCode} destinationPath={state.editor.destinationPath} form={state.form} busy={busy} notice={state.notice}

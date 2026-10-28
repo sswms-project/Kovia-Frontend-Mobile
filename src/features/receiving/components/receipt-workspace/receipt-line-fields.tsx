@@ -23,6 +23,7 @@ export function parseQuantity(value: string) { return value.trim() ? Number(valu
 export function quantityInput(value: number) { return Number.isFinite(value) ? String(value) : ''; }
 export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, item, correction, legacy, busy, onRemove }: ReceiptLineFieldsProps) {
   const theme = useTheme();
+  const [expanded, setExpanded] = useState(true);
   const sku = item.productSKU;
   const receivedQty = useWatch({ control: form.control, name: `lines.${index}.receivedQty` });
   const baseQty = Number.isFinite(receivedQty) ? receivedQty : 0;
@@ -35,13 +36,15 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
   const unitName = useWatch({ control: form.control, name: `lines.${index}.enteredUnitId` }) === item.enteredUnitId ? item.enteredUnitName : item.baseUnitName;
   return <View style={[styles.card, { borderColor: theme.border, backgroundColor: theme.card }]}>
     <View style={styles.header}>
-      <View style={styles.headerText}>
+      <Pressable style={styles.headerText} accessibilityRole="button"
+        accessibilityLabel={`${expanded ? 'Thu gọn' : 'Mở chi tiết'} nhận ${sku}`}
+        accessibilityState={{ expanded }} onPress={() => setExpanded(value => !value)}>
         <Text style={[styles.sku, { color: theme.textSecondary }]}>{sku}</Text>
         <Text style={[styles.name, { color: theme.text }]} numberOfLines={2}>{item.productName}</Text>
-        {!correction && <Text style={[styles.text, { color: theme.textSecondary }]}>Còn được nhận: {item.remainingQuantity} {item.baseUnitName}</Text>}
-      </View>
-      {!correction && <ScanCodeButton compact continuous label={baseQty > 0 ? `Quét đếm · ${baseQty}` : 'Quét đếm'}
-        title={`Quét mã ${sku}`} status={`Đã quét: ${scanned} ${unitName} · Chấp nhận sau xác nhận: ${baseQty + scanned}`} disabled={busy}
+        <Text style={[styles.text, { color: theme.primary }]}>{expanded ? 'Thu gọn ▴' : 'Mở chi tiết ▾'}</Text>
+      </Pressable>
+      {expanded && !correction && <ScanCodeButton compact continuous label={baseQty > 0 ? `Quét đếm · ${baseQty}` : 'Quét đếm'}
+        title={`Quét mã ${sku}`} status={`Đã quét: ${scanned} ${unitName} · Số lượng thực nhận sau xác nhận: ${baseQty + scanned}`} disabled={busy}
         onOpen={() => setScanCount(0)}
         onScan={code => {
           if (code.trim().toLowerCase() !== sku.trim().toLowerCase()) return false;
@@ -53,10 +56,12 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
           setScanCount(0);
         } }}
         onBeforeClose={() => scanCount.current === 0 || new Promise<boolean>(resolve => Alert.alert('Bỏ lượt quét?',
-          `${scanCount.current} ${unitName} đã quét chưa được xác nhận sẽ không được cộng vào Chấp nhận.`,
+          `${scanCount.current} ${unitName} đã quét chưa được xác nhận sẽ không được cộng vào Số lượng thực nhận.`,
           [{ text: 'Quét tiếp', style: 'cancel', onPress: () => resolve(false) }, { text: 'Bỏ', style: 'destructive', onPress: () => { setScanCount(0); resolve(true); } }],
           { cancelable: true, onDismiss: () => resolve(false) }))} />}
     </View>
+    {!correction && <Text style={[styles.text, { color: theme.textSecondary }]}>Còn được nhận: {`${item.remainingQuantity}\u00a0${item.baseUnitName.replace(/ /g, '\u00a0')}`}</Text>}
+    {expanded && <>
     {units.length > 1 && <Controller control={form.control} name={`lines.${index}.enteredUnitId`} render={({ field }) =>
       <View accessibilityRole="radiogroup" accessibilityLabel={`Đơn vị nhận ${sku}`} style={[styles.segment, { borderColor: theme.border }]}>
         {units.map(unit => { const active = field.value === unit.id; return <Pressable key={unit.id} accessibilityRole="radio"
@@ -66,20 +71,26 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
           <Text style={[styles.segmentLabel, { color: active ? theme.onPrimary : theme.text }]}>{unit.name}</Text>
         </Pressable>; })}
       </View>} />}
+    <View style={styles.quantityGroup}>
+    <View style={styles.row}>
+      <Text style={[styles.quantityLabel, { color: theme.text }]}>{`Số lượng thực nhận (${unitName})`}</Text>
+      <Text style={[styles.quantityLabel, { color: theme.text }]}>{`${correction || legacy ? 'Hỏng' : 'Từ chối'} (${unitName})`}</Text>
+    </View>
     <View style={styles.row}>
       <View style={styles.cell}><Controller control={form.control} name={`lines.${index}.receivedQty`} render={({ field, fieldState }) => <TextField
-        label={legacy ? `Thực nhận (${unitName})` : `Chấp nhận (${unitName})`} accessibilityLabel={`${legacy ? 'Số thực nhận lịch sử' : 'Số chấp nhận nhận'} ${sku}`}
+        hideLabel label={`Số lượng thực nhận (${unitName})`} accessibilityLabel={`Số lượng thực nhận ${sku}`}
         value={quantityInput(field.value)} onChangeText={value => field.onChange(parseQuantity(value))} placeholder="0"
         onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy && !correction} keyboardType="decimal-pad" />} /></View>
       {!correction && !legacy && <View style={styles.cell}><Controller control={form.control} name={`lines.${index}.rejectedQty`} render={({ field, fieldState }) => <TextField
-        label={`Từ chối (${unitName})`} accessibilityLabel={`Số từ chối trước nhận ${sku}`} value={quantityInput(field.value)} placeholder="0"
+        hideLabel label={`Từ chối (${unitName})`} accessibilityLabel={`Số từ chối trước nhận ${sku}`} value={quantityInput(field.value)} placeholder="0"
         onChangeText={value => field.onChange(parseQuantity(value))} onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy} keyboardType="decimal-pad" />} /></View>}
       {(correction || legacy) && <View style={styles.cell}><Controller control={form.control} name={`lines.${index}.damagedQty`} render={({ field, fieldState }) => <TextField
-        label={`Hỏng (${unitName})`} accessibilityLabel={`Số hỏng ${sku}`} value={quantityInput(field.value)} placeholder="0"
+        hideLabel label={`Hỏng (${unitName})`} accessibilityLabel={`Số hỏng ${sku}`} value={quantityInput(field.value)} placeholder="0"
         onChangeText={value => field.onChange(parseQuantity(value))} onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy} keyboardType="decimal-pad" />} /></View>}
     </View>
+    </View>
     <Text style={[styles.hint, { color: theme.textSecondary }]}>{correction ? 'Hàng đã nhận được giữ nguyên; chỉ sửa phân loại.'
-      : legacy ? 'Nhập số đã kiểm đếm thực tế theo đơn vị đang chọn.' : 'Từ chối: phần bên giao mang về, không vào tồn kho. Từ chối toàn bộ thì nhập 0 ở Chấp nhận.'}</Text>
+      : legacy ? 'Nhập số đã kiểm đếm thực tế theo đơn vị đang chọn.' : 'Từ chối: phần bên giao mang về, không vào tồn kho. Từ chối toàn bộ thì nhập 0 ở Số lượng thực nhận.'}</Text>
     {item.isLotTracked && <>
       <Controller control={form.control} name={`lines.${index}.lotNumber`} render={({ field, fieldState }) => <TextField
         label="Số lô" accessibilityLabel={`Số lô ${sku}`} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur}
@@ -99,12 +110,13 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
       label="Tình trạng hàng" accessibilityLabel={`Tình trạng hàng ${sku}`} placeholder="Móp, rách bao bì, sai quy cách… (nếu có)"
       value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy} multiline maxLength={501} />} />
     {!correction && <Button label="Bỏ dòng này" accessibilityLabel={`Bỏ nhận ${sku} lần này`} variant="ghost" disabled={busy} onPress={onRemove} />}
+    </>}
   </View>;
 });
 const styles = StyleSheet.create({
   card: { padding: 16, borderWidth: 1, borderRadius: Radius.lg, gap: 12 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  headerText: { flex: 1, gap: 2 },
+  headerText: { flex: 1, gap: 2, minHeight: 44 },
   sku: { fontFamily: FontFamily.semibold, fontSize: 12, lineHeight: 16, letterSpacing: 0.5 },
   name: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 22 },
   text: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 18 },
@@ -113,6 +125,8 @@ const styles = StyleSheet.create({
   segmentLabel: { fontFamily: FontFamily.semibold, fontSize: 14, lineHeight: 20 },
   inactive: { opacity: 0.5 },
   row: { flexDirection: 'row', gap: 12 },
+  quantityGroup: { gap: 6 },
+  quantityLabel: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 13, lineHeight: 19 },
   cell: { flex: 1 },
   hint: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 17, marginTop: -4 },
 });

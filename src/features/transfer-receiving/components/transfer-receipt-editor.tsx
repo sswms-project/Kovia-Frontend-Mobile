@@ -11,6 +11,8 @@ import { TextField } from '@/components/ui/text-field';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useFormDraft } from '@/hooks/use-form-draft';
+import { useExitProtection, useModalExit } from '@/hooks/use-screen-exit';
+import { WorkScreenHeader } from '@/components/work-screen-header';
 import { P } from '@/config/permission-codes';
 import { StagingPointField } from '@/features/warehouse-access/components/staging-point-field';
 import { ScanCodeButton } from '@/features/scanner/components/scan-code-button';
@@ -31,7 +33,8 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
   readonly state: ReturnType<typeof useTransferReceiving>; readonly transferId: string; readonly shipmentId: string; readonly mode: TransferReceivingMode;
   readonly children: (controls: ReactNode) => ReactNode;
 }) {
-  const execution = useTransferReceiptExecution(state, transferId, shipmentId);
+  const persistence = useRef<ReturnType<typeof useFormDraft> | null>(null);
+  const execution = useTransferReceiptExecution(state, transferId, shipmentId, persistence);
   const theme = useTheme();
   const form = useForm<TransferReceiptDraft>({ resolver: zodResolver(transferReceiptDraftSchema), defaultValues: {
     action: 'Start', counts: {}, scan: '', damageScan: '', productScan: '', putQuantity: '', note: '',
@@ -62,10 +65,14 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
   const staged = (data?.receipt.outboundStagingFlowVersion ?? 0) > 0;
   const receivingSlotId = receivingChoice || data?.receipt.stagingPoints?.suggestedSlotId || '';
   const receivingPoint = data?.receipt.stagingPoints?.items.find(point => point.slotId === receivingSlotId);
-  const draft = useFormDraft({ form, feature: putRow ? 'transfer-putaway' : 'transfer-receipt', documentId: `${transferId}:${shipmentId}`,
-    lineId: putRow ? countKey(putRow.lineId, putRow.lotId) : undefined, version,
-    enabled: open && state.canView && !!state.access.profile.data?.permissions.includes(P.TRANSFERS_RECEIVE), assertCurrent: () => execution.assertCurrent(version) });
+  const draft = useFormDraft({ form, feature: mode === 'PutAway' ? 'transfer-putaway' : 'transfer-receipt', documentId: `${transferId}:${shipmentId}`,
+    lineId: open && putRow ? countKey(putRow.lineId, putRow.lotId) : undefined, version: open ? version : execution.target?.body.expectedVersion,
+    enabled: (open || !!execution.target) && state.canView && !!state.access.profile.data?.permissions.includes(P.TRANSFERS_RECEIVE),
+    assertCurrent: () => execution.assertCurrent(open ? version : execution.target?.body.expectedVersion ?? '') });
+  useEffect(() => { persistence.current = draft; });
   const busy = execution.mutation.isPending;
+  useExitProtection(() => ({ busy, dirty: !open && form.formState.isDirty, discard: async () => { form.reset(); } }));
+  const close = useModalExit(() => { setOpen(false); execution.cancel(); });
   const lots = data?.receipt.lines.flatMap(line => line.lots.map(lot => ({ line, lot, key: countKey(line.lineId, lot.lotId) }))) ?? [];
   const hasDamage = lots.some(row => actual(counts[row.key]?.damaged ?? '0') > 0);
   const scanLocation = (selected: TransferExecutionSlot | null, onChange: (code: string) => void) => <ScanCodeButton compact
@@ -156,8 +163,9 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
     {mode === 'PutAway' && data.receipt.status === 'AwaitingPutAway' && data.putAway?.rows.filter(row => row.remainingQuantity > 0).map(row =>
       <Button key={countKey(row.lineId, row.lotId)} label={`Cất ${row.sku} · lô ${row.lotNumber ?? 'không có'}`} variant="outline" disabled={!execution.allowed('PutAway') || busy} onPress={() => openPutAway(row)} />)}
     </View>)}
-    <Modal visible={open} animationType="slide" onRequestClose={busy ? undefined : () => setDiscard(true)}>
+    <Modal visible={open} animationType="slide" onRequestClose={busy ? undefined : close}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+        <WorkScreenHeader modal title={putRow ? 'Cất hàng điều chuyển' : 'Nhận hàng điều chuyển'} onBack={close} />
         <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <FlatList style={styles.root} data={putRow ? [] : lots} keyExtractor={row => row.key} contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled" ListHeaderComponent={<View style={styles.section}>
@@ -201,14 +209,14 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
             </>}
             <Button label="Kiểm tra trước khi xác nhận" disabled={!execution.allowed(putRow ? 'PutAway' : 'Submit') || busy}
               onPress={() => { void form.handleSubmit(review, () => setError('Dữ liệu chưa hợp lệ. Kiểm tra số thực tế và mã xác nhận.'))(); }} />
-            <Button label="Đóng biểu mẫu" variant="outline" disabled={busy} onPress={() => setDiscard(true)} />
+            <Button label="Đóng biểu mẫu" variant="outline" disabled={busy} onPress={close} />
           </View>} />
         </KeyboardAvoidingView>
         <ConfirmationModal visible={!!execution.target && execution.target.action !== 'Start'} title="Xác nhận đã thực hiện thực tế?"
           description={putRow ? 'Chỉ xác nhận số lượng đã cất đúng vị trí, lô và mã sản phẩm.' : keep ? 'Xác nhận số thực nhận đã kiểm. Hàng đạt ở khu nhận có thể được phân bổ FEFO ngay; hàng hỏng đã đặt cách biệt và vẫn bị Hold.' : 'Xác nhận số thực nhận đã kiểm. Hàng đạt tiếp tục chờ cất; hàng hỏng đã cách biệt và vẫn bị Hold.'}
-          busy={busy} error={execution.mutation.error} onConfirm={() => { void draft.beforeSubmit().then(() => execution.confirm()).then(async success => { if (success) { await draft.clear(); setOpen(false); } }).catch(failure => setError(failure instanceof Error ? failure.message : 'Chưa lưu được trạng thái gửi.')); }} onCancel={execution.cancel} />
+          busy={busy} error={execution.mutation.error} onConfirm={() => { void execution.confirm().then(success => { if (success) setOpen(false); }); }} onCancel={execution.cancel} />
         <ConfirmationModal visible={discard} title="Bỏ thay đổi chưa lưu?" description="Dữ liệu nhập trong biểu mẫu chưa được lưu. Bạn có muốn đóng?"
-          busy={busy} onConfirm={() => { void draft.clear(); setOpen(false); setDiscard(false); execution.cancel(); }} onCancel={() => setDiscard(false)} />
+          busy={busy} onConfirm={() => { void draft.discardAndClose(() => { setOpen(false); setDiscard(false); execution.cancel(); }); }} onCancel={() => setDiscard(false)} />
       </SafeAreaView>
     </Modal>
     <ConfirmationModal visible={!open && (execution.target?.action === 'Start' || execution.target?.action === 'Resume')}

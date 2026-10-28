@@ -1,3 +1,4 @@
+import { useExitProtection, useModalExit } from '@/hooks/use-screen-exit';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Crypto from 'expo-crypto';
@@ -42,15 +43,12 @@ export function useDiscrepancyComposer(source: Source, report?: Discrepancy, onR
   const busy = sending || photos.isUploading;
   const draft = useFormDraft({ form, feature: 'discrepancy', documentId: source.id, version: draftVersion,
     enabled: open && !report && context.canReport, assertCurrent: assert });
-  function close() {
+  useExitProtection(() => ({ busy }));
+  const close = useModalExit(() => {
     if (lock.current || photos.isUploading) return;
-    void draft.clear();
     active.current = null; photos.reset(); setOpen(false); setDiscard(false);
-  }
-  function requestClose() {
-    if (busy) return;
-    if (form.formState.isDirty || photos.photos.length || frozen) setDiscard(true); else close();
-  }
+  });
+  const requestClose = close;
   function begin() {
     try {
       context.assertCurrentContext(); active.current = context.assertCurrentContext;
@@ -93,8 +91,12 @@ export function useDiscrepancyComposer(source: Source, report?: Discrepancy, onR
             evidenceIds: photos.photos.map((photo) => photo.id), commandId: Crypto.randomUUID(), ...(correctSlotId ? { correctSlotId } : {}) });
         }
         setFrozen(true);
-        await draft.beforeSubmit();
-        resultId = await discrepanciesApi.create(command.current, assert);
+        const sending = command.current;
+        const commandId = sending.commandId;
+        if (!commandId) throw new Error('Chưa có mã lệnh báo sai lệch.');
+        resultId = await draft.execute({ operation: 'ReportDiscrepancy', commandId, content: JSON.stringify(sending),
+          documentId: source.id, expectedVersion: draftVersion ?? '' }, () => discrepanciesApi.create(sending, assert),
+        () => { command.current = null; setFrozen(false); });
       }
       assert();
       const selection = useWarehouseSelection.getState();
@@ -102,11 +104,11 @@ export function useDiscrepancyComposer(source: Source, report?: Discrepancy, onR
       void client.invalidateQueries({ queryKey: ['notifications'] });
       void client.invalidateQueries({ queryKey: ['audit-logs'] });
       toast.success(report ? 'Đã bổ sung bằng chứng. Báo cáo chờ xem xét lại.' : 'Đã ghi nhận báo cáo sai lệch tồn kho để xem xét. Số lượng tồn chưa thay đổi.');
-      if (!report) await draft.clear();
+      if (!report) await draft.clear(true);
       active.current = null; photos.reset(); setOpen(false); onReported?.(resultId);
     } catch (failure) {
       logApiError(failure); setError(getApiErrorMessage(failure));
-    } finally { lock.current = false; setSending(false); }
+    } finally { draft.settled(); lock.current = false; setSending(false); }
   }
   return { ...context, open, discard, setDiscard, begin, close, requestClose, busy, frozen, error, photos, form,
     submit: report ? () => { void submit(); } : () => { void form.handleSubmit(submit)(); } };

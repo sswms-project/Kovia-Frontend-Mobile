@@ -56,8 +56,9 @@ export function useStockIssue(documentId: string) {
       throw new Error('Kho, tài khoản hoặc quyền đã thay đổi. Vui lòng mở lại công việc.');
   }
   const draft = useFormDraft({ form, feature: 'issue-pick', documentId, lineId: editor ? `${editor.item.id}:${form.getValues('inventoryStockId')}` : undefined,
-    version: editor?.version, enabled: editor?.key === contextKey && permission(P.STOCK_ISSUE_REQUESTS_PICK),
-    assertCurrent: () => { assertCurrent(P.STOCK_ISSUE_REQUESTS_PICK); if (detail.data?.version !== editor?.version) throw new Error('Phiếu xuất đã thay đổi.'); } });
+    version: editor?.version ?? target?.version, enabled: (editor?.key === contextKey || target?.key === contextKey) && canView,
+    assertCurrent: () => { assertCurrent(target?.action === 'Dispatch' ? P.STOCK_ISSUE_REQUESTS_DISPATCH : P.STOCK_ISSUE_REQUESTS_PICK);
+      if (detail.data?.version !== (editor?.version ?? target?.version)) throw new Error('Phiếu xuất đã thay đổi.'); } });
   const mutation = useMutation<unknown, Error, Target>({ retry: false, mutationFn: async (original: Target) => {
     const permissionCode = original.action === 'Pick' ? P.STOCK_ISSUE_REQUESTS_PICK : P.STOCK_ISSUE_REQUESTS_DISPATCH;
     const assertCurrentContext = () => {
@@ -67,19 +68,22 @@ export function useStockIssue(documentId: string) {
     };
     assertCurrentContext();
     if (original.action === 'Pick') {
-      await draft.beforeSubmit();
       const values = pickFormSchema.parse(original.values);
       assertPick(values, detail.data!);
       const body = { items: [values], expectedVersion: original.version };
       command.current = warehouseCommand(command.current, { documentId, action: original.action, ...body });
-      return stockIssueApi.pick(documentId, { ...body, commandId: command.current.commandId }, assertCurrentContext);
+      const sending = { ...body, commandId: command.current.commandId };
+      return draft.execute({ operation: 'Pick', ...command.current, documentId, expectedVersion: original.version },
+        () => stockIssueApi.pick(documentId, sending, assertCurrentContext), () => { command.current = null; });
     }
     const body = { pickDetailIds: original.pickDetailIds ?? [], expectedVersion: original.version };
     command.current = warehouseCommand(command.current, { documentId, action: original.action, ...body });
-    return stockIssueApi.dispatch(documentId, { ...body, commandId: command.current.commandId }, assertCurrentContext);
-  }, onError: logApiError, onSuccess: async (_, original) => {
+    const sending = { ...body, commandId: command.current.commandId };
+    return draft.execute({ operation: 'Dispatch', ...command.current, documentId, expectedVersion: original.version },
+      () => stockIssueApi.dispatch(documentId, sending, assertCurrentContext), () => { command.current = null; });
+  }, onSettled: () => draft.settled(), onError: logApiError, onSuccess: async (_, original) => {
     if (original.key !== contextKey) return;
-    if (original.action === 'Pick') await draft.clear();
+    await draft.clear(true);
     setTarget(null); setEditor(null); setDispatchSelection(null); form.reset();
     setNotice(original.action === 'Pick' ? 'Đã ghi nhận lấy hàng vào khu chờ xuất. Tổng tồn kho không đổi.'
       : 'Đã xác nhận phần hàng thực tế rời kho. Phần còn lại tiếp tục được theo dõi.');
@@ -152,7 +156,7 @@ export function useStockIssue(documentId: string) {
     target: target?.key === contextKey && target.version === detail.data?.version && allowed(target.action) ? target : null,
     discard, setDiscard, beginPick, reviewPick, beginDispatch, confirm,
     refresh: async () => { await client.invalidateQueries({ queryKey: prefix }); },
-    closeEditor: () => { if (!lock.current) { if (form.formState.isDirty) setDiscard(true); else setEditor(null); } },
-    discardChanges: () => { if (!lock.current) { void draft.clear(); setEditor(null); setDiscard(false); form.reset(); } },
+    closeEditor: () => { if (!lock.current) { setEditor(null); setTarget(null); } },
+    discardChanges: () => { if (!lock.current) { void draft.discardAndClose(() => { setEditor(null); setDiscard(false); form.reset(); }); } },
     cancelConfirmation: () => { if (!lock.current) setTarget(null); } };
 }

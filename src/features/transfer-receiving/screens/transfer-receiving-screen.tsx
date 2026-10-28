@@ -1,3 +1,5 @@
+import { WorkCompletionActions } from '@/components/work-completion-actions';
+import { useScreenSubtitle } from '@/hooks/use-screen-exit';
 import { router } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
@@ -27,6 +29,7 @@ export function TransferReceivingScreen({ transferId, shipmentId, mode }: {
   const state = useTransferReceiving(transferId, shipmentId, mode);
   const theme = useTheme();
   const data = state.data;
+  useScreenSubtitle(data?.receipt.transferCode);
   const rows = useMemo(() => {
     const result: Row[] = [];
     if (!data) return result;
@@ -54,12 +57,14 @@ export function TransferReceivingScreen({ transferId, shipmentId, mode }: {
   const otherAssigned = data && (mode === 'Receive' ? data.shipment.putAwayTaskId && data.shipment.putAwayAssigneeId === state.access.profile.data?.id
     : data.shipment.receiveTaskId && data.shipment.receiveAssigneeId === state.access.profile.data?.id);
   // Web modals preserve React context; own them outside FlatList so their lists scroll independently.
-  return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
+  return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
     <TransferReceiptEditor key={JSON.stringify([state.access.selection.identity, state.access.selection.warehouseId, state.access.selection.revision, state.access.selection.signature, transferId, shipmentId, mode])}
       state={state} transferId={transferId} shipmentId={shipmentId} mode={mode}>
     {controls => <FlatList data={rows} renderItem={renderRow} keyExtractor={row => row.key} ItemSeparatorComponent={Separator}
       contentContainerStyle={styles.content} refreshing={state.detail.isFetching} onRefresh={() => { void state.refresh(); }}
       ListHeaderComponent={<View style={styles.header}>
+        <WorkCompletionActions visible={!state.detail.isFetching && !state.detail.isError &&
+          (mode === 'Receive' ? data?.shipment.receiveTaskStatus : data?.shipment.putAwayTaskStatus) === 'Completed'} message="Đã hoàn tất bước điều chuyển được giao." />
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{mode === 'Receive' ? 'Phiếu nhận điều chuyển' : 'Phiếu cất điều chuyển'}</Text>
         {!state.validId && <AlertBanner variant="destructive" title="Liên kết điều chuyển không hợp lệ." />}
         {!state.canView && <>
