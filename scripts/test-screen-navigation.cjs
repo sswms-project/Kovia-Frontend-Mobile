@@ -110,7 +110,7 @@ function boundaryFixture({ canGoBack = false, missingOwner = false, deepLink = f
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
 function securityFixture({ loading = false, dirty = false, busy = false } = {}) {
-  const f = boundaryFixture(); const exit = f.render();
+  const f = boundaryFixture({ canGoBack: true }); const exit = f.render();
   const jsx = (type, props) => ({ type, props });
   const { default: SecurityScreen } = load('src/app/(account)/security.tsx', {
     'react/jsx-runtime': { jsx, jsxs: jsx },
@@ -128,25 +128,26 @@ function securityFixture({ loading = false, dirty = false, busy = false } = {}) 
   return { ...f, screen: SecurityScreen() };
 }
 
-test('Security profile button lets beforeRemove guard the queued replacement exactly once in loading and loaded states', async () => {
+test('Security uses header Back without an in-content Profile exit in loading and loaded states', async () => {
   for (const loading of [true, false]) {
-    const f = securityFixture({ loading }); f.screen.props.onBack(); await tick();
-    assert.equal(f.render().leaving, false); assert.equal(f.queued.length, 1);
-    f.remove(f.queued.shift()); await tick();
-    assert.equal(f.actions.length, 1); assert.equal(f.actions[0].payload.route, '/profile');
+    const f = securityFixture({ loading });
+    assert.equal(f.screen.props.onBack, undefined); assert.equal(f.screen.props.backLabel, undefined);
+    f.render().back(); await tick();
+    assert.equal(f.queued.length, 0); assert.equal(f.wrapperActions.length, 0);
+    assert.deepEqual(f.actions, [{ type: 'GO_BACK' }]);
     assert.equal(f.alerts.length, 0); f.cleanup();
   }
 });
 
-test('Security profile replacement still protects dirty forms and pending writes', async () => {
+test('Security header Back still protects dirty forms and pending writes', async () => {
   for (const busy of [false, true]) {
-    const f = securityFixture({ dirty: true, busy }); f.screen.props.onBack();
-    f.remove(f.queued.shift()); await tick();
+    const f = securityFixture({ dirty: true, busy }); f.render().back();
+    await tick();
     assert.equal(f.actions.length, 0); assert.equal(f.alerts.length, 1);
     if (!busy) { f.alerts[0].buttons[0].onPress(); await tick(); }
     assert.equal(f.render().leaving, false); f.cleanup();
   }
-  const f = securityFixture({ dirty: true }); f.screen.props.onBack(); f.remove(f.queued.shift()); await tick();
+  const f = securityFixture({ dirty: true }); f.render().back(); await tick();
   f.alerts[0].buttons.find(button => /Bỏ/.test(button.text)).onPress(); await tick();
   assert.equal(f.actions.length, 1); assert.equal(f.alerts.length, 1); f.cleanup();
 });
