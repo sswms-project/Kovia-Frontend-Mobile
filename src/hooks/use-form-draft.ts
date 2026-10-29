@@ -7,7 +7,7 @@ import * as Crypto from 'expo-crypto';
 import { useAuth } from '@/features/auth/auth.store';
 import { useWarehouseSelection } from '@/features/warehouse-access/warehouse-access.store';
 import { API_BASE_URL } from '@/lib/api';
-import { getApiErrorMessage, isApiErrorResponse } from '@/lib/api-error';
+import { getApiErrorMessage, isApiErrorResponse, WorkflowBlockedError } from '@/lib/api-error';
 import { formDraftStorage, type PendingOperation } from '@/lib/form-draft-storage';
 import { useExitProtection } from './use-screen-exit';
 
@@ -119,7 +119,7 @@ export function useFormDraft<T extends FieldValues>(options: Options<T>) {
   const draft = {
     beforeSubmit: async (command?: PendingCommand, resolvedPrevious = false) => {
       if (!latest.current.version && !command) throw new Error('Chưa có phiên bản hoặc mã lệnh để bảo toàn kết quả gửi.');
-      if (!ready.current) throw new Error('Đang kiểm tra bản nháp. Vui lòng hoàn tất bước khôi phục trước khi gửi.');
+      if (!ready.current) throw new WorkflowBlockedError('Đang kiểm tra bản nháp. Vui lòng hoàn tất bước khôi phục trước khi gửi.');
       const unresolved = await formDraftStorage.pending(scope);
       const fingerprint = command ? await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, command.content) : undefined;
       if (unresolved.some(value => !(resolvedPrevious && value.scope === scope) && (!command ||

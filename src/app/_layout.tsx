@@ -20,6 +20,7 @@ import { useAuth } from '@/features/auth/auth.store';
 import { OfflineBanner } from '@/components/ui/offline-banner';
 import { WarehouseSessionProvider } from '@/features/warehouse-access/components/warehouse-session-provider';
 import { QueryProvider } from '@/providers/query-provider';
+import { ScanFeedbackProvider } from '@/providers/scan-feedback-provider';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -64,23 +65,25 @@ export default function RootLayout() {
         <ThemeProvider value={navigationTheme}>
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
           <BottomSheetModalProvider>
-            <WarehouseSessionProvider signedIn={signedIn}>
-              <View style={styles.root}>
-                <OfflineBanner />
-                <Stack screenOptions={{ headerShown: false, animation: reduceMotion ? 'none' : 'default' }}>
-                  <Stack.Protected guard={signedIn}>
-                    <Stack.Screen name="(app)" />
-                    <Stack.Screen name="(account)" />
-                    <Stack.Screen name="notifications" options={{ presentation: 'transparentModal', animation: reduceMotion ? 'none' : 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }} />
-                    <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
-                  </Stack.Protected>
-                  <Stack.Protected guard={!signedIn}>
-                    <Stack.Screen name="(auth)" />
-                  </Stack.Protected>
-                  <Stack.Screen name="auth" />
-                </Stack>
-              </View>
-            </WarehouseSessionProvider>
+            <ScanFeedbackProvider>
+              <WarehouseSessionProvider signedIn={signedIn}>
+                <View style={styles.root}>
+                  <OfflineBanner />
+                  <Stack screenOptions={{ headerShown: false, animation: reduceMotion ? 'none' : 'default' }}>
+                    <Stack.Protected guard={signedIn}>
+                      <Stack.Screen name="(app)" />
+                      <Stack.Screen name="(account)" />
+                      <Stack.Screen name="notifications" options={{ presentation: 'transparentModal', animation: reduceMotion ? 'none' : 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }} />
+                      <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
+                    </Stack.Protected>
+                    <Stack.Protected guard={!signedIn}>
+                      <Stack.Screen name="(auth)" />
+                    </Stack.Protected>
+                    <Stack.Screen name="auth" />
+                  </Stack>
+                </View>
+              </WarehouseSessionProvider>
+            </ScanFeedbackProvider>
           </BottomSheetModalProvider>
           <Toaster />
         </ThemeProvider>

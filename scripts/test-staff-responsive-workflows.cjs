@@ -51,6 +51,202 @@ function hooks() {
   };
 }
 
+function pickingScanFixture({ barcode = 'BAR-A', factor = 10, maximum = 20 } = {}) {
+  const runtime = hooks(); let disabled = false;
+  const source = { inventoryStockId: 'stock-A', slotId: randomUUID(), slotCode: '__SYSTEM_DEFAULT__', rackCode: 'A04', zoneCode: 'K01',
+    reservedQuantity: maximum, isSystemDefaultSlot: false };
+  const item = { sku: 'SKU-A', barcode, productName: 'Hàng A', quantity: maximum, pickedQuantity: 0,
+    enteredUnitName: 'Hộp', conversionFactor: factor, pickLocations: [source] };
+  const form = { values: { inventoryStockId: source.inventoryStockId, scannedSlotCode: '', scannedBarcode: '', pickedQuantity: Number.NaN },
+    control: {}, formState: { errors: {} }, getValues(name) { return name ? this.values[name] : this.values; },
+    setValue(name, value) { this.values[name] = value; } };
+  const scanner = load('src/features/scanner/warehouse-scan.ts', {});
+  const labels = load('src/features/inventory/inventory.labels.ts', { '@/lib/number-format': load('src/lib/number-format.ts'),
+    './inventory.types': load('src/features/inventory/inventory.types.ts') });
+  const rules = load('src/features/stock-issue/stock-issue.ts', { '@/features/inventory/inventory.labels': labels, '@/features/scanner/warehouse-scan': scanner });
+  const { usePickingScan } = load('src/features/stock-issue/hooks/use-picking-scan.ts', { react: runtime.react,
+    'react-hook-form': { useWatch: () => form.values },
+    '@/features/scanner/warehouse-scan': scanner, '../stock-issue': rules,
+  });
+  return { form, source, item, runtime, usePickingScan, render: () => runtime.render(() => usePickingScan(item, form, disabled)),
+    disable: () => { disabled = true; } };
+}
+
+test('picking scanner enforces location before product and uses barcode rather than SKU when configured', () => {
+  const f = pickingScanFixture();
+  assert.equal(f.render().scanProduct('BAR-A'), false);
+  assert.equal(f.render().scanSource('WRONG'), false); assert.equal(f.form.values.scannedSlotCode, '');
+  assert.equal(f.render().scanSource('__SYSTEM_DEFAULT__'), false);
+  assert.equal(f.render().scan('a04'), true); assert.equal(f.render().sourceReady, true);
+  assert.equal(f.render().scan('SKU-A'), false); assert.equal(f.render().ready, false);
+  assert.equal(f.render().scan('BAR-A'), true); assert.equal(f.render().quantityText, '2');
+  assert.equal(f.form.values.pickedQuantity, 20); assert.equal(f.render().canReview, true);
+  assert.equal(f.render().scan('BAR-A'), undefined); assert.equal(f.form.values.pickedQuantity, 20);
+  f.render().changeSource('A07'); assert.equal(f.render().ready, false); assert.ok(Number.isNaN(f.form.values.pickedQuantity));
+});
+
+test('picking counts one entered package per scan, retains hardware counts and caps the reserved budget', () => {
+  const f = pickingScanFixture(); f.render().changeEachUnit(true); f.render().scanSource('A04');
+  f.render().changeProduct('BAR-A'); assert.equal(f.render().scanProduct('BAR-A'), true); assert.equal(f.form.values.pickedQuantity, 10);
+  f.render().changeProduct('BAR-A'); assert.equal(f.render().canReview, false);
+  assert.equal(f.render().scanProduct('BAR-A'), true); assert.equal(f.form.values.pickedQuantity, 20);
+  assert.equal(f.render().scanProduct('BAR-A'), false); assert.equal(f.form.values.pickedQuantity, 20);
+  f.render().changeQuantity('1'); assert.equal(f.form.values.pickedQuantity, 10); assert.equal(f.render().canReview, true);
+  f.render().changeQuantity('1,5'); assert.match(f.render().quantityError, /nguyên/); assert.equal(f.render().canReview, false);
+  f.render().changeQuantity('3'); assert.match(f.render().quantityError, /vượt/);
+  f.render().changeEachUnit(false); assert.equal(f.render().ready, false); assert.ok(Number.isNaN(f.form.values.pickedQuantity));
+});
+
+test('picking scan supports slot QR, SKU fallback, exact decimal input and read-only busy state', () => {
+  const f = pickingScanFixture({ barcode: null, factor: 1, maximum: 2 });
+  assert.equal(f.render().scanSource(`KOVIA:LOC:SLOT:${randomUUID()}`), false);
+  assert.equal(f.render().scanSource(`KOVIA:LOC:SLOT:${f.source.slotId}`), true);
+  assert.equal(f.render().scanProduct('sku-a'), true);
+  f.render().changeQuantity('0,3'); assert.equal(f.form.values.pickedQuantity, 0.3); assert.equal(f.render().canReview, true);
+  f.render().changeQuantity('0.333'); assert.match(f.render().quantityError, /2 chữ số/);
+  f.render().changeQuantity(''); assert.equal(f.render().canReview, false);
+  f.render().reset(); assert.equal(f.form.values.scannedBarcode, ''); assert.equal(f.form.values.scannedSlotCode, '');
+  f.disable(); const before = { ...f.form.values };
+  assert.equal(f.render().scanSource('A04'), false); assert.equal(f.render().scanProduct('SKU-A'), false);
+  f.render().changeQuantity('1'); assert.deepEqual(f.form.values, before);
+});
+
+test('picking scan preserves exact fractional factors and ignores sources whose remaining quantity cannot form a package', () => {
+  const f = pickingScanFixture({ factor: 0.1, maximum: 0.3 }); f.render().changeEachUnit(true); f.render().scanSource('A04');
+  for (let index = 0; index < 3; index++) assert.equal(f.render().scanProduct('BAR-A'), true);
+  assert.equal(f.form.values.pickedQuantity, 0.3); assert.equal(f.render().quantityText, '3'); assert.equal(f.render().canReview, true);
+  assert.equal(f.render().scanProduct('BAR-A'), false); assert.equal(f.form.values.pickedQuantity, 0.3);
+  const partial = pickingScanFixture({ factor: 10, maximum: 15 }); assert.equal(partial.render().maximum, 10);
+});
+
+test('picking quantity buttons adjust one entered package without exceeding reservations or allowing zero', () => {
+  const f = pickingScanFixture(); f.render().scanSource('A04'); f.render().scanProduct('BAR-A');
+  assert.equal(f.render().canIncrease, false); assert.equal(f.render().canDecrease, true);
+  f.render().adjustQuantity(-1); assert.equal(f.form.values.pickedQuantity, 10); assert.equal(f.render().quantityText, '1');
+  assert.equal(f.render().canDecrease, false); f.render().adjustQuantity(-1); assert.equal(f.form.values.pickedQuantity, 10);
+  f.render().adjustQuantity(1); f.render().adjustQuantity(1); assert.equal(f.form.values.pickedQuantity, 20);
+  f.render().changeQuantity(''); assert.equal(f.render().canIncrease, true);
+  f.render().adjustQuantity(1); assert.equal(f.form.values.pickedQuantity, 10);
+  f.disable(); f.render().adjustQuantity(1); assert.equal(f.form.values.pickedQuantity, 10);
+});
+
+test('rack QR without rack metadata is captured for BE verification without showing a locally verified match', () => {
+  const f = pickingScanFixture();
+  assert.equal(f.render().scanSource('KOVIA:LOC:RACK:invalid'), false);
+  assert.equal(f.render().scanSource(`KOVIA:LOC:RACK:${randomUUID()}`), true);
+  assert.equal(f.render().sourceReady, true); assert.equal(f.render().sourceVerified, false);
+  assert.equal(f.render().scanProduct('BAR-A'), true);
+  assert.equal(f.form.values.scannedSlotCode.startsWith('KOVIA:LOC:RACK:'), true);
+});
+
+test('picking route is sorted by warehouse location while retaining reserved source identities and budgets', () => {
+  const labels = load('src/features/inventory/inventory.labels.ts', { '@/lib/number-format': load('src/lib/number-format.ts'),
+    './inventory.types': load('src/features/inventory/inventory.types.ts') });
+  const { stockIssuePickQueue } = load('src/features/stock-issue/stock-issue.ts', {
+    '@/features/inventory/inventory.labels': labels, '@/features/scanner/warehouse-scan': {},
+  });
+  const items = [{ id: 'one', sku: 'SKU-1', quantity: 20, pickedQuantity: 0, pickLocations: [
+    { inventoryStockId: 'A10', zoneCode: 'K01', rackCode: 'A10', slotCode: 'S01', reservedQuantity: 10 },
+    { inventoryStockId: 'A2', zoneCode: 'K01', rackCode: 'A2', slotCode: 'S01', reservedQuantity: 10 },
+    { inventoryStockId: 'empty', zoneCode: 'K01', rackCode: 'A1', slotCode: 'S01', reservedQuantity: 0 },
+  ] }, { id: 'done', quantity: 1, pickedQuantity: 1, pickLocations: [{ reservedQuantity: 1 }] }];
+  const before = structuredClone(items); const queue = stockIssuePickQueue(items);
+  assert.deepEqual(queue.map(row => row.location.inventoryStockId), ['A2', 'A10']);
+  assert.equal(queue[0].item, items[0]); assert.equal(queue[0].location.reservedQuantity, 10); assert.deepEqual(items, before);
+});
+
+test('picking editor exposes one continuous camera and sequential unit-labelled fields without submitting scans', () => {
+  const f = pickingScanFixture(); let reviewed = 0;
+  const jsx = (type, props) => ({ type, props });
+  const { PickingEditor } = load('src/features/stock-issue/components/picking-editor.tsx', {
+    react: f.runtime.react,
+    'react/jsx-runtime': { jsx, jsxs: jsx }, 'lucide-react-native': { ScanLine: 'ScanLine', Minus: 'Minus', Plus: 'Plus' },
+    'react-native': { KeyboardAvoidingView: 'Root', ScrollView: 'ScrollView', Text: 'Text', View: 'View', Switch: 'Switch', Pressable: 'Pressable',
+      Platform: { OS: 'android' }, StyleSheet: { create: value => value } },
+    '@/components/ui/alert-banner': { AlertBanner: 'AlertBanner' }, '@/components/ui/button': { Button: 'Button' },
+    '@/components/ui/text-field': { TextField: 'TextField' }, '@/components/work-action-bar': { WorkActionBar: 'WorkActionBar' },
+    '@/constants/theme': { FontFamily: {}, Radius: {} }, '@/hooks/use-theme': { useTheme: () => ({}) },
+    '@/lib/number-format': load('src/lib/number-format.ts', {}),
+    '@/features/scanner/components/scan-code-button': { ScanCodeButton: 'ScanCodeButton' },
+    '../hooks/use-picking-scan': { usePickingScan: f.usePickingScan },
+  });
+  const nodes = node => Array.isArray(node) ? node.flatMap(nodes) : node && typeof node === 'object' ? [node, ...nodes(node.props?.children)] : [];
+  const render = () => nodes(f.runtime.render(() => PickingEditor({ item: f.item, form: f.form, sourcePath: 'K01 / A04',
+    destinationPath: 'Z-D / XUAT-01', busy: false, notice: null, onClose() {}, onReview: () => { reviewed++; } })));
+  let tree = render(); const camera = tree.find(node => node.type === 'ScanCodeButton');
+  let productFocus = 0; let quantityFocus = 0; let scrolled = 0;
+  tree.find(node => node.type === 'ScrollView').props.ref.current = { scrollTo: value => { scrolled++; assert.equal(value.y, 552); } };
+  tree.find(node => node.props?.onLayout).props.onLayout({ nativeEvent: { layout: { y: 600 } } });
+  tree.find(node => node.props?.label === '2. Quét mã hàng').props.inputRef.current = { focus: () => { productFocus++; } };
+  tree.find(node => node.props?.label === '3. Số lượng lấy (Hộp)').props.inputRef.current = { focus: () => { quantityFocus++; } };
+  assert.equal(camera.props.continuous, true);
+  assert.equal(camera.props.showScannedCode, false);
+  assert.deepEqual(tree.filter(node => node.type === 'TextField').map(node => node.props.label), ['1. Quét mã vị trí', '2. Quét mã hàng', '3. Số lượng lấy (Hộp)']);
+  assert.equal(tree.find(node => node.props?.label === '2. Quét mã hàng').props.editable, false);
+  camera.props.onOpen(); tree = render();
+  assert.equal(camera.props.onScan('A04'), true); tree = render(); assert.equal(productFocus, 0);
+  assert.equal(camera.props.closeAfterScan(), false);
+  assert.equal(tree.find(node => node.type === 'ScanCodeButton').props.onScan('BAR-A'), true); tree = render();
+  assert.equal(camera.props.closeAfterScan(), true);
+  assert.equal(reviewed, 0); assert.equal(tree.find(node => node.props?.label === 'Kiểm tra và xác nhận lượt lấy').props.disabled, false);
+  assert.equal(JSON.stringify(tree).includes('BAR-A'), false); assert.equal(f.form.values.scannedBarcode, 'BAR-A');
+  tree.find(node => node.type === 'ScanCodeButton').props.onClose(); tree = render(); assert.equal(quantityFocus, 1); assert.equal(scrolled, 1);
+  tree.find(node => node.props?.accessibilityLabel === 'Giảm 1 Hộp').props.onPress(); tree = render();
+  assert.equal(tree.find(node => node.props?.label === '3. Số lượng lấy (Hộp)').props.value, '1');
+  tree.find(node => node.props?.accessibilityLabel === 'Tăng 1 Hộp').props.onPress(); assert.equal(f.form.values.pickedQuantity, 20);
+  tree.find(node => node.props?.accessibilityLabel === 'Quét từng Hộp').props.onValueChange(true); tree = render();
+  tree.find(node => node.type === 'ScanCodeButton').props.onOpen(); tree = render();
+  assert.equal(tree.find(node => node.type === 'ScanCodeButton').props.onScan('BAR-A'), true); tree = render();
+  assert.equal(tree.find(node => node.type === 'ScanCodeButton').props.closeAfterScan(), false);
+  assert.ok(tree.find(node => node.type === 'ScanCodeButton').props.confirm);
+  assert.equal(quantityFocus, 1); assert.equal(reviewed, 0);
+});
+
+test('staff stock issue labels show rack locations in source choices, pick actions, history and dispatch without changing IDs', () => {
+  const labels = load('src/features/inventory/inventory.labels.ts', { '@/lib/number-format': load('src/lib/number-format.ts'),
+    './inventory.types': load('src/features/inventory/inventory.types.ts') });
+  const rules = load('src/features/stock-issue/stock-issue.ts', {
+    '@/features/inventory/inventory.labels': labels, '@/features/scanner/warehouse-scan': {},
+  });
+  const jsx = (type, props) => ({ type, props });
+  const nodes = node => Array.isArray(node) ? node.flatMap(nodes) : node && typeof node === 'object' ? [node, ...nodes(node.props?.children)] : [];
+  for (const location of [
+    { slotCode: '__SYSTEM_DEFAULT__', rackCode: 'A07', zoneCode: 'K01', isSystemDefaultSlot: false },
+    { slotCode: 'INTERNAL', rackCode: 'A07', zoneCode: 'K01', isSystemDefaultSlot: true },
+    { slotCode: 'S01', rackCode: 'A07', zoneCode: 'K01', isSystemDefaultSlot: false },
+    { slotCode: '__SYSTEM_DEFAULT__', rackCode: null, zoneCode: 'K01', isSystemDefaultSlot: true },
+  ]) {
+    const runtime = hooks(); let chosen;
+    const source = { ...location, inventoryStockId: 'source-stock', reservedQuantity: 2 };
+    const detail = { ...location, enteredUnitName: 'Hộp', conversionFactor: 1, id: 'pick-detail', stagingSlotCode: '__SYSTEM_DEFAULT__', stagingRackCode: 'XUAT-01',
+      stagingZoneCode: 'K02', isSystemDefaultStagingSlot: true, pickedQuantity: 1 };
+    const dependencies = { react: runtime.react, 'react/jsx-runtime': { jsx, jsxs: jsx },
+      'react-native': { View: 'View', Text: 'Text', Modal: 'Modal', FlatList: 'FlatList', StyleSheet: { create: value => value } },
+      'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
+      '@/features/inventory/inventory.labels': labels, '../stock-issue': rules, '@/hooks/use-theme': { useTheme: () => ({}) },
+      '@/constants/theme': { FontFamily: {}, Radius: {} }, '@/components/ui/selection-field': { SelectionField: 'SelectionField' },
+      '@/components/ui/work-details': { WorkDetails: 'WorkDetails' }, '@/components/ui/status-pill': { StatusPill: 'StatusPill' },
+      '@/components/ui/button': { Button: 'Button' }, '@/components/work-action-bar': { WorkActionBar: 'WorkActionBar' },
+      '@/components/ui/alert-banner': { AlertBanner: 'AlertBanner' },
+    };
+    const { StockIssueItemCard } = load('src/features/stock-issue/components/stock-issue-item-card.tsx', dependencies);
+    const tree = runtime.render(() => StockIssueItemCard({ item: { sku: 'SKU-A', productName: 'Hàng A', quantity: 3, pickedQuantity: 1,
+      enteredUnitName: 'Hộp', conversionFactor: 1,
+      pickLocations: [source], pickDetails: [detail] }, canPick: true, busy: false, onPick: (_, id) => { chosen = id; } }));
+    const rendered = nodes(tree); const expected = labels.formatInventoryLocation(location);
+    const picker = rendered.find(node => node.type === 'SelectionField');
+    assert.equal(picker.props.options[0].label, expected); assert.equal(picker.props.options[0].value, 'source-stock');
+    const button = rendered.find(node => node.props?.label === `Lấy hàng tại ${expected}`);
+    assert.ok(button); button.props.onPress(); assert.equal(chosen, 'source-stock');
+    const text = rendered.filter(node => node.type === 'Text').map(node => JSON.stringify(node.props.children)).join(' ');
+    assert.ok(text.includes('Kệ XUAT-01')); assert.equal(text.includes('__SYSTEM_DEFAULT__'), false);
+    const { DispatchConfirmationModal } = load('src/features/stock-issue/components/dispatch-confirmation-modal.tsx', { ...dependencies, '@/lib/number-format': { formatQuantity: String }, '@/lib/api-error': { getApiErrorMessage: error => error.message } });
+    const list = nodes(DispatchConfirmationModal({ visible: true, picks: [detail], busy: false })).find(node => node.type === 'FlatList');
+    const dispatchText = nodes(list.props.renderItem({ item: detail })).filter(node => node.type === 'Text').map(node => JSON.stringify(node.props.children)).join(' ');
+    assert.ok(dispatchText.includes('Kệ XUAT-01')); assert.equal(dispatchText.includes('__SYSTEM_DEFAULT__'), false);
+  }
+});
+
 test('damage destination search must include configured isolation locations', async () => {
   let query;
   const { transferReceivingApi } = load('src/features/transfer-receiving/transfer-receiving.api.ts', {
