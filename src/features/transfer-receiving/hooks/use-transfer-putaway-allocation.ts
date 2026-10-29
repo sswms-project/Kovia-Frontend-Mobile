@@ -50,7 +50,7 @@ export function useTransferPutawayAllocation(state: ReturnType<typeof useTransfe
     if (locked || !sheet) return;
     fields.replace(buildTransferAllocations(sheet.rows).lines); resetScans(); setError(null);
   }
-  return { form, fields, values, sheet, execution, visible, stale, locked, picker, setPicker, error, texts, scans, suggestions,
+  return { pendingChange: state.realtime.changed, form, fields, values, sheet, execution, visible, stale, locked, picker, setPicker, error, texts, scans, suggestions,
     open: () => {
       if (!sheet || !state.data?.receipt.version || !execution.allowed('PutAway')) return;
       try {
@@ -68,12 +68,16 @@ export function useTransferPutawayAllocation(state: ReturnType<typeof useTransfe
     },
     add: (index: number) => {
       const line = values[index]; if (locked || !line || values.length >= 500) return;
-      fields.append({ lineId: line.lineId!, lotId: line.lotId ?? null, destination: null, quantity: '', reasonCode: null, note: '' }); resetScans();
+      fields.append({ lineId: line.lineId!, lotId: line.lotId ?? null, slotCodeUnreadable: false, destination: null, quantity: '', reasonCode: null, note: '' }); resetScans();
     },
     remove: (index: number) => { if (!locked) { fields.remove(index); resetScans(); } },
     choose: (destination: TransferExecutionSlot) => {
       if (locked || picker === null) return;
       form.setValue(`lines.${picker}.destination`, destination, { shouldDirty: true }); setPicker(null); resetScans();
+    },
+    setUnreadable: (index: number, value: boolean) => {
+      if (locked) return;
+      form.setValue(`lines.${index}.slotCodeUnreadable`, value, { shouldDirty: true }); resetScans();
     },
     changeScan: (index: number, value: string) => {
       if (locked) return;
@@ -84,7 +88,7 @@ export function useTransferPutawayAllocation(state: ReturnType<typeof useTransfe
     },
     scanSlot: async (index: number, value: string) => {
       if (locked || !snapshot) return false;
-      const line = form.getValues(`lines.${index}`); if (!line?.destination) return false;
+      const line = form.getValues(`lines.${index}`); if (!line?.destination || line.slotCodeUnreadable) return false;
       const epoch = generation.current;
       const request = (scanRequests.current[index] ?? 0) + 1;
       scanRequests.current[index] = request;

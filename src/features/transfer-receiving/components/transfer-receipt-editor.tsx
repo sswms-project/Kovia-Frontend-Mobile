@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
-import { FlatList, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,6 @@ import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useFormDraft } from '@/hooks/use-form-draft';
 import { useExitProtection, useModalExit } from '@/hooks/use-screen-exit';
-import { WorkScreenHeader } from '@/components/work-screen-header';
 import { WorkActionBar } from '@/components/work-action-bar';
 import { SelectionField } from '@/components/ui/selection-field';
 import { P } from '@/config/permission-codes';
@@ -145,7 +143,7 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Dữ liệu chưa hợp lệ.'); }
   }
   if (!data || !state.canView) return <>{children(null)}</>;
-  return <>{children(<View style={styles.section}>
+  return <>{!open && children(<View style={styles.section}>
     {execution.notice && <AlertBanner title={execution.notice} />}
     {mode === 'Receive' && data.receipt.status === 'InTransit' && <>
       {staged ? <StagingPointField label="Điểm chờ nhận thực tế" points={data.receipt.stagingPoints} value={receivingSlotId}
@@ -165,13 +163,14 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
     {mode === 'PutAway' && data.receipt.status === 'AwaitingPutAway' && data.putAway?.rows.filter(row => row.remainingQuantity > 0).map(row =>
       <Button key={countKey(row.lineId, row.lotId)} label={`Cất ${row.sku} · lô ${row.lotNumber ?? 'không có'}`} variant="outline" disabled={!execution.allowed('PutAway') || busy} onPress={() => openPutAway(row)} />)}
     </View>)}
-    <Modal visible={open} animationType="slide" onRequestClose={busy ? undefined : close}>
-      <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
-        <WorkScreenHeader modal title={putRow ? 'Cất hàng điều chuyển' : 'Nhận hàng điều chuyển'} onBack={close} />
+    {open && <View style={styles.root}>
+      <View style={[styles.root, { backgroundColor: theme.background }]}>
+        <Button label="Về đối chiếu phiếu" variant="ghost" disabled={busy} onPress={close} />
         <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <FlatList style={styles.root} data={putRow ? [] : lots} keyExtractor={row => row.key} contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled" ListHeaderComponent={<View style={styles.section}>
             <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{putRow ? `Cất ${putRow.sku}` : 'Ghi kết quả kiểm hàng thực tế'}</Text>
+            {state.realtime.changed && <AlertBanner title="Phiếu điều chuyển có cập nhật" description="Số liệu đang nhập được giữ lại. Quay về và tải lại trước khi gửi." />}
             {error && <AlertBanner variant="destructive" title={error} />}
             {putRow ? <>
               <TransferLocationSelector warehouseId={data.document.destinationWarehouseId} scopeKey={execution.key} title="Vị trí thực cất" selected={location} onSelect={setLocation} disabled={busy} />
@@ -194,11 +193,19 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
               quantity={actual(counts[row.key]?.good ?? '')} maximum={row.lot.dispatchedQuantity - actual(counts[row.key]?.damaged ?? '0') - actual(counts[row.key]?.missing ?? '0')}
               unitName={row.line.baseUnitName} disabled={busy || !execution.allowed('Submit')} matches={code => codesMatch(code, row.line.sku, row.line.barcode)}
               onConfirm={quantity => form.setValue(`counts.${row.key}.good`, String(quantity), { shouldDirty: true, shouldValidate: true })} />
-            {(['good', 'damaged', 'missing', 'reason'] as const).map(field => <TextField key={field}
-              label={{ good: 'Thực nhận tốt', damaged: 'Thực nhận hỏng', missing: 'Thiếu', reason: 'Nguyên nhân hỏng / thiếu' }[field]}
-              value={counts[row.key]?.[field] ?? ''} editable={!busy} keyboardType={field === 'reason' ? 'default' : 'decimal-pad'}
-              maxLength={field === 'reason' ? 50 : 20} error={form.formState.errors.counts?.[row.key]?.[field]?.message}
-              onChangeText={value => form.setValue(`counts.${row.key}.${field}`, value, { shouldDirty: true })} />)}
+            <View style={styles.quantities}>
+              {(['good', 'damaged', 'missing'] as const).map(field => <View key={field} style={styles.quantity}>
+                <TextField label={{ good: 'Thực nhận tốt', damaged: 'Hỏng', missing: 'Thiếu' }[field]}
+                  value={counts[row.key]?.[field] ?? ''} editable={!busy} keyboardType="decimal-pad" maxLength={20}
+                  error={form.formState.errors.counts?.[row.key]?.[field]?.message}
+                  onChangeText={value => form.setValue(`counts.${row.key}.${field}`, value, { shouldDirty: true })} />
+              </View>)}
+            </View>
+            <Text accessibilityLiveRegion="polite" style={[styles.text, { color: theme.textSecondary }]}>
+              Đã kiểm: {(['good', 'damaged', 'missing'] as const).reduce((sum, field) => sum + (actual(counts[row.key]?.[field] ?? '') || 0), 0)} / {row.lot.dispatchedQuantity} {row.line.baseUnitName}
+            </Text>
+            <TextField label="Nguyên nhân hỏng / thiếu" value={counts[row.key]?.reason ?? ''} editable={!busy} maxLength={50}
+              onChangeText={value => form.setValue(`counts.${row.key}.reason`, value, { shouldDirty: true })} />
           </View>}
           ListFooterComponent={<View style={styles.section}>
             {!putRow && data.receipt.receiptFlowVersion === 2 && <>
@@ -221,17 +228,17 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
         </KeyboardAvoidingView>
         <ConfirmationModal visible={!!execution.target && execution.target.action !== 'Start'} title="Xác nhận đã thực hiện thực tế?"
           description={putRow ? 'Chỉ xác nhận số lượng đã cất đúng vị trí, lô và mã sản phẩm.' : keep ? 'Xác nhận số thực nhận đã kiểm. Hàng đạt ở khu nhận có thể được phân bổ FEFO ngay; hàng hỏng đã đặt cách biệt và vẫn bị Hold.' : 'Xác nhận số thực nhận đã kiểm. Hàng đạt tiếp tục chờ cất; hàng hỏng đã cách biệt và vẫn bị Hold.'}
-          busy={busy} error={execution.mutation.error} onConfirm={() => { void execution.confirm().then(success => { if (success) setOpen(false); }); }} onCancel={execution.cancel} />
+          busy={busy} confirmDisabled={state.realtime.changed} error={execution.mutation.error} onConfirm={() => { void execution.confirm().then(success => { if (success) setOpen(false); }); }} onCancel={execution.cancel} />
         <ConfirmationModal visible={discard} title="Bỏ thay đổi chưa lưu?" description="Dữ liệu nhập trong biểu mẫu chưa được lưu. Bạn có muốn đóng?"
           busy={busy} onConfirm={() => { void draft.discardAndClose(() => { setOpen(false); setDiscard(false); execution.cancel(); }); }} onCancel={() => setDiscard(false)} />
-      </SafeAreaView>
-    </Modal>
+      </View>
+    </View>}
     <ConfirmationModal visible={!open && (execution.target?.action === 'Start' || execution.target?.action === 'Resume')}
       title={execution.target?.action === 'Resume' ? 'Tiếp tục cất hàng?' : 'Xác nhận bắt đầu nhận hàng?'}
       description={execution.target?.action === 'Resume' ? 'Chỉ tiếp tục cất phần hàng còn khả dụng tại khu nhận. Không tăng tồn thêm và không lấy phần đã được giữ cho công việc khác.'
         : `Hàng đã tới vị trí ${staged ? receivingPoint?.label ?? '' : location?.path ?? ''}. Bước này chưa ghi số thực nhận; cần kiểm và xác nhận số lượng tiếp theo.`}
-      busy={busy} error={execution.mutation.error} onConfirm={() => { void execution.confirm(); }} onCancel={execution.cancel} />
+      busy={busy} confirmDisabled={state.realtime.changed} error={execution.mutation.error} onConfirm={() => { void execution.confirm(); }} onCancel={execution.cancel} />
   </>;
 }
-const styles = StyleSheet.create({ root: { flex: 1, minHeight: 0 }, section: { gap: 12 }, content: { padding: 20, gap: 20, paddingBottom: 48 },
+const styles = StyleSheet.create({ root: { flex: 1, minHeight: 0 }, section: { gap: 12 }, quantities: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, quantity: { flex: 1, minWidth: 88 }, content: { padding: 20, gap: 20, paddingBottom: 48 },
   title: { fontFamily: FontFamily.semibold, fontSize: 17, lineHeight: 25 }, text: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 22 } });

@@ -74,6 +74,7 @@ export function TransferReceivingScreen({ transferId, shipmentId, mode }: {
           <AlertBanner title="Chọn kho được giao và xác minh quyền xem điều chuyển để mở công việc." />
           <Button label="Kiểm tra lại kho và quyền" variant="outline" onPress={() => { void state.access.refresh(); }} />
         </>}
+        {state.realtime.changed && <AlertBanner title="Phiếu hoặc kế hoạch có cập nhật" description="Giữ lại dữ liệu đang nhập; đóng biểu mẫu và tải lại trước khi gửi." />}
         {state.canView && state.detail.isPending && <AlertBanner title="Đang tải phiếu nhận và lịch sử…" />}
         {state.canView && state.detail.error && <AlertBanner variant="destructive" title="Chưa thể tải dữ liệu mới" description={getApiErrorMessage(state.detail.error)} />}
         {data && <>

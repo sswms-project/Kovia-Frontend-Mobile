@@ -263,7 +263,7 @@ test('restoring a transfer receipt draft must retain the choice to put goods awa
   const jsx = (type, props) => ({ type, props });
   const nodes = node => !node || typeof node !== 'object' ? [] : Array.isArray(node) ? node.flatMap(nodes)
     : [node, ...nodes(node.props?.children), ...nodes(node.props?.ListHeaderComponent), ...nodes(node.props?.ListFooterComponent)];
-  const state = { canView: true, access: { profile: { data: { permissions: ['receive'] } } }, data: {
+  const state = { realtime: { changed: false }, canView: true, access: { profile: { data: { permissions: ['receive'] } } }, data: {
     receipt: { version: 'AQ==', status: 'Receiving', receiptFlowVersion: 2, lines: [] },
     document: { destinationWarehouseId: 'warehouse' },
   } };
@@ -368,7 +368,7 @@ test('batch payload retains BE version, exact command identity and multiple plac
 
 function allocationHook() {
   const runtime = hooks(), fixture = allocationFixture(), prepared = [], asserted = [];
-  const state = { canView: true, mode: 'PutAway', data: { receipt: { version: 'receipt-v1', lines: fixture.sheet.receipt.lines },
+  const state = { realtime: { changed: false }, canView: true, mode: 'PutAway', data: { receipt: { version: 'receipt-v1', lines: fixture.sheet.receipt.lines },
     document: { destinationWarehouseId: 'warehouse' }, putAway: { ...fixture.sheet, planVersion: 'plan-v1' } } };
   let draftOptions, resolveSlot = async (_, code) => fixture.form.lines.find(line => line.destination.code === code)?.destination ?? null;
   const form = { values: { lines: [] }, formState: { isDirty: false },
@@ -429,4 +429,93 @@ test('location confirmations ignore superseded labels and version changes, while
   h.state.data = { ...h.state.data, receipt: { ...h.state.data.receipt, version: 'receipt-v2' } }; h.render();
   pending[0].resolve(h.fixture.form.lines[0].destination);
   assert.equal(await obsolete, false); assert.equal(h.prepared.length, 0);
+});
+
+
+function transferScanFixture() {
+  const runtime = hooks(); const source = { inventoryStockId: 'stock', slotId: randomUUID(), slotCode: '__SYSTEM_DEFAULT__',
+    rackId: randomUUID(), rackCode: 'A04', zoneCode: 'K01', isSystemDefaultSlot: true, suggestedQuantity: 3, reservedQuantity: 3 };
+  const line = { sku: 'SKU-A', productBarcode: 'BAR-A', suggestions: [source], remainingQuantity: 5 };
+  const form = { values: { inventoryStockId: 'stock', scannedSlotCode: '', scannedProductCode: '', quantity: NaN }, control: {},
+    getValues(name) { return name ? this.values[name] : this.values; }, setValue(name, value) { this.values[name] = value; } };
+  let disabled = false;
+  const { useTransferPickScan } = load('src/features/transfer-picking/hooks/use-transfer-pick-scan.ts', {
+    react: runtime.react, 'react-hook-form': { useWatch: () => form.values }, '@/features/scanner/warehouse-scan': scanRules,
+  });
+  return { runtime, line, useTransferPickScan, form, source, render: () => runtime.render(() => useTransferPickScan(line, form, disabled)), disable: () => { disabled = true; } };
+}
+
+test('transfer camera scans source then product using live form values, checks rack QR and caps suggested quantity', () => {
+  const f = transferScanFixture(); const scan = f.render();
+  assert.equal(scan.scanProduct('BAR-A'), false);
+  assert.equal(scan.scan('WRONG-SOURCE'), false);
+  assert.equal(scan.scan(`KOVIA:LOC:RACK:${f.source.rackId}`), true);
+  assert.equal(scan.scan('WRONG-PRODUCT'), false);
+  assert.equal(scan.scan('BAR-A'), true);
+  assert.equal(f.form.values.quantity, 3); assert.equal(f.render().ready, true);
+  assert.equal(scan.scan('BAR-A'), undefined);
+  assert.equal(f.render().scanProduct('WRONG'), false); assert.equal(f.render().ready, false);
+  f.disable(); assert.equal(f.render().scanSource('A04'), false);
+});
+
+test('transfer each-unit mode counts one base unit per accepted scan and preserves counts on wrong code', () => {
+  const f = transferScanFixture(); f.render().changeEachUnit(true);
+  let scan = f.render(); assert.equal(scan.scan('A04'), true);
+  assert.equal(scan.scan('BAR-A'), true); assert.equal(f.form.values.quantity, 1);
+  assert.equal(scan.scan('WRONG'), false); assert.equal(f.form.values.quantity, 1);
+  assert.equal(scan.scan('SKU-A'), true); assert.equal(f.form.values.quantity, 2);
+  assert.equal(scan.scan('BAR-A'), true); assert.equal(scan.scan('BAR-A'), false); assert.equal(f.form.values.quantity, 3);
+  f.render().changeSource('OTHER'); assert.equal(f.render().ready, false); assert.ok(Number.isNaN(f.form.values.quantity));
+});
+
+test('transfer putaway permits no product scan but validates any supplied code and requires explicit unreadable-label evidence', () => {
+  const f = allocationFixture();
+  const slotOnly = Object.fromEntries(Object.entries(f.scans).map(([key, value]) => [key, { ...value, product: '' }]));
+  const entries = allocation.transferAllocationEntries(f.form, f.sheet, slotOnly);
+  assert.ok(entries.every(entry => entry.scannedProductCode === null && !entry.slotCodeUnreadable));
+  const line = { ...f.form.lines[0], slotCodeUnreadable: true, reasonCode: 'LabelMismatch' };
+  const unreadable = allocation.transferAllocationEntries({ lines: [line] }, f.sheet, {});
+  assert.equal(unreadable[0].scannedSlotCode, null); assert.equal(unreadable[0].slotCodeUnreadable, true);
+  assert.equal(unreadable[0].deviationReasonCode, 'LabelMismatch');
+  assert.throws(() => allocation.transferAllocationEntries({ lines: [{ ...line, reasonCode: 'SlotFull' }] }, f.sheet, {}), /nhãn hỏng/);
+  assert.throws(() => allocation.transferAllocationEntries({ lines: [{ ...line, reasonCode: 'Other', note: 'bad' }] }, f.sheet, {}), /ghi chú/);
+  assert.equal(allocation.transferAllocationEntries({ lines: [{ ...line, reasonCode: 'Other', note: 'Nhãn đã hỏng' }] }, f.sheet, {})[0].deviationReasonCode, 'Other');
+});
+
+
+test('transfer editor uses one camera, focuses quantity after final close and never submits directly from a scan', () => {
+  const f = transferScanFixture(); const jsx = (type, props) => ({ type, props }); let reviews = 0;
+  const labels = load('src/features/inventory/inventory.labels.ts', { '@/lib/number-format': load('src/lib/number-format.ts'), './inventory.types': load('src/features/inventory/inventory.types.ts') });
+  const { TransferPickEditor } = load('src/features/transfer-picking/components/transfer-pick-editor.tsx', {
+    react: f.runtime.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'lucide-react-native': { ScanLine: 'ScanLine' },
+    'react-native': { KeyboardAvoidingView: 'Root', ScrollView: 'ScrollView', Text: 'Text', View: 'View', Switch: 'Switch', Platform: { OS: 'android' }, StyleSheet: { create: value => value } },
+    'react-hook-form': { Controller: 'Controller' },
+    '@/components/ui/alert-banner': { AlertBanner: 'AlertBanner' }, '@/components/ui/button': { Button: 'Button' }, '@/components/ui/text-field': { TextField: 'TextField' },
+    '@/components/work-action-bar': { WorkActionBar: 'WorkActionBar' }, '@/constants/theme': { FontFamily: {} }, '@/hooks/use-theme': { useTheme: () => ({}) },
+    '@/features/scanner/components/scan-code-button': { ScanCodeButton: 'ScanCodeButton' }, '@/features/inventory/inventory.labels': labels,
+    '../hooks/use-transfer-pick-scan': { useTransferPickScan: f.useTransferPickScan },
+  });
+  const nodes = node => Array.isArray(node) ? node.flatMap(nodes) : node && typeof node === 'object' ? [node, ...nodes(node.props?.children)] : [];
+  const render = submitDisabled => nodes(f.runtime.render(() => TransferPickEditor({ line: { ...f.line, productName: 'Hàng A', baseUnitName: 'Cái' }, slotCode: '__SYSTEM_DEFAULT__',
+    form: f.form, busy: false, submitDisabled, notice: null, onReview: () => reviews++, onClose() {} })));
+  let tree = render(false); let focus = 0;
+  const quantity = tree.find(node => node.type === 'Controller').props.render({ field: { value: NaN, onChange() {} }, fieldState: {} });
+  quantity.props.inputRef.current = { focus: () => focus++ };
+  const camera = tree.find(node => node.type === 'ScanCodeButton'); assert.equal(tree.filter(node => node.type === 'ScanCodeButton').length, 1);
+  assert.equal(camera.props.showScannedCode, false); assert.equal(JSON.stringify(tree).includes('__SYSTEM_DEFAULT__'), false);
+  camera.props.onOpen(); render(false);
+  assert.equal(camera.props.onScan('A04'), true); assert.equal(camera.props.closeAfterScan(), false);
+  assert.equal(camera.props.onScan('BAR-A'), true); assert.equal(camera.props.closeAfterScan(), true);
+  render(false); assert.equal(focus, 0); camera.props.onClose(); render(false); assert.equal(focus, 1); assert.equal(reviews, 0);
+  tree = render(true); assert.equal(tree.find(node => node.type === 'Button' && node.props.label === 'Kiểm tra lấy hàng').props.disabled, true);
+});
+
+test('transfer putaway schema enforces unreadable label reason and excludes simultaneous scanned slot codes', () => {
+  const f = allocationFixture();
+  const schema = load('src/features/transfer-receiving/transfer-execution.schema.ts', { '@/lib/dotnet-guid.schema': load('src/lib/dotnet-guid.schema.ts', {}) });
+  const entries = allocation.transferAllocationEntries({ lines: [{ ...f.form.lines[0], slotCodeUnreadable: true, reasonCode: 'LabelMismatch' }] }, f.sheet, {});
+  const body = { expectedVersion: 'v1', commandId: randomUUID(), planVersion: 'plan-v1', entries };
+  assert.equal(schema.putAwayTransferSchema.safeParse(body).success, true);
+  for (const change of [{ scannedSlotCode: 'A1' }, { deviationReasonCode: null }, { deviationReasonCode: 'SlotFull' }, { deviationReasonCode: 'Other', note: 'bad' }])
+    assert.equal(schema.putAwayTransferSchema.safeParse({ ...body, entries: [{ ...entries[0], ...change }] }).success, false);
 });

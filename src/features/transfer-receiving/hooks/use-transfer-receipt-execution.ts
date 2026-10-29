@@ -28,7 +28,7 @@ export function useTransferReceiptExecution(state: ReturnType<typeof useTransfer
   const enabled = state.canView && !!state.data && !state.detail.isError && !state.detail.isFetching &&
     !!state.data.receipt.version && !state.data.document.isLegacyWorkflow && !!state.access.profile.data?.permissions.includes(P.TRANSFERS_RECEIVE);
   function allowed(action: TransferExecutionTarget['action']) {
-    if (!enabled || !state.data) return false;
+    if (!enabled || state.realtime.changed || !state.data) return false;
     const { shipment, receipt, putAway } = state.data;
     const taskStatus = state.mode === 'Receive' ? shipment.receiveTaskStatus : shipment.putAwayTaskStatus;
     return transferReceiptActionAllowed(state.mode, action, receipt.status, taskStatus, !!putAway?.canResumePutAway);

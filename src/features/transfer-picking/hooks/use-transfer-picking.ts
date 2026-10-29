@@ -1,3 +1,4 @@
+import { formatInventoryLocation } from '@/features/inventory/inventory.labels';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
@@ -15,6 +16,7 @@ import { logApiError } from '@/lib/api-error';
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
 import { warehouseCommand, type WarehouseCommandMemory } from '@/lib/warehouse-command';
 
+import { useTransferChanges } from './use-transfer-changes';
 import { assertTransferPick, transferPickingComplete } from '../transfer-picking';
 import { transferPickingApi } from '../transfer-picking.api';
 import { transferPickFormSchema, type TransferPickForm, type TransferPickLine } from '../transfer-picking.schema';
@@ -29,7 +31,7 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
   const scope: TaskScope | null = canView && identity && warehouseId && signature ? { identity, warehouseId, signature, revision } : null;
   const prefix = ['warehouse', identity, warehouseId, revision, 'transfer-pick', transferId, shipmentId];
   const contextKey = JSON.stringify([...prefix, signature]);
-  const detail = useQuery({ queryKey: [...prefix, signature], enabled: !!scope, retry: false,
+  const detail = useQuery({ queryKey: [...prefix, signature], enabled: !!scope, retry: false, staleTime: 0,
     queryFn: ({ signal }) => transferPickingApi.load(transferId, shipmentId, scope!.warehouseId, access.profile.data!.id, signal) });
   const [editor, setEditor] = useState<{ key: string; version: string; line: TransferPickLine; slotCode: string } | null>(null);
   const [target, setTarget] = useState<Target | null>(null);
@@ -41,10 +43,12 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
   const form = useForm<TransferPickForm>({ resolver: zodResolver(transferPickFormSchema), defaultValues: {
     lineId: '', inventoryStockId: '', quantity: Number.NaN, scannedSlotCode: '', scannedProductCode: '' } });
   const data = detail.data;
-  const canPick = canView && !!access.profile.data?.permissions.includes(P.TRANSFERS_PICK) &&
-    detail.isSuccess && !detail.isFetching && !detail.isError && !!data?.sheet.version &&
+  const realtime = useTransferChanges(transferId, access, canView);
+  const canWork = canView && !!access.profile.data?.permissions.includes(P.TRANSFERS_PICK) &&
+    !!data?.sheet.version &&
     data.document.status === 'InProgress' && data.sheet.shipmentStatus === 'Picking' &&
     (data.shipment.pickTaskStatus === 'Queued' || data.shipment.pickTaskStatus === 'InProgress');
+  const canPick = canWork && !detail.isFetching && !detail.isError && !realtime.changed;
   const stagingSlotId = data?.sheet.outboundStagingSlotId ?? (stagingChoice?.key === contextKey ? stagingChoice.id : data?.sheet.stagingPoints?.suggestedSlotId) ?? '';
   const staged = (data?.sheet.outboundStagingFlowVersion ?? 0) > 0;
   const validStaging = !staged || !!data?.sheet.stagingPoints?.items.some(point => point.slotId === stagingSlotId);
@@ -93,7 +97,7 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
     if (!canPick || !source || !data?.sheet.version || lock.current) return;
     mutation.reset(); setNotice(null); setDiscard(false);
     form.reset({ lineId: line.lineId, inventoryStockId, quantity: Number.NaN, scannedSlotCode: '', scannedProductCode: '' });
-    setEditor({ key: contextKey, version: data.sheet.version, line, slotCode: source.slotCode });
+    setEditor({ key: contextKey, version: data.sheet.version, line, slotCode: formatInventoryLocation(source) });
   }
   async function review() {
     await form.handleSubmit(values => {
@@ -112,16 +116,16 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
     try { await mutation.mutateAsync(target); } catch { /* Keep the same command for an explicit retry. */ }
     finally { lock.current = false; }
   }
-  const activeEditor = editor?.key === contextKey && canPick && editor.version === data?.sheet.version ? editor : null;
-  return { access, validId, canView, detail, canPick, canComplete, form, mutation, contextKey, beginPick, review, beginComplete, confirm,
+  const activeEditor = editor?.key === contextKey && canWork && editor.version === data?.sheet.version ? editor : null;
+  return { realtime, access, validId, canView, detail, canPick, canComplete, form, mutation, contextKey, beginPick, review, beginComplete, confirm,
     assertExecution: (key: string, version: string) => assertCurrent({ key, version, action: 'Pick' }),
     staged, stagingSlotId, chooseStaging: (id: string) => {
       if (!lock.current && !data?.sheet.outboundStagingSlotId && data?.sheet.stagingPoints?.items.some(point => point.slotId === id))
         { setTarget(null); setStagingChoice({ key: contextKey, id }); }
     },
-    editor: activeEditor, target: target?.key === contextKey && canPick && target.version === data?.sheet.version ? target : null,
+    editor: activeEditor, target: target?.key === contextKey && canWork && target.version === data?.sheet.version ? target : null,
     notice: notice?.key === contextKey ? notice.message : null, discard: discard && !!activeEditor, setDiscard,
-    refresh: async () => { if (lock.current) return; setTarget(null); setEditor(null); await access.refresh(); await detail.refetch(); },
+    refresh: async () => { if (lock.current) return; setTarget(null); setEditor(null); const seen = realtime.capture(); await access.refresh(); const fresh = await detail.refetch(); if (!fresh.isError) realtime.accept(seen); },
     closeEditor: () => { if (!lock.current) { setEditor(null); setTarget(null); } },
     discardChanges: () => { if (!lock.current) { void draft.discardAndClose(() => { setEditor(null); setDiscard(false); form.reset(); }); } },
     cancelConfirmation: () => { if (!lock.current) setTarget(null); } };

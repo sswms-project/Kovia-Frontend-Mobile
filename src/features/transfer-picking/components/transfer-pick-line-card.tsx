@@ -1,3 +1,4 @@
+import { formatInventoryLocation } from '@/features/inventory/inventory.labels';
 import { memo, useState } from 'react';
 import { SelectionField } from '@/components/ui/selection-field';
 import { WorkDetails } from '@/components/ui/work-details';
@@ -24,6 +25,7 @@ export const TransferPickLineCard = memo(function TransferPickLineCard({ line, c
     <StatusPill label={line.status === 'PendingManager' ? 'Chờ quản lý' : line.pendingReturnQuantity > 0 ? 'Cần trả hàng đã lấy' : line.remainingQuantity > 0 ? 'Còn cần lấy' : 'Đã lấy đủ'}
       tone={line.status === 'PendingManager' || line.pendingReturnQuantity > 0 ? 'warning' : line.remainingQuantity > 0 ? 'neutral' : 'success'} />
     <Text style={[styles.text, { color: theme.textSecondary }]}>Kế hoạch {line.plannedQuantity} · Đã lấy {line.pickedQuantity} · Còn {line.remainingQuantity} {line.baseUnitName}</Text>
+    <WorkDetails title="Nguồn hàng và thao tác">
     {line.pendingReturnQuantity > 0 && <AlertBanner title={`Còn ${line.pendingReturnQuantity} ${line.baseUnitName} cần xác nhận trả về.`} />}
     {line.status === 'PendingManager' && <AlertBanner title="Dòng hàng đang chờ quản lý xử lý. Chưa thể tiếp tục lấy." />}
     {canPick && line.remainingQuantity > 0 && line.status !== 'PendingManager' && <>
@@ -32,11 +34,11 @@ export const TransferPickLineCard = memo(function TransferPickLineCard({ line, c
       {source && <View style={styles.source}>
         <SelectionField label="Vị trí / lô được phân bổ" value={source.inventoryStockId} disabled={busy}
           options={sources.map(value => ({ value: value.inventoryStockId,
-            label: [value.zoneCode, value.rackCode, value.slotCode].filter(Boolean).join(' / '),
+            label: formatInventoryLocation(value),
             description: `Lô ${value.lotNumber ?? 'không có'} · HSD ${value.expiryDate ?? 'không có'} · Giữ ${value.reservedQuantity} ${line.baseUnitName}` }))} onChange={setSourceId} />
-        <Text style={[styles.text, { color: theme.text }]}>{[source.zoneCode, source.rackCode, source.slotCode].filter(Boolean).join(' / ')} · Lô {source.lotNumber ?? 'không có'}</Text>
+        <Text style={[styles.text, { color: theme.text }]}>{formatInventoryLocation(source)} · Lô {source.lotNumber ?? 'không có'}</Text>
         <Text style={[styles.text, { color: theme.textSecondary }]}>Gợi ý {source.suggestedQuantity} · Giữ chỗ {source.reservedQuantity} {line.baseUnitName}{source.expiryDate ? ` · HSD ${source.expiryDate}` : ''}</Text>
-        <Button label={`Lấy tại ${source.slotCode}`} variant="outline" disabled={busy} onPress={() => onPick(line, source.inventoryStockId)} />
+        <Button label={`Lấy tại ${formatInventoryLocation(source)}`} variant="outline" disabled={busy} onPress={() => onPick(line, source.inventoryStockId)} />
       </View>}
     </>}
     {canPick && line.remainingQuantity > 0 && line.status !== 'PendingManager' && <>
@@ -45,9 +47,10 @@ export const TransferPickLineCard = memo(function TransferPickLineCard({ line, c
     </>}
     {canPick && line.picks.some(pick => pick.pickedQuantity > pick.returnedQuantity + pick.dispatchedQuantity) &&
       <Button label="Trả hàng đã lấy về vị trí" variant="outline" disabled={busy} onPress={() => onException('Return', line)} />}
+    </WorkDetails>
     {(line.picks.length > 0 || line.exceptions.length > 0) && <WorkDetails title={`Lịch sử và vướng mắc (${line.picks.length + line.exceptions.length})`}>
     {line.picks.map(pick => <Text key={pick.id} style={[styles.text, { color: theme.textSecondary }]}>
-      {pick.slotCode}: đã lấy {pick.pickedQuantity}, trả {pick.returnedQuantity}, xuất {pick.dispatchedQuantity} {line.baseUnitName}
+      {formatInventoryLocation(line.suggestions.find(source => source.inventoryStockId === pick.inventoryStockId) ?? { slotCode: pick.slotCode })}: đã lấy {pick.pickedQuantity}, trả {pick.returnedQuantity}, xuất {pick.dispatchedQuantity} {line.baseUnitName}
     </Text>)}
     {line.exceptions.map(exception => <Text key={exception.id} style={[styles.text, { color: theme.textSecondary }]}>
       Vướng mắc: {exception.reasonCode} · {exception.status}{exception.note ? ` · ${exception.note}` : ''}
