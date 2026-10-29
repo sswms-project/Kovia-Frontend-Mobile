@@ -6,6 +6,9 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { WarehouseWorkspaceGate } from '@/components/warehouse-workspace';
+import { Button } from '@/components/ui/button';
+import { WarehouseMapView } from '@/features/warehouse-map/components/warehouse-map-view';
+import { useWarehouseMap } from '@/features/warehouse-map/hooks/use-warehouse-map';
 import { ReportDamageAction } from '@/features/damage-cases/components/report-damage-modal';
 import { ReportDiscrepancyAction } from '@/features/discrepancies/screens/report-discrepancy-action';
 import { isApiErrorResponse } from '@/lib/api-error';
@@ -23,6 +26,7 @@ interface InventoryDetailScreenProps {
 export function InventoryDetailScreen(identity: InventoryDetailScreenProps) {
   const router = useRouter();
   const stockQuery = useInventoryStockQuery(identity);
+  const map = useWarehouseMap(`${identity.stockId}:${stockQuery.data?.version ?? ''}`, stockQuery.isSuccess && !stockQuery.isFetching);
   const movementsQuery = useStockMovementsQuery({ productId: identity.productId, slotId: identity.slotId },
     stockQuery.isSuccess && !!stockQuery.data);
   const workspace = stockQuery.workspace;
@@ -43,6 +47,9 @@ export function InventoryDetailScreen(identity: InventoryDetailScreenProps) {
     onRefresh={refresh} onRetryMovements={() => { void movementsQuery.refetch(); }}
     onEndReached={() => { if (movementsQuery.hasNextPage && !movementsQuery.isFetching) void movementsQuery.fetchNextPage(); }}
     headerExtra={<>
+      {map.canView && <Button label="Tìm vị trí trên sơ đồ" variant="outline" disabled={!fresh}
+        onPress={() => map.open(stockQuery.data!.warehouseId, stockQuery.data!.slotId, `${stockQuery.data!.sku} · ${stockQuery.data!.productName}`)} />}
+      <WarehouseMapView key={`${map.view.slotId}:${map.view.visible}`} {...map.view} />
       {stockQuery.isError && <AlertBanner title="Đang hiển thị dữ liệu cũ. Kéo xuống để tải lại trước khi báo hỏng." />}
       <ReportDamageAction disabled={!fresh} key={`${workspace.access.selection.identity}:${workspace.warehouseId}:${workspace.access.selection.revision}:${identity.stockId}`}
         stock={stockQuery.data} />
