@@ -17,9 +17,9 @@ import type { PickForm, StockIssueItem } from '../stock-issue.schema';
 
 interface Props {
   readonly item: StockIssueItem; readonly sourcePath: string; readonly destinationPath: string; readonly form: UseFormReturn<PickForm>;
-  readonly busy: boolean; readonly notice: string | null; readonly onReview: () => void; readonly onClose: () => void;
+  readonly busy: boolean; readonly submitDisabled?: boolean; readonly notice: string | null; readonly onReview: () => void; readonly onClose: () => void;
 }
-export function PickingEditor({ item, sourcePath, destinationPath, form, busy, notice, onReview, onClose }: Props) {
+export function PickingEditor({ item, sourcePath, destinationPath, form, busy, submitDisabled = false, notice, onReview, onClose }: Props) {
   const theme = useTheme();
   const close = useModalExit(onClose);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -97,7 +97,7 @@ export function PickingEditor({ item, sourcePath, destinationPath, form, busy, n
       <Button label="Quét lại từ đầu" variant="outline" disabled={busy} onPress={scan.reset} />
     </ScrollView>
     <WorkActionBar hint="Chỉ xác nhận sau khi đã đưa hàng tới điểm chờ xuất. Lấy hàng chưa phải xuất kho.">
-      <Button label="Kiểm tra và xác nhận lượt lấy" disabled={!scan.canReview} loading={busy} onPress={onReview} />
+      <Button label="Kiểm tra và xác nhận lượt lấy" disabled={submitDisabled || !scan.canReview} loading={busy} onPress={onReview} />
     </WorkActionBar>
   </KeyboardAvoidingView>;
 }

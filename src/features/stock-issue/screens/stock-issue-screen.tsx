@@ -83,17 +83,17 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
     <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : closeEditor}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>{state.editor && <PickingEditor
         key={`${state.contextKey}:${state.editor.item.id}:${state.form.getValues('inventoryStockId')}`}
-        item={state.editor.item} sourcePath={state.editor.sourcePath} destinationPath={state.editor.destinationPath} form={state.form} busy={busy} notice={state.notice}
+        item={state.editor.item} sourcePath={state.editor.sourcePath} destinationPath={state.editor.destinationPath} form={state.form} busy={busy} submitDisabled={!state.allowed('Pick')} notice={state.notice ?? (error ? getApiErrorMessage(error) : null)}
         onReview={() => { void state.reviewPick(); }} onClose={state.closeEditor} />}
         <ConfirmationModal visible={state.target?.action === 'Pick'} title="Xác nhận đã lấy hàng vào khu chờ xuất?"
           description={`Đã di chuyển ${formatQuantity((state.target?.values?.pickedQuantity ?? 0) / (state.editor?.item.conversionFactor ?? 1))} ${state.editor?.item.enteredUnitName ?? 'đơn vị cơ sở'} từ ${state.editor?.sourcePath ?? ''} đến ${state.editor?.destinationPath ?? ''}. Tổng tồn kho không thay đổi.`}
-          busy={busy} error={state.mutation.error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />
+          busy={busy} confirmDisabled={!state.allowed('Pick')} error={state.mutation.error ?? error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />
         <ConfirmationModal visible={state.discard} title="Bỏ thay đổi chưa lưu?" description="Bạn có thay đổi chưa được lưu. Bạn có chắc chắn muốn rời khỏi trang không?"
           busy={busy} onConfirm={state.discardChanges} onCancel={() => state.setDiscard(false)} />
       </SafeAreaView>
     </Modal>
     <DispatchConfirmationModal visible={state.target?.action === 'Dispatch'} picks={pending}
-      busy={busy} error={state.mutation.error} onConfirm={() => { void state.confirm(); }} onClose={state.cancelConfirmation} />
+      busy={busy} submitDisabled={!state.allowed('Dispatch')} error={state.mutation.error ?? error} onConfirm={() => { void state.confirm(); }} onClose={state.cancelConfirmation} />
     <PickIssueReportModal state={report} />
   </SafeAreaView>;
 }

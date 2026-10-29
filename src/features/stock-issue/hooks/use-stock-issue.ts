@@ -60,9 +60,12 @@ export function useStockIssue(documentId: string) {
   const form = useForm<PickForm>({ resolver: zodResolver(pickFormSchema), defaultValues: { stockIssueRequestItemId: '',
     inventoryStockId: '', pickedQuantity: Number.NaN, scannedBarcode: '', scannedSlotCode: '' } });
   const permission = (value: PermissionCode) => canView && !!access.profile.data?.permissions.includes(value);
-  const allowed = (action: string) => canView && !!detail.data?.version && !detail.isError && !detail.isFetching &&
-    !actions.isError && !actions.isFetching && actions.data?.currentVersion === detail.data.version && actions.data.allowedActions.includes(action) &&
+  const hasAction = (action: string) => canView && !!detail.data?.version &&
+    actions.data?.currentVersion === detail.data.version && actions.data.allowedActions.includes(action) &&
+    permission(action === 'Dispatch' ? P.STOCK_ISSUE_REQUESTS_DISPATCH : P.STOCK_ISSUE_REQUESTS_PICK) &&
     (action !== 'Dispatch' || detail.data.status === 'AuthorizedForDispatch');
+  const allowed = (action: string) => hasAction(action) && !detail.isError && !detail.isFetching &&
+    !actions.isError && !actions.isFetching;
   function assertCurrent(permissionCode: PermissionCode) {
     const profile = client.getQueryData<UserProfile>(profileQueryKey);
     const snapshot = profile ? warehouseSnapshot(profile) : null;
@@ -155,8 +158,8 @@ export function useStockIssue(documentId: string) {
       if (key !== contextKey || detail.data?.version !== version || detail.isError || detail.isFetching ||
         !['ReleasedForPicking', 'Picking'].includes(detail.data.status)) throw new Error('Phiếu đã đổi trạng thái hoặc phiên bản. Vui lòng tải lại.');
     },
-    contextKey, editor: editor?.key === contextKey && editor.version === detail.data?.version && allowed('Pick') ? editor : null,
-    target: target?.key === contextKey && target.version === detail.data?.version && allowed(target.action) ? target : null,
+    contextKey, editor: editor?.key === contextKey && editor.version === detail.data?.version && hasAction('Pick') ? editor : null,
+    target: target?.key === contextKey && target.version === detail.data?.version && hasAction(target.action) ? target : null,
     discard, setDiscard, beginPick, reviewPick, beginDispatch, confirm,
     refresh: async () => { await client.invalidateQueries({ queryKey: prefix }); },
     closeEditor: () => { if (!lock.current) { setEditor(null); setTarget(null); } },

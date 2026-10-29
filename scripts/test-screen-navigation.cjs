@@ -443,7 +443,7 @@ function stockIssueFixture(failures = [], dispatch = false, documentId = 'inboun
     '@/features/warehouse-access/warehouse-access': { warehouseSnapshot: () => ({ activeUser: true, compatible: true, identity: 'user', signature: 'scope', warehouses: [{ id: 'warehouse' }] }) },
     '@/features/warehouse-access/warehouse-access.store': { useWarehouseSelection: { getState: () => selection } }, '@/lib/api-error': { logApiError() {} },
     '@/lib/dotnet-guid.schema': { nonEmptyDotNetGuidSchema: () => ({ safeParse: () => ({ success: true }) }) }, '../stock-issue': { assertPick() {}, outstandingPicks: () => dispatch ? [{ id: 'pick-A' }, { id: 'pick-B' }] : [] },
-    '../stock-issue.api': { stockIssueApi: { dispatch: async (_, body, guard) => { guard(); requests.push(structuredClone(body)); }, pick: async (_, body) => { requests.push(structuredClone(body)); const failure = failures[requests.length - 1]; if (failure) throw failure; } } },
+    '../stock-issue.api': { stockIssueApi: { destination: async () => ({ version: 'v1', slotId: 'staging', path: 'Chờ xuất' }), dispatch: async (_, body, guard) => { guard(); requests.push(structuredClone(body)); }, pick: async (_, body) => { requests.push(structuredClone(body)); const failure = failures[requests.length - 1]; if (failure) throw failure; } } },
     '../stock-issue.schema': { pickFormSchema: { parse: value => value } },
   });
   const state = runtime.render(() => useStockIssue(documentId));
@@ -942,5 +942,41 @@ test('draft restoration gate remains a rejected submit with inline text but does
     errors.logApiError(new Error('unexpected storage failure')); assert.equal(logged[0][0], 'error');
     errors.logApiError({ statusCode: 409, message: 'stale version' }); assert.equal(logged[1][0], 'warn');
     await tick();
+  } finally { f.cleanup(); }
+});
+
+
+test('stock issue preserves editor and confirmation identity during refetch/error but blocks commands until current queries succeed', async () => {
+  const f = stockIssueFixture([], true);
+  try {
+    await tick();
+    const item = { id: 'item', pickLocations: [{ inventoryStockId: 'stock', slotCode: 'A01' }] };
+    await f.render().beginPick(item, 'stock');
+    const editor = f.render().editor; assert.ok(editor);
+    for (const query of [f.detail, f.actions]) {
+      query.isFetching = true;
+      assert.equal(f.render().editor, editor); assert.equal(f.render().allowed('Pick'), false);
+      await assert.rejects(f.send('valid'), /thay đổi/); assert.equal(f.requests.length, 0);
+      query.isFetching = false; query.isError = true;
+      assert.equal(f.render().editor, editor); assert.equal(f.render().allowed('Pick'), false);
+      query.isError = false;
+      assert.equal(f.render().editor, editor); assert.equal(f.render().allowed('Pick'), true);
+    }
+    f.detail.data.version = 'v2'; assert.equal(f.render().editor, null);
+    f.detail.data.version = 'v1'; f.profile.permissions = ['view', 'dispatch']; assert.equal(f.render().editor, null);
+    f.profile.permissions = ['view', 'pick', 'dispatch'];
+    f.detail.data.status = 'AuthorizedForDispatch'; f.render().beginDispatch();
+    const target = f.render().target; assert.ok(target);
+    for (const query of [f.detail, f.actions]) {
+      query.isFetching = true;
+      assert.equal(f.render().target, target); assert.equal(f.render().allowed('Dispatch'), false);
+      await assert.rejects(f.sendDispatch(target), /thay đổi/); assert.equal(f.requests.length, 0);
+      query.isFetching = false; query.isError = true;
+      assert.equal(f.render().target, target); assert.equal(f.render().allowed('Dispatch'), false);
+      query.isError = false;
+      assert.equal(f.render().target, target); assert.equal(f.render().allowed('Dispatch'), true);
+    }
+    f.actions.data.allowedActions = []; assert.equal(f.render().target, null);
+    f.actions.data.allowedActions = ['Dispatch']; f.detail.data.status = 'Dispatched'; assert.equal(f.render().target, null);
   } finally { f.cleanup(); }
 });

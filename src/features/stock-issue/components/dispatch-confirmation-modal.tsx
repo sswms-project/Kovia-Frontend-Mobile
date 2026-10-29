@@ -15,9 +15,9 @@ import { formatStockIssueStagingLocation } from '../stock-issue';
 
 interface Props {
   readonly visible: boolean; readonly picks: ReturnType<typeof outstandingPicks>;
-  readonly busy: boolean; readonly error?: Error | null; readonly onConfirm: () => void; readonly onClose: () => void;
+  readonly busy: boolean; readonly submitDisabled?: boolean; readonly error?: Error | null; readonly onConfirm: () => void; readonly onClose: () => void;
 }
-export function DispatchConfirmationModal({ visible, picks, busy, error, onConfirm, onClose }: Props) {
+export function DispatchConfirmationModal({ visible, picks, busy, submitDisabled = false, error, onConfirm, onClose }: Props) {
   const theme = useTheme();
   return <Modal visible={visible} animationType="slide" onRequestClose={busy ? undefined : onClose}>
     <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
@@ -34,7 +34,7 @@ export function DispatchConfirmationModal({ visible, picks, busy, error, onConfi
         </View>}
         />
         <WorkActionBar hint="Xác nhận xuất toàn bộ phần hàng đang chờ xuất của phiếu.">
-          <Button label="Xác nhận hàng rời kho" loading={busy} disabled={!picks.length} onPress={onConfirm} />
+          <Button label="Xác nhận hàng rời kho" loading={busy} disabled={submitDisabled || !picks.length} onPress={onConfirm} />
           <Button label="Quay lại" variant="outline" disabled={busy} onPress={onClose} />
         </WorkActionBar>
     </SafeAreaView>

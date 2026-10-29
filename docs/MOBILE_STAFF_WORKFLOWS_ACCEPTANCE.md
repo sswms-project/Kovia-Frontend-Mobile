@@ -141,3 +141,8 @@ New player setup downloads assets first, waits for native readiness and re-enabl
 ### Android finished-clip replay — 2026-10-29
 
 Provider now seeks before awaiting READY, fixing Android's isLoaded=false after a completed clip. Reload Expo Go and test header-speaker success twice, error twice, then alternate actual valid/invalid scans including camera auto-close. Every intentional attempt should replay; keeping one barcode in frame still obeys the repeat guard. If a warning persists, capture its new reason field. Exact web WAVs and media volume remain unchanged.
+
+
+## Realtime refresh while outbound work is open — 2026-10-29
+
+Open the picking editor, select count mode and open the camera. Trigger reconnect or a matching notification without changing the document version: editor/camera/count state should remain mounted. Review/confirm is disabled until both document and allowed-actions refresh successfully. A failed refresh preserves the form and shows its error; manual refresh/reconnect may recover. Repeat from picking confirmation and whole-order dispatch confirmation; Back remains available unless a real command is pending. Verify that actual version/action/permission changes still prevent submitting obsolete work. Native acceptance is pending; actual-hook regression passes.

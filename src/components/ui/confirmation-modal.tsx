@@ -11,9 +11,9 @@ import { getApiErrorMessage } from '@/lib/api-error';
 
 interface ConfirmationModalProps {
   readonly visible: boolean; readonly title: string; readonly description: string; readonly busy: boolean;
-  readonly error?: Error | null; readonly onConfirm: () => void; readonly onCancel: () => void;
+  readonly confirmDisabled?: boolean; readonly error?: Error | null; readonly onConfirm: () => void; readonly onCancel: () => void;
 }
-export function ConfirmationModal({ visible, title, description, busy, error, onConfirm, onCancel }: ConfirmationModalProps) {
+export function ConfirmationModal({ visible, title, description, busy, confirmDisabled = false, error, onConfirm, onCancel }: ConfirmationModalProps) {
   const theme = useTheme();
   const reduceMotion = useReducedMotion();
   return <Modal visible={visible} animationType={reduceMotion ? 'none' : 'slide'} onRequestClose={busy ? undefined : onCancel}>
@@ -23,7 +23,7 @@ export function ConfirmationModal({ visible, title, description, busy, error, on
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{title}</Text>
         <Text style={[styles.text, { color: theme.textSecondary }]}>{description}</Text>
         {error && <AlertBanner variant="destructive" title="Chưa thể ghi nhận" description={getApiErrorMessage(error)} />}
-        <Button label="Xác nhận" loading={busy} onPress={onConfirm} />
+        <Button label="Xác nhận" loading={busy} disabled={confirmDisabled} onPress={onConfirm} />
         <Button label="Quay lại" variant="outline" disabled={busy} onPress={onCancel} />
       </ScrollView>
     </SafeAreaView>
