@@ -13,9 +13,10 @@ import { formatStockIssueStagingLocation } from '../stock-issue';
 import type { StockIssueItem } from '../stock-issue.schema';
 
 interface Props { readonly item: StockIssueItem; readonly canPick: boolean; readonly busy: boolean;
+  readonly onLocate?: (item: StockIssueItem, slotId: string) => void;
   readonly onReport: (item: StockIssueItem) => void;
   readonly onPick: (item: StockIssueItem, inventoryStockId: string) => void }
-export const StockIssueItemCard = memo(function StockIssueItemCard({ item, canPick, busy, onPick, onReport }: Props) {
+export const StockIssueItemCard = memo(function StockIssueItemCard({ item, canPick, busy, onPick, onReport, onLocate }: Props) {
   const theme = useTheme();
   const issued = item.pickDetails.filter(value => value.issuedAt).reduce((sum, value) => sum + value.pickedQuantity, 0);
   const [sourceId, setSourceId] = useState('');
@@ -41,6 +42,8 @@ export const StockIssueItemCard = memo(function StockIssueItemCard({ item, canPi
       <Text style={[styles.text, { color: theme.textSecondary }]}>Lô: {location.lotNumber ?? 'Không áp dụng'} · Hạn: {location.expiryDate ?? 'Không áp dụng'} · Giữ cho phiếu: {quantityLabel(location.reservedQuantity)}</Text>
       {location.directFromReceiving && <Text style={[styles.title, { color: theme.primary }]}>Đi thẳng từ khu nhận đến khu chờ xuất</Text>}
       {location.allocationReason && <Text style={[styles.text, { color: theme.textSecondary }]}>{location.allocationReason}</Text>}
+      {onLocate && <Button label="Xem nguồn lấy trên sơ đồ" variant="outline" disabled={busy}
+        onPress={() => onLocate(item, location.slotId)} />}
       {canPick && location.reservedQuantity > 0 && item.pickedQuantity < item.quantity &&
         <Button label={`${location.directFromReceiving ? 'Chuyển thẳng từ' : 'Lấy hàng tại'} ${formatInventoryLocation(location)}`} variant="outline" disabled={busy} onPress={() => onPick(item, location.inventoryStockId)} />}
     </View>}

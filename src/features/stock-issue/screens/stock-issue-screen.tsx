@@ -11,6 +11,8 @@ import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
 import { FontFamily } from '@/constants/theme';
 import { P } from '@/config/permission-codes';
+import { WarehouseMapView } from '@/features/warehouse-map/components/warehouse-map-view';
+import { useWarehouseMap } from '@/features/warehouse-map/hooks/use-warehouse-map';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -27,6 +29,9 @@ import type { StockIssueItem } from '../stock-issue.schema';
 
 export function StockIssueScreen({ documentId }: { readonly documentId: string }) {
   const state = useStockIssue(documentId);
+  const map = useWarehouseMap(`${documentId}:${state.detail.data?.version ?? ''}`,
+    state.canView && state.detail.isSuccess && !state.detail.isFetching);
+  const openMap = map.open;
   useScreenSubtitle(state.canView ? state.detail.data?.stockIssueRequestCode : undefined);
   const closeEditor = useModalExit(state.closeEditor);
   const report = usePickIssueReport(documentId, state);
@@ -34,8 +39,13 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
   const busy = state.mutation.isPending || report.mutation.isPending || report.active;
   useExitProtection(() => ({ busy: state.mutation.isPending || report.mutation.isPending }));
   const canPick = state.allowed('Pick') && state.permission(P.STOCK_ISSUE_REQUESTS_PICK);
+  const locate = useCallback((item: StockIssueItem, slotId: string) => {
+    if (state.canView && !state.detail.isFetching && !state.detail.isError && state.detail.data)
+      openMap(state.detail.data.warehouseId, slotId, `${item.sku} · ${item.productName}`);
+  }, [state.canView, state.detail.isFetching, state.detail.isError, state.detail.data, openMap]);
   const renderItem = useCallback(({ item }: { item: StockIssueItem }) => <StockIssueItemCard item={item} canPick={canPick}
-    busy={busy} onPick={state.beginPick} onReport={report.open} />, [canPick, busy, state.beginPick, report.open]);
+    busy={busy} onPick={state.beginPick} onReport={report.open} onLocate={map.canView ? locate : undefined} />,
+  [canPick, busy, state.beginPick, report.open, map.canView, locate]);
   const error = state.detail.error ?? state.actions.error;
   const pending = state.detail.data ? outstandingPicks(state.detail.data) : [];
   const [search, setSearch] = useState('');
@@ -95,6 +105,7 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
     <DispatchConfirmationModal visible={state.target?.action === 'Dispatch'} picks={pending}
       busy={busy} submitDisabled={!state.allowed('Dispatch')} error={state.mutation.error ?? error} onConfirm={() => { void state.confirm(); }} onClose={state.cancelConfirmation} />
     <PickIssueReportModal state={report} />
+    <WarehouseMapView key={`${map.view.slotId}:${map.view.visible}`} {...map.view} />
   </SafeAreaView>;
 }
 function Separator() { return <View style={styles.separator} />; }
