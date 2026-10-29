@@ -9,9 +9,10 @@ import type { LastScan } from '../scanner.types';
 interface ScanStatusProps {
   readonly isProcessing: boolean;
   readonly lastScan: LastScan | null;
+  readonly showCode?: boolean;
 }
 
-export function ScanStatus({ isProcessing, lastScan }: ScanStatusProps) {
+export function ScanStatus({ isProcessing, lastScan, showCode = true }: ScanStatusProps) {
   const theme = useTheme();
 
   if (isProcessing) {
@@ -39,12 +40,12 @@ export function ScanStatus({ isProcessing, lastScan }: ScanStatusProps) {
   const label = isInvalid ? 'Mã không hợp lệ' : 'Đã quét';
 
   return (
-    <View accessible accessibilityLiveRegion="polite" accessibilityLabel={`${label} ${lastScan.code}`} style={styles.row}>
+    <View accessible accessibilityLiveRegion="polite" accessibilityLabel={showCode ? `${label} ${lastScan.code}` : label} style={styles.row}>
       <Icon size={18} color={color} />
       <Text style={[styles.text, { color }]}>{label}</Text>
-      <Text numberOfLines={1} style={[styles.code, { color: theme.text }]}>
+      {showCode && <Text numberOfLines={1} style={[styles.code, { color: theme.text }]}>
         {lastScan.code}
-      </Text>
+      </Text>}
     </View>
   );
 }

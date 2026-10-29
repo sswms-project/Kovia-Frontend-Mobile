@@ -57,6 +57,8 @@ export function usePickingScan(item: StockIssueItem, form: UseFormReturn<PickFor
   return { source, maximum, factor, eachUnit, hardware, sourceInput, productInput, sourceReady, sourceVerified: verifiedSource(values.scannedSlotCode ?? ''), ready, quantityError, error,
     quantityText: quantityInput ?? (Number.isFinite(quantity) ? enteredText(quantity) : ''),
     canReview: !disabled && ready && !quantityError && !error,
+    canDecrease: !disabled && ready && nextScanQuantity(0, 1, quantity - factor, maximum) !== null,
+    canIncrease: !disabled && ready && nextScanQuantity(Number.isFinite(quantity) ? quantity : 0, 1, factor, maximum) !== null,
     scanSource, scanProduct,
     scan: (code: string) => !matchesSource(form.getValues('scannedSlotCode')) ? scanSource(code)
       : !eachUnit && matchesProduct(form.getValues('scannedBarcode')) ? undefined : scanProduct(code),
@@ -70,6 +72,15 @@ export function usePickingScan(item: StockIssueItem, form: UseFormReturn<PickFor
       // Remove binary noise only when the exact quantity fits the BE's storage scale.
       const normalized = nextScanQuantity(0, 1, base, Number.MAX_SAFE_INTEGER);
       form.setValue('pickedQuantity', normalized ?? base, { shouldDirty: true, shouldValidate: true });
+    },
+    adjustQuantity: (direction: -1 | 1) => {
+      if (disabled || !ready) return;
+      const value = form.getValues('pickedQuantity');
+      const current = Number.isFinite(value) ? value : 0;
+      const next = direction === 1 ? nextScanQuantity(current, 1, factor, maximum) : nextScanQuantity(0, 1, current - factor, maximum);
+      if (next === null) return;
+      form.setValue('pickedQuantity', next, { shouldDirty: true, shouldValidate: true });
+      setQuantityInput(enteredText(next)); setError(null);
     },
     changeEachUnit: (value: boolean) => { if (!disabled) { setEachUnit(value); clearProduct(); setError(null); } },
     changeHardware: (value: boolean) => { if (!disabled) setHardware(value); },

@@ -2,6 +2,11 @@ import type { ApiErrorResponse } from '@/types/api';
 
 import { logger } from './logger';
 
+/** Expected local workflow gate already presented inline by the owning screen. */
+export class WorkflowBlockedError extends Error {
+  constructor(message: string) { super(message); this.name = 'WorkflowBlockedError'; }
+}
+
 const FALLBACK_MESSAGE = 'Đã xảy ra lỗi. Vui lòng thử lại.';
 
 // ApiError from '@/lib/api' satisfies this shape structurally.
@@ -60,6 +65,7 @@ export function formatApiError(error: unknown): string {
  * wrong barcode...), so only warn; unexpected errors are logged at error level.
  */
 export function logApiError(error: unknown) {
+  if (error instanceof WorkflowBlockedError) return;
   if (isApiErrorResponse(error) && error.statusCode >= 400 && error.statusCode < 500) {
     logger.warn(`Yêu cầu bị từ chối (${error.statusCode}): ${error.message}`);
     return;

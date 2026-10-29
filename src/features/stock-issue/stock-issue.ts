@@ -47,5 +47,5 @@ export function assertPick(values: PickForm, document: StockIssue) {
 }
 export function outstandingPicks(document: StockIssue) {
   return document.items.flatMap(item => item.pickDetails.filter(detail => !detail.issuedAt)
-    .map(detail => ({ ...detail, productName: item.productName, sku: item.sku })));
+    .map(detail => ({ ...detail, productName: item.productName, sku: item.sku, enteredUnitName: item.enteredUnitName, conversionFactor: item.conversionFactor })));
 }

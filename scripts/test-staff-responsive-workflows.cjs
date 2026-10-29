@@ -119,6 +119,17 @@ test('picking scan preserves exact fractional factors and ignores sources whose 
   const partial = pickingScanFixture({ factor: 10, maximum: 15 }); assert.equal(partial.render().maximum, 10);
 });
 
+test('picking quantity buttons adjust one entered package without exceeding reservations or allowing zero', () => {
+  const f = pickingScanFixture(); f.render().scanSource('A04'); f.render().scanProduct('BAR-A');
+  assert.equal(f.render().canIncrease, false); assert.equal(f.render().canDecrease, true);
+  f.render().adjustQuantity(-1); assert.equal(f.form.values.pickedQuantity, 10); assert.equal(f.render().quantityText, '1');
+  assert.equal(f.render().canDecrease, false); f.render().adjustQuantity(-1); assert.equal(f.form.values.pickedQuantity, 10);
+  f.render().adjustQuantity(1); f.render().adjustQuantity(1); assert.equal(f.form.values.pickedQuantity, 20);
+  f.render().changeQuantity(''); assert.equal(f.render().canIncrease, true);
+  f.render().adjustQuantity(1); assert.equal(f.form.values.pickedQuantity, 10);
+  f.disable(); f.render().adjustQuantity(1); assert.equal(f.form.values.pickedQuantity, 10);
+});
+
 test('rack QR without rack metadata is captured for BE verification without showing a locally verified match', () => {
   const f = pickingScanFixture();
   assert.equal(f.render().scanSource('KOVIA:LOC:RACK:invalid'), false);
@@ -149,8 +160,8 @@ test('picking editor exposes one continuous camera and sequential unit-labelled 
   const jsx = (type, props) => ({ type, props });
   const { PickingEditor } = load('src/features/stock-issue/components/picking-editor.tsx', {
     react: f.runtime.react,
-    'react/jsx-runtime': { jsx, jsxs: jsx }, 'lucide-react-native': { ScanLine: 'ScanLine' },
-    'react-native': { KeyboardAvoidingView: 'Root', ScrollView: 'ScrollView', Text: 'Text', View: 'View', Switch: 'Switch',
+    'react/jsx-runtime': { jsx, jsxs: jsx }, 'lucide-react-native': { ScanLine: 'ScanLine', Minus: 'Minus', Plus: 'Plus' },
+    'react-native': { KeyboardAvoidingView: 'Root', ScrollView: 'ScrollView', Text: 'Text', View: 'View', Switch: 'Switch', Pressable: 'Pressable',
       Platform: { OS: 'android' }, StyleSheet: { create: value => value } },
     '@/components/ui/alert-banner': { AlertBanner: 'AlertBanner' }, '@/components/ui/button': { Button: 'Button' },
     '@/components/ui/text-field': { TextField: 'TextField' }, '@/components/work-action-bar': { WorkActionBar: 'WorkActionBar' },
@@ -163,17 +174,32 @@ test('picking editor exposes one continuous camera and sequential unit-labelled 
   const render = () => nodes(f.runtime.render(() => PickingEditor({ item: f.item, form: f.form, sourcePath: 'K01 / A04',
     destinationPath: 'Z-D / XUAT-01', busy: false, notice: null, onClose() {}, onReview: () => { reviewed++; } })));
   let tree = render(); const camera = tree.find(node => node.type === 'ScanCodeButton');
-  let productFocus = 0; let quantityFocus = 0;
+  let productFocus = 0; let quantityFocus = 0; let scrolled = 0;
+  tree.find(node => node.type === 'ScrollView').props.ref.current = { scrollTo: value => { scrolled++; assert.equal(value.y, 552); } };
+  tree.find(node => node.props?.onLayout).props.onLayout({ nativeEvent: { layout: { y: 600 } } });
   tree.find(node => node.props?.label === '2. Quét mã hàng').props.inputRef.current = { focus: () => { productFocus++; } };
   tree.find(node => node.props?.label === '3. Số lượng lấy (Hộp)').props.inputRef.current = { focus: () => { quantityFocus++; } };
   assert.equal(camera.props.continuous, true);
+  assert.equal(camera.props.showScannedCode, false);
   assert.deepEqual(tree.filter(node => node.type === 'TextField').map(node => node.props.label), ['1. Quét mã vị trí', '2. Quét mã hàng', '3. Số lượng lấy (Hộp)']);
   assert.equal(tree.find(node => node.props?.label === '2. Quét mã hàng').props.editable, false);
   camera.props.onOpen(); tree = render();
   assert.equal(camera.props.onScan('A04'), true); tree = render(); assert.equal(productFocus, 0);
+  assert.equal(camera.props.closeAfterScan(), false);
   assert.equal(tree.find(node => node.type === 'ScanCodeButton').props.onScan('BAR-A'), true); tree = render();
+  assert.equal(camera.props.closeAfterScan(), true);
   assert.equal(reviewed, 0); assert.equal(tree.find(node => node.props?.label === 'Kiểm tra và xác nhận lượt lấy').props.disabled, false);
-  tree.find(node => node.type === 'ScanCodeButton').props.confirm.onPress(); render(); assert.equal(quantityFocus, 1);
+  assert.equal(JSON.stringify(tree).includes('BAR-A'), false); assert.equal(f.form.values.scannedBarcode, 'BAR-A');
+  tree.find(node => node.type === 'ScanCodeButton').props.onClose(); tree = render(); assert.equal(quantityFocus, 1); assert.equal(scrolled, 1);
+  tree.find(node => node.props?.accessibilityLabel === 'Giảm 1 Hộp').props.onPress(); tree = render();
+  assert.equal(tree.find(node => node.props?.label === '3. Số lượng lấy (Hộp)').props.value, '1');
+  tree.find(node => node.props?.accessibilityLabel === 'Tăng 1 Hộp').props.onPress(); assert.equal(f.form.values.pickedQuantity, 20);
+  tree.find(node => node.props?.accessibilityLabel === 'Quét từng Hộp').props.onValueChange(true); tree = render();
+  tree.find(node => node.type === 'ScanCodeButton').props.onOpen(); tree = render();
+  assert.equal(tree.find(node => node.type === 'ScanCodeButton').props.onScan('BAR-A'), true); tree = render();
+  assert.equal(tree.find(node => node.type === 'ScanCodeButton').props.closeAfterScan(), false);
+  assert.ok(tree.find(node => node.type === 'ScanCodeButton').props.confirm);
+  assert.equal(quantityFocus, 1); assert.equal(reviewed, 0);
 });
 
 test('staff stock issue labels show rack locations in source choices, pick actions, history and dispatch without changing IDs', () => {
@@ -192,7 +218,7 @@ test('staff stock issue labels show rack locations in source choices, pick actio
   ]) {
     const runtime = hooks(); let chosen;
     const source = { ...location, inventoryStockId: 'source-stock', reservedQuantity: 2 };
-    const detail = { ...location, id: 'pick-detail', stagingSlotCode: '__SYSTEM_DEFAULT__', stagingRackCode: 'XUAT-01',
+    const detail = { ...location, enteredUnitName: 'Hộp', conversionFactor: 1, id: 'pick-detail', stagingSlotCode: '__SYSTEM_DEFAULT__', stagingRackCode: 'XUAT-01',
       stagingZoneCode: 'K02', isSystemDefaultStagingSlot: true, pickedQuantity: 1 };
     const dependencies = { react: runtime.react, 'react/jsx-runtime': { jsx, jsxs: jsx },
       'react-native': { View: 'View', Text: 'Text', Modal: 'Modal', FlatList: 'FlatList', StyleSheet: { create: value => value } },
@@ -214,8 +240,8 @@ test('staff stock issue labels show rack locations in source choices, pick actio
     assert.ok(button); button.props.onPress(); assert.equal(chosen, 'source-stock');
     const text = rendered.filter(node => node.type === 'Text').map(node => JSON.stringify(node.props.children)).join(' ');
     assert.ok(text.includes('Kệ XUAT-01')); assert.equal(text.includes('__SYSTEM_DEFAULT__'), false);
-    const { DispatchSelectionModal } = load('src/features/stock-issue/components/dispatch-selection-modal.tsx', dependencies);
-    const list = nodes(DispatchSelectionModal({ visible: true, picks: [detail], selected: [], busy: false })).find(node => node.type === 'FlatList');
+    const { DispatchConfirmationModal } = load('src/features/stock-issue/components/dispatch-confirmation-modal.tsx', { ...dependencies, '@/lib/number-format': { formatQuantity: String }, '@/lib/api-error': { getApiErrorMessage: error => error.message } });
+    const list = nodes(DispatchConfirmationModal({ visible: true, picks: [detail], busy: false })).find(node => node.type === 'FlatList');
     const dispatchText = nodes(list.props.renderItem({ item: detail })).filter(node => node.type === 'Text').map(node => JSON.stringify(node.props.children)).join(' ');
     assert.ok(dispatchText.includes('Kệ XUAT-01')); assert.equal(dispatchText.includes('__SYSTEM_DEFAULT__'), false);
   }

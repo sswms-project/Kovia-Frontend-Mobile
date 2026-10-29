@@ -102,7 +102,8 @@ test('staged receiving accepts configured point without an unnecessary scan; put
   assert.ok(receipt.putAwayTransferSchema.safeParse({ ...base, planVersion:'plan1', entries:[entry] }).success);
   assert.equal(receipt.putAwayTransferSchema.safeParse({ ...base, planVersion:'plan1', entries:[{ ...entry, scannedProductCode:'x'.repeat(101) }] }).success, false);
 });
-test('dispatch command can contain only the actually departing subset and rejects duplicate/overlarge selections', () => {
+test('dispatch command supports whole-order confirmation and validates an explicit subset when supplied', () => {
+  assert.ok(issue.dispatchCommandSchema.safeParse(base).success);
   assert.ok(issue.dispatchCommandSchema.safeParse({ ...base, pickDetailIds:[lineId] }).success);
   for (const ids of [[], [lineId,lineId], Array.from({length:501},randomUUID)])
     assert.equal(issue.dispatchCommandSchema.safeParse({ ...base, pickDetailIds:ids }).success, false);

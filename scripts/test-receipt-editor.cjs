@@ -246,6 +246,42 @@ test('continuous scanner stays open for consecutive locations and closes only on
   }
 });
 
+test('continuous scanner can complete a source-product session without another Done press and never completes a rejected scan', async () => {
+  const runtime = hooks(); const jsx = (type, props) => ({ type, props }); let complete = false; let closed = 0;
+  const { ScanCodeButton } = load('src/features/scanner/components/scan-code-button.tsx', {
+    react: runtime.react, 'react/jsx-runtime': { jsx, jsxs: jsx },
+    'react-native': { Modal: 'Modal', View: 'View', Text: 'Text', Pressable: 'Pressable', StyleSheet: { create: value => value } },
+    'lucide-react-native': { ScanLine: 'ScanLine' }, '@/components/ui/button': { Button: 'Button' },
+    '@/constants/theme': { FontFamily: {}, Radius: {} }, '@/hooks/use-theme': { useTheme: () => ({}) },
+    '../screens/scanner-screen': { ScannerScreen: 'ScannerScreen' },
+  });
+  const nodes = node => !node || typeof node !== 'object' ? [] : Array.isArray(node) ? node.flatMap(nodes) : [node, ...nodes(node.props?.children)];
+  const render = () => nodes(runtime.render(() => ScanCodeButton({ label: 'Quét', title: 'Quét', continuous: true, showScannedCode: false,
+    closeAfterScan: () => complete, onBeforeClose: () => { closed++; return true; },
+    onScan: code => { if (code === 'product') complete = true; return code !== 'wrong'; } })));
+  render().find(node => node.type === 'Button').props.onPress();
+  const scanner = render().find(node => node.type === 'ScannerScreen'); assert.equal(scanner.props.showScannedCode, false);
+  complete = true;
+  await scanner.props.onScan('wrong'); assert.equal(closed, 0); assert.ok(render().find(node => node.type === 'ScannerScreen'));
+  complete = false;
+  await scanner.props.onScan('source'); assert.equal(closed, 0); assert.ok(render().find(node => node.type === 'ScannerScreen'));
+  // The completion predicate reads current state even if React has not supplied a new callback yet.
+  await scanner.props.onScan('product'); assert.equal(closed, 1); assert.equal(render().some(node => node.type === 'ScannerScreen'), false);
+});
+
+test('scan feedback can hide barcode text and its screen-reader label without losing the verdict', () => {
+  const jsx = (type, props) => ({ type, props });
+  const { ScanStatus } = load('src/features/scanner/components/scan-status.tsx', {
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    'react-native': { View: 'View', Text: 'Text', ActivityIndicator: 'ActivityIndicator', StyleSheet: { create: value => value } },
+    'lucide-react-native': { AlertCircle: 'AlertCircle', CheckCircle2: 'CheckCircle2', ScanLine: 'ScanLine' },
+    '@/constants/theme': { FontFamily: {} }, '@/hooks/use-theme': { useTheme: () => ({}) }, '../scanner.types': {},
+  });
+  const props = { isProcessing: false, lastScan: { code: '4449020288887', isValid: true } };
+  assert.equal(JSON.stringify(ScanStatus({ ...props, showCode: false })).includes(props.lastScan.code), false);
+  assert.equal(JSON.stringify(ScanStatus(props)).includes(props.lastScan.code), true);
+});
+
 function putawayFixture(responses) {
   const runtime = hooks();
   let values = { lines: [], overrideReason: '' };
@@ -479,7 +515,10 @@ test('delivery and refusal photos survive draft creation/version refresh but res
   const receipt = { data: null };
   const access = { ready: true, selection, profile: { data: { id: 'user', permissions: ['view'] } } };
   const { useReceiptContext } = load('src/features/receiving/hooks/use-receipt-context.ts', {
-    react: runtime.react,
+    react: { ...runtime.react, useCallback: callback => callback },
+    'expo-router/react-navigation': { useIsFocused: () => true },
+    '@/features/notifications/hooks/use-notification-realtime': { useNotificationRealtime() {} },
+    '@/features/notifications/notifications.schema': {},
     '@tanstack/react-query': { useQueryClient: () => ({}), useQuery: options => options.queryKey.includes('task') ? task : receipt },
     '@/config/permission-codes': { P: { GOODS_RECEIPTS_VIEW: 'view' } },
     '@/features/auth/auth.store': {}, '@/features/my-tasks/my-tasks': {},

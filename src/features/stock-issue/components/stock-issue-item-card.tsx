@@ -30,6 +30,7 @@ export const StockIssueItemCard = memo(function StockIssueItemCard({ item, canPi
         <View key={label} style={styles.metric}><Text style={[styles.text, { color: theme.textSecondary }]}>{label}</Text>
           <Text style={[styles.title, { color: theme.text }]}>{quantityLabel(Number(quantity))}</Text></View>)}
     </View>
+    <WorkDetails title="Nguồn hàng và thao tác">
     <Text style={[styles.text, { color: theme.textSecondary }]}>Đã xuất: {quantityLabel(issued)}</Text>
     <Text style={[styles.text, { color: theme.textSecondary }]}>Đóng gói: {item.conversionFactor} đơn vị cơ sở/{item.enteredUnitName}</Text>
     {location && <View style={styles.section}>
@@ -47,6 +48,7 @@ export const StockIssueItemCard = memo(function StockIssueItemCard({ item, canPi
     {item.pickDetails.length > 0 && <WorkDetails title={`Lịch sử lấy / xuất (${item.pickDetails.length})`}>{item.pickDetails.map(detail => <Text key={detail.id} style={[styles.text, { color: theme.textSecondary }]}>
       {formatInventoryLocation(detail)} → {formatStockIssueStagingLocation(detail)} · {quantityLabel(detail.pickedQuantity)} · {detail.issuedAt ? 'Đã xuất thực tế' : 'Đang chờ xuất'}
     </Text>)}</WorkDetails>}
+    </WorkDetails>
   </View>;
 });
 const styles = StyleSheet.create({ card: { padding: 16, gap: 10, borderWidth: 1, borderRadius: Radius.lg },

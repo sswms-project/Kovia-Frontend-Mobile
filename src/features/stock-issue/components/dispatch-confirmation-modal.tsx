@@ -6,34 +6,36 @@ import { WorkActionBar } from '@/components/work-action-bar';
 import { WorkScreenHeader } from '@/components/work-screen-header';
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { FontFamily, Radius } from '@/constants/theme';
+import { formatQuantity } from '@/lib/number-format';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { useTheme } from '@/hooks/use-theme';
 
 import type { outstandingPicks } from '../stock-issue';
 import { formatStockIssueStagingLocation } from '../stock-issue';
 
 interface Props {
-  readonly visible: boolean; readonly picks: ReturnType<typeof outstandingPicks>; readonly selected: readonly string[];
-  readonly busy: boolean; readonly onToggle: (id: string) => void; readonly onReview: () => void; readonly onClose: () => void;
+  readonly visible: boolean; readonly picks: ReturnType<typeof outstandingPicks>;
+  readonly busy: boolean; readonly error?: Error | null; readonly onConfirm: () => void; readonly onClose: () => void;
 }
-export function DispatchSelectionModal({ visible, picks, selected, busy, onToggle, onReview, onClose }: Props) {
+export function DispatchConfirmationModal({ visible, picks, busy, error, onConfirm, onClose }: Props) {
   const theme = useTheme();
   return <Modal visible={visible} animationType="slide" onRequestClose={busy ? undefined : onClose}>
     <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
-      <WorkScreenHeader modal title="Chọn phần hàng thực tế xuất" onBack={onClose} />
+      <WorkScreenHeader modal title="Xác nhận hàng đã rời kho?" onBack={onClose} />
       <FlatList style={styles.root} data={picks} keyExtractor={pick => pick.id} contentContainerStyle={styles.content}
         ListHeaderComponent={<View style={styles.section}>
-          <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>Chọn phần hàng thực tế xuất</Text>
-          <AlertBanner title="Chỉ chọn các lượt hàng đã thực tế rời kho" description="Phần chưa chọn vẫn ở khu chờ xuất và được giữ cho phiếu. Mỗi lần xác nhận tối đa 500 lượt." />
+          <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>Xác nhận hàng đã rời kho?</Text>
+          <AlertBanner title="Kiểm tra toàn bộ hàng trước khi xác nhận" description="Thao tác này ghi giảm tồn kho thật và chuyển phiếu sang Đã xuất kho. Chỉ xác nhận khi toàn bộ hàng dưới đây đã thực tế rời kho." />
+          {error && <AlertBanner variant="destructive" title="Chưa thể ghi nhận" description={getApiErrorMessage(error)} />}
         </View>}
         renderItem={({ item }) => <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <Text style={[styles.text, { color: theme.text }]}>{item.sku} · {item.productName}</Text>
-          <Text style={[styles.text, { color: theme.textSecondary }]}>{formatStockIssueStagingLocation(item)} · Lô {item.lotNumber ?? 'Không có'} · {item.pickedQuantity} đơn vị cơ sở</Text>
-          <Button label={selected.includes(item.id) ? 'Đã chọn · Bỏ chọn lượt này' : 'Chọn lượt đã rời kho'} variant={selected.includes(item.id) ? 'primary' : 'outline'}
-            disabled={busy || (!selected.includes(item.id) && selected.length >= 500)} onPress={() => onToggle(item.id)} />
+          <Text style={[styles.text, { color: theme.textSecondary }]}>{formatStockIssueStagingLocation(item)} · Lô {item.lotNumber ?? 'Không có'} · {formatQuantity(item.pickedQuantity / item.conversionFactor)} {item.enteredUnitName}</Text>
         </View>}
         />
-        <WorkActionBar hint="Mỗi lượt được chọn chỉ xác nhận xuất một lần.">
-          <Button label={`Kiểm tra ${selected.length} lượt đã chọn`} disabled={busy || selected.length === 0} onPress={onReview} />
+        <WorkActionBar hint="Xác nhận xuất toàn bộ phần hàng đang chờ xuất của phiếu.">
+          <Button label="Xác nhận hàng rời kho" loading={busy} disabled={!picks.length} onPress={onConfirm} />
+          <Button label="Quay lại" variant="outline" disabled={busy} onPress={onClose} />
         </WorkActionBar>
     </SafeAreaView>
   </Modal>;

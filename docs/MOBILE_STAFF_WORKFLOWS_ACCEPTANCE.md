@@ -17,7 +17,7 @@ lịch sử có thể thu gọn; nút xác nhận nằm ngoài phần cuộn c�
 3. Chọn nguồn hàng được giữ cho phiếu trong dropdown. Kiểm tra vị trí, lô, hạn dùng và số giữ.
 4. Lấy hàng tại nguồn → nhập số thực lấy, mã nguồn và mã sản phẩm → Kiểm tra và xác nhận.
 5. Phiếu hiển thị số đã lấy và lịch sử. Tổng tồn kho chưa giảm.
-6. Khi hàng thực tế rời kho, chọn đúng lượt trong Chọn phần hàng đã rời kho → xác nhận.
+6. Lấy đủ các dòng hàng → trạng thái Picked: hiện chờ quản lý cho phép xuất kho, chưa có nút xác nhận xuất. Quản lý thực hiện Cho phép xuất kho trên web → mobile tự nhận thông báo và tải lại phiếu/quyền → AuthorizedForDispatch: hiện Xác nhận hàng rời kho. Kiểm tra toàn bộ danh sách hàng, số lượng theo đơn vị của phiếu và vị trí chờ xuất; chỉ xác nhận khi toàn bộ hàng thực tế đã rời kho. Không chọn xuất từng lượt trên mobile.
    Chỉ phần được chọn giảm tồn; phần chưa thực hiện vẫn mở.
 
 ## Điều chuyển
@@ -66,3 +66,78 @@ Các ca cần thử trên điện thoại:
 6. Kiểm tra trên màn nhỏ/font lớn, đóng/mở camera, bàn phím, Back/Home, mất mạng, phản hồi chưa rõ và tải lại phiên bản sau khi ghi. Không tự gửi lại hoặc bỏ marker đối soát.
 
 Kiểm chứng source:205/205test, TypeScript và Expo lint pass. Đã render các component mobile thực qua RN Web với fixture không gọi API và xem trạng thái ban đầu/đã quét ở390px; screenshot tại ../outputs/playwright/mobile-picking-{initial,ready}-390.png. Preview này không thay nghiệm thu camera/native. Không sửa BE/web hoặc ghi DB trong lượt thiết kế này.
+
+## Tiện ích kết thúc quét và chỉnh số lượng — 29/10/2026
+
+Theo phản hồi nghiệm thu, chế độ thường nay tự đóng camera ngay sau khi nhận đủ vị trí và mã hàng hợp lệ. Form cuộn tới ô số lượng và focus/chọn sẵn giá trị; không còn bước bấm Kiểm tra số lượng trong camera ở chế độ này. Barcode đã nhận không lặp lại trên thông báo hoặc trình đọc màn hình, nhưng vẫn được giữ nguyên trong form/payload để BE xác minh. Chế độ Quét từng đơn vị giữ camera mở và có nút kết thúc riêng.
+
+Kiểm tra thêm trên điện thoại:
+
+1. Quét vị trí đúng: camera còn mở. Quét mã hàng sai: camera còn mở và không cho xác nhận. Quét mã hàng đúng: camera đóng, ô số lượng hiện trong vùng nhìn thấy và nhận focus. Không tự ghi lượt lấy.
+2. Bấm −/+ thay đổi 1 đơn vị của dòng, ví dụ 1 Hộp = 10 đơn vị cơ sở; không giảm về 0 hoặc vượt lượng giữ. Nhập tay vẫn được kiểm tra như trước. Khi bật máy quét, số lượng nhận focus nhưng không bật bàn phím ảo.
+3. Bật Quét từng Hộp/Thùng: camera không tự đóng sau mã hàng đầu tiên; cộng dồn có giới hạn và kết thúc bằng Kiểm tra số lượng. Mở Quét lại ở chế độ thường phải bắt đầu lại từ vị trí; không giữ mã/số lượng xác nhận cũ.
+4. Màn hình chỉ báo Đã quét đúng sản phẩm, không lặp dãy barcode. Xác nhận vẫn qua bước kiểm tra và command có version/idempotency hiện có.
+
+Kiểm chứng source: **208/208 test pass**, TypeScript và Expo lint pass. Log: ../outputs/mobile-picking-scan-finish-{full,typescript,lint}-20261029.log. Chưa chứng nhận lại animation đóng modal, camera vật lý và bàn phím native; không sửa BE/web hoặc DB.
+
+
+## Dispatch aligned with web — 2026-10-29
+
+- While ReleasedForPicking, Picking or Picked, no dispatch action is available even if allowed-actions includes Dispatch. Picking and scanning never dispatch automatically.
+- Manager authorizes on web after all items are picked. Mobile automatically refreshes on a matching SignalR notification (manual refresh remains available); only AuthorizedForDispatch plus current Dispatch permission/action/version permits confirmation.
+- Confirmation lists all outstanding pick details with SKU, product, staging position, lot and quantity converted to the entered unit. Back closes without sending; there are no per-pick selection controls or second confirmation page.
+- Confirm sends the existing dispatch endpoint with expectedVersion and commandId, omitting pickDetailIds to use BE whole-order behavior. Network uncertainty retains existing explicit retry protection. A stale version, revoked permission or changed status prevents sending; refresh before retry.
+- Successful completion refreshes the document and shows completed work actions. Verify this end to end on a device; no business writes or native acceptance were performed by the agent in this round.
+
+
+## Realtime dispatch authorization — 2026-10-29
+
+1. Staff stays on a Picked issue with existing notifications.view permission; manager selects Cho phép xuất kho on web. Without manual refresh, the assigned staff device should show Xác nhận hàng rời kho after the notification and fresh API responses arrive. No fixed latency is guaranteed.
+2. A notification for another document, another reference type or an invalid reference does not refetch this issue. Notification fields cannot grant dispatch; status/version/actions are read again from the guarded APIs.
+3. Background then foreground the app, or leave then reopen the screen: subscription resumes and refreshes the current document. Authorize while disconnected, then reconnect: latest status must appear even if its event was missed.
+4. If initial SignalR connection fails or automatic reconnect exhausts, connection retries start after 5 seconds and back off to at most 30 seconds. Retry attempts also resync queries. A healthy connection uses events, not status polling.
+5. Leaving the screen, changing account/access or backgrounding cancels the old subscription and retries; late events must have no effect. Manually refreshing remains available when realtime is unavailable or notifications permission is absent.
+
+Agent validation is mocked lifecycle/API-query integration, not deployed event delivery or native acceptance. No BE/web edits or business writes were performed.
+
+
+## Realtime receipt approval / putaway — 2026-10-29
+
+- On the receiving waiting screen, approve inspection on web and assign putaway to the same staff. A matching GoodsReceipt notification should refresh receipt/actions and immediately run the guarded handoff; no manual refresh or 5-second wait is required when the event is delivered.
+- KeepAtReceiving or all-refused must update the receipt without opening putaway. Assigning to another staff member must not open their task on the current device. Later assignment to the current staff may continue only after API assignment/actions/version checks succeed.
+- On an already open putaway screen, matching receipt changes (including a manager's saved plan) refresh its data; notifications for another receipt must not reload the current flow or navigate.
+- Repeat with background/foreground, network disconnect/reconnect, Home pressed during refresh and an editor/modal open. No late handoff after leaving; paused work only hands off after safely resuming. Existing 5-second receiving fallback remains for missing events or outcomes sent to another recipient.
+- This requires device/deployed event-delivery acceptance; automated validation uses the actual hooks with mocked transport/query responses. No BE deployment or migration is needed for this mobile change.
+
+
+## Audible scan feedback — 2026-10-29
+
+- Reload Expo Go after installing the new SDK-compatible expo-audio dependency. For a custom development build lacking expo-audio, rebuild that client. On the device, raise Media volume and check whether Bluetooth/headphones are the active sound output.
+- Receiving: valid product count, valid receiving/putaway location → one short high beep plus existing success haptic; wrong product/location → two low beeps plus error haptic, without accepting the code.
+- Outbound: valid source then product → success beep per accepted step. Final product beep must complete while camera closes and quantity gains focus. Wrong source/product uses the error sound, keeps scanning open and cannot advance validation. Each-unit mode gives success feedback per accepted count.
+- Keeping one code in frame must not produce repeated beeps inside the guard window. Blank/neutral scans remain silent. Manual entry inside the scanner has the same feedback; ordinary typing outside the scanner is not a scan.
+- Rapid alternating outcomes should not overlap pending sounds. Backgrounding stops playback; reopening allows new feedback. Audio/haptic failure must leave scan validation and quantity entry usable. Acceptance of a scan never confirms a warehouse write automatically.
+
+Automated validation uses actual hooks and generated sound samples with mocked native playback. Speaker audibility, Bluetooth routing, silent-mode and rapid camera auto-close still require physical-device acceptance.
+
+
+### Earlier success beep retest (superseded below) — 2026-10-29
+
+Fully reload Expo Go to refresh the changed bundled success WAV. With the same Media volume/output that makes the error beep audible, scan a valid source/product in continuous mode and in auto-close mode. Success should now give a sustained ~200 ms high beep (245 ms asset including silence); error still gives two low beeps. Native audibility is pending, so a passing sample-energy regression is not a claim of physical speaker acceptance.
+
+
+### Current audio retest: actual web-generated tones — 2026-10-29
+
+Both audio files now come from Edge Web Audio rendering of the web oscillator/gain code, rather than raw square PCM synthesis. Success is back to the web's original 90 ms tone with gain 0.08 and exponential decay; error retains its two 140 ms tones and 60 ms gap. This supersedes the earlier sustained/louder success change. Fully reload Expo Go before comparing. Check accepted/rejected camera scans at the same Media volume, with and without the phone resting on a hard surface (haptics may be audible). Do not infer hardware damage from the current report: actual physical speaker distortion, haptic noise and native playback still require device comparison.
+
+
+### Native playback readiness and isolated test — 2026-10-29
+
+Reload Expo Go, open any inbound/outbound camera scanner and tap its header speaker icon. Choose Âm đúng then Âm sai; this intentionally plays audio without vibration and does not submit a scan or warehouse command. Report which sound is audible and the exact alert if a load/decoder failure appears. If both manual sounds work but scanning is silent, compare continuous scanning versus final auto-close. If both are silent without a playback error, investigate native output routing/volume/audio-session state rather than changing tone files again. Keep source WAVs identical to the web render during this diagnosis.
+
+New player setup downloads assets first, waits for native readiness and re-enables audio. An unsuccessful manual load waits at most 3 seconds and reports the failure; normal scanning remains usable. Native speaker acceptance is pending on the reported device.
+
+
+### Android finished-clip replay — 2026-10-29
+
+Provider now seeks before awaiting READY, fixing Android's isLoaded=false after a completed clip. Reload Expo Go and test header-speaker success twice, error twice, then alternate actual valid/invalid scans including camera auto-close. Every intentional attempt should replay; keeping one barcode in frame still obeys the repeat guard. If a warning persists, capture its new reason field. Exact web WAVs and media volume remain unchanged.

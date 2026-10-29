@@ -326,7 +326,7 @@ function draftFixture(store = storageFixture()) {
     'sonner-native': { toast: { error() {}, success() {} } },
     '@/features/auth/auth.store': { useAuth: { getState: () => session } },
     '@/features/warehouse-access/warehouse-access.store': { useWarehouseSelection: Object.assign(() => selection, { getState: () => selection }) },
-    '@/lib/api': { API_BASE_URL: 'api' }, '@/lib/api-error': { getApiErrorMessage: failure => failure.message,
+    '@/lib/api': { API_BASE_URL: 'api' }, '@/lib/api-error': { WorkflowBlockedError: load('src/lib/api-error.ts', { './logger': { logger: {} } }).WorkflowBlockedError, getApiErrorMessage: failure => failure.message,
       isApiErrorResponse: failure => typeof failure?.statusCode === 'number' && typeof failure?.message === 'string' },
     '@/lib/form-draft-storage': { formDraftStorage: store.storage }, './use-screen-exit': { useExitProtection: read => { protection = read; } },
   });
@@ -416,18 +416,25 @@ test('if another exit participant fails after a draft flush, the editor resumes 
   assert.deepEqual(boundary.errors, ['Other draft failed']); f.cleanup(); boundary.cleanup();
 });
 
-function stockIssueFixture(failures = []) {
+function stockIssueFixture(failures = [], dispatch = false, documentId = 'inbound') {
   const persisted = draftFixture(); const draft = persisted.render(); const runtime = hooks(); const requests = [];
   let mutation; let commandSequence = 0;
-  const P = { STOCK_ISSUE_REQUESTS_VIEW: 'view', STOCK_ISSUE_REQUESTS_PICK: 'pick', STOCK_ISSUE_REQUESTS_DISPATCH: 'dispatch' };
+  const P = { STOCK_ISSUE_REQUESTS_VIEW: 'view', STOCK_ISSUE_REQUESTS_PICK: 'pick', STOCK_ISSUE_REQUESTS_DISPATCH: 'dispatch', NOTIFICATIONS_VIEW: 'notifications' };
   const profile = { id: 'user', permissions: Object.values(P) };
   const selection = { identity: 'user', warehouseId: 'warehouse', revision: 1, signature: 'scope' };
-  const detail = { isSuccess: true, data: { version: 'v1', items: [] } };
+  const detail = { isSuccess: true, data: { version: 'v1', status: 'Picking', items: [] } };
+  const actions = { data: { currentVersion: 'v1', allowedActions: dispatch ? ['Pick', 'Dispatch'] : ['Pick'] } };
+  const invalidations = []; const realtime = {}; let focused = true;
+  const client = { getQueryData: () => profile, invalidateQueries: options => { invalidations.push(options.queryKey); return Promise.resolve(); } };
+  const notificationSchema = load('src/features/notifications/notifications.schema.ts', { '@/lib/dotnet-guid.schema': load('src/lib/dotnet-guid.schema.ts') }).notificationSchema;
   const { useStockIssue } = load('src/features/stock-issue/hooks/use-stock-issue.ts', {
     '@/features/inventory/inventory.labels': inventoryLabels,
     react: runtime.react, '@hookform/resolvers/zod': { zodResolver() {} }, 'react-hook-form': { useForm: () => persisted.form },
-    '@tanstack/react-query': { useQueryClient: () => ({ getQueryData: () => profile }),
-      useQuery: options => options.queryKey.includes('detail') ? detail : { data: { currentVersion: 'v1', allowedActions: ['Pick'] } },
+    'expo-router/react-navigation': { useIsFocused: () => focused },
+    '@/features/notifications/notifications.schema': { notificationSchema },
+    '@/features/notifications/hooks/use-notification-realtime': { useNotificationRealtime: (enabled, identity, signature, callback) => { Object.assign(realtime, { enabled, identity, signature, callback }); } },
+    '@tanstack/react-query': { useQueryClient: () => client,
+      useQuery: options => options.queryKey.includes('detail') ? detail : actions,
       useMutation: options => { mutation = options; return { reset() {} }; } },
     '@/hooks/use-form-draft': { useFormDraft: () => draft }, '@/config/permission-codes': { P }, '@/features/auth/auth.store': { useAuth: { getState: () => ({ signedIn: true }) } },
     '@/features/my-tasks/my-tasks': { taskScopeMatches: () => true },
@@ -435,16 +442,62 @@ function stockIssueFixture(failures = []) {
     '@/features/warehouse-access/hooks/use-warehouse-access': { useWarehouseAccess: () => ({ ready: true, selection, profile: { data: profile } }) },
     '@/features/warehouse-access/warehouse-access': { warehouseSnapshot: () => ({ activeUser: true, compatible: true, identity: 'user', signature: 'scope', warehouses: [{ id: 'warehouse' }] }) },
     '@/features/warehouse-access/warehouse-access.store': { useWarehouseSelection: { getState: () => selection } }, '@/lib/api-error': { logApiError() {} },
-    '@/lib/dotnet-guid.schema': { nonEmptyDotNetGuidSchema: () => ({ safeParse: () => ({ success: true }) }) }, '../stock-issue': { assertPick() {}, outstandingPicks: () => [] },
-    '../stock-issue.api': { stockIssueApi: { pick: async (_, body) => { requests.push(structuredClone(body)); const failure = failures[requests.length - 1]; if (failure) throw failure; } } },
+    '@/lib/dotnet-guid.schema': { nonEmptyDotNetGuidSchema: () => ({ safeParse: () => ({ success: true }) }) }, '../stock-issue': { assertPick() {}, outstandingPicks: () => dispatch ? [{ id: 'pick-A' }, { id: 'pick-B' }] : [] },
+    '../stock-issue.api': { stockIssueApi: { dispatch: async (_, body, guard) => { guard(); requests.push(structuredClone(body)); }, pick: async (_, body) => { requests.push(structuredClone(body)); const failure = failures[requests.length - 1]; if (failure) throw failure; } } },
     '../stock-issue.schema': { pickFormSchema: { parse: value => value } },
   });
-  const state = runtime.render(() => useStockIssue('inbound'));
-  return { persisted, requests, send: async scannedBarcode => {
+  const state = runtime.render(() => useStockIssue(documentId));
+  return { persisted, requests, detail, actions, profile, realtime, invalidations, selection, blur: () => { focused = false; }, render: () => runtime.render(() => useStockIssue(documentId)),
+    sendDispatch: target => mutation.mutationFn(target), send: async scannedBarcode => {
     try { return await mutation.mutationFn({ key: state.contextKey, version: 'v1', action: 'Pick', values: { pickedQuantity: 2, scannedBarcode } }); }
     finally { mutation.onSettled(); }
   }, cleanup: () => { runtime.cleanup(); persisted.cleanup(); } };
 }
+test('stock issue realtime only invalidates its own document and never trusts the notification as authorization', () => {
+  const documentId = '11111111-1111-4111-8111-111111111111';
+  const f = stockIssueFixture([], true, documentId);
+  try {
+    assert.equal(f.realtime.enabled, true);
+    f.realtime.callback({ referenceType: 'StockIssueRequest', referenceId: documentId, status: 'AuthorizedForDispatch' });
+    assert.deepEqual(f.invalidations, [['warehouse', 'user', 'warehouse', 1, 'stock-issue', documentId]]);
+    assert.equal(f.detail.data.status, 'Picking'); assert.equal(f.render().allowed('Dispatch'), false);
+    for (const event of [null, {}, { referenceType: 'GoodsReceipt', referenceId: documentId },
+      { referenceType: 'StockIssueRequest', referenceId: '22222222-2222-4222-8222-222222222222' },
+      { referenceType: 'StockIssueRequest', referenceId: 'bad-id' }]) f.realtime.callback(event);
+    assert.equal(f.invalidations.length, 1);
+    f.realtime.callback(); assert.equal(f.invalidations.length, 2);
+    f.blur(); f.render(); assert.equal(f.realtime.enabled, false);
+    f.profile.permissions = ['view']; f.render(); assert.equal(f.realtime.enabled, false);
+  } finally { f.cleanup(); }
+});
+
+test('dispatch waits for manager authorization and confirms the entire order with guarded version and command ID', async () => {
+  const f = stockIssueFixture([], true); await tick();
+  try {
+    for (const status of ['ReleasedForPicking', 'Picking', 'Picked', 'Dispatched']) {
+      f.detail.data.status = status;
+      const state = f.render();
+      assert.equal(state.allowed('Dispatch'), false);
+      state.beginDispatch(); assert.equal(f.render().target, null);
+    }
+    f.detail.data.status = 'AuthorizedForDispatch';
+    f.render().beginDispatch(); const target = f.render().target;
+    assert.equal(target.action, 'Dispatch');
+    await f.sendDispatch(target);
+    assert.equal(f.requests.length, 1);
+    assert.equal(f.requests[0].expectedVersion, 'v1');
+    assert.ok(f.requests[0].commandId);
+    assert.equal(Object.hasOwn(f.requests[0], 'pickDetailIds'), false);
+    f.detail.data.status = 'Picked'; f.render();
+    await assert.rejects(f.sendDispatch(target), /thay đổi/);
+    f.detail.data.status = 'AuthorizedForDispatch'; f.actions.data.currentVersion = 'v2'; f.render();
+    await assert.rejects(f.sendDispatch(target), /thay đổi/);
+    f.actions.data.currentVersion = 'v1'; f.profile.permissions = ['view', 'pick']; f.render();
+    await assert.rejects(f.sendDispatch(target), /quyền/);
+    assert.equal(f.requests.length, 1);
+  } finally { f.cleanup(); }
+});
+
 test('real picking hook resubmits a corrected barcode with a fresh command after known validation rejection', async () => {
   const f = stockIssueFixture([Object.assign(new Error('Mã quét không khớp'), { statusCode: 400 })]); await tick();
   await assert.rejects(f.send('WRONG')); assert.equal(f.persisted.protection().pending, false);
@@ -552,4 +605,342 @@ test('handoff response racing a Home dialog is dropped, while a later fresh chec
   resolveDetail({ data: detail }); await tick(); assert.equal(routes.length, 0); stop();
   nextLeaseValid = true; stop = focusedEffect(); resolveDetail({ data: detail }); await tick();
   assert.equal(routes.length, 1); stop(); runtime.cleanup();
+});
+
+
+function notificationRealtimeFixture(startFailures = 0) {
+  const runtime = hooks(); const invalidations = []; const refreshes = []; const connections = [];
+  const app = { currentState: 'active', addEventListener: (_, callback) => { app.change = callback; return { remove() { app.change = null; } }; } };
+  const access = { valid: true }; const options = { enabled: true, identity: 'user', signature: 'scope' };
+  const client = { getQueryData: () => ({}), invalidateQueries: value => { invalidations.push(value.queryKey); return Promise.resolve(); } };
+  const onRefresh = event => refreshes.push(event);
+  class HubConnectionBuilder {
+    withUrl(url, config) { this.config = config; return this; }
+    configureLogging() { return this; } withAutomaticReconnect() { return this; }
+    build() {
+      const connection = { config: this.config, starts: 0, stops: 0, handlers: {},
+        on(name, callback) { this.handlers[name] = callback; }, off(name) { delete this.handlers[name]; },
+        onreconnecting(callback) { this.reconnecting = callback; }, onreconnected(callback) { this.reconnected = callback; },
+        onclose(callback) { this.closed = callback; },
+        start() { this.starts++; return this.starts <= startFailures ? Promise.reject(new Error('offline')) : Promise.resolve(); },
+        stop() { this.stops++; return Promise.resolve(); } };
+      connections.push(connection); return connection;
+    }
+  }
+  const { useNotificationRealtime } = load('src/features/notifications/hooks/use-notification-realtime.ts', {
+    react: runtime.react, 'react-native': { AppState: app },
+    '@microsoft/signalr': { HubConnectionBuilder, LogLevel: { None: 0 } },
+    '@tanstack/react-query': { useQueryClient: () => client },
+    '@/features/auth/auth.store': { useAuth: { getState: () => ({ signedIn: true }) } },
+    '@/features/warehouse-access/warehouse-access': { profileQueryKey: ['profile'] },
+    '@/lib/api': { API_BASE_URL: 'https://example.invalid/api' },
+    '@/lib/token-storage': { tokenStorage: { get: async () => ({ accessToken: 'fixture-token' }) } },
+    '../notifications': { assertNotificationContext: () => { if (!access.valid) throw new Error('revoked'); } },
+  });
+  const render = () => runtime.render(() => useNotificationRealtime(options.enabled, options.identity, options.signature, onRefresh));
+  render();
+  return { render, app, options, access, connections, invalidations, refreshes, cleanup: () => runtime.cleanup() };
+}
+
+test('notification realtime refreshes on event/start/reconnect and stops delivering after background, revocation or cleanup', async () => {
+  const f = notificationRealtimeFixture();
+  try {
+    await tick(); assert.equal(f.render(), true);
+    const connection = f.connections[0];
+    const event = { referenceType: 'StockIssueRequest', referenceId: 'document' };
+    connection.handlers.NotificationCreated(event); assert.equal(f.refreshes.at(-1), event);
+    connection.reconnecting(); assert.equal(f.render(), false);
+    connection.reconnected(); assert.equal(f.render(), true); assert.equal(f.refreshes.at(-1), undefined);
+    f.access.valid = false; const before = f.refreshes.length;
+    connection.handlers.NotificationCreated(event); assert.equal(f.refreshes.length, before);
+    await assert.rejects(connection.config.accessTokenFactory(), /revoked/);
+    f.access.valid = true;
+    const lateEvent = connection.handlers.NotificationCreated;
+    f.app.change('background'); assert.equal(f.render(), false); assert.equal(connection.stops, 1);
+    lateEvent(event); assert.equal(f.refreshes.length, before);
+    f.app.change('active'); f.render(); await tick();
+    assert.equal(f.connections.length, 2); assert.equal(f.render(), true); assert.equal(f.refreshes.at(-1), undefined);
+    const foreground = f.connections[1]; const lateForeground = foreground.handlers.NotificationCreated;
+    f.options.enabled = false; f.render(); const closedCount = f.refreshes.length;
+    lateForeground(event); assert.equal(f.refreshes.length, closedCount); assert.equal(foreground.stops, 1);
+  } finally { f.cleanup(); }
+});
+
+test('notification realtime retries a failed initial connection and exhausted reconnect, and cancels timers when closed', async context => {
+  context.mock.timers.enable({ apis: ['setTimeout'] });
+  const f = notificationRealtimeFixture(1);
+  try {
+    await tick(); const connection = f.connections[0]; assert.equal(connection.starts, 1);
+    context.mock.timers.tick(5_000); await tick(); assert.equal(connection.starts, 2); assert.equal(f.render(), true);
+    connection.closed(); assert.equal(f.render(), false);
+    context.mock.timers.tick(5_000); await tick(); assert.equal(connection.starts, 3); assert.equal(f.render(), true);
+    connection.closed(); f.options.enabled = false; f.render();
+    context.mock.timers.tick(60_000); await tick(); assert.equal(connection.starts, 3);
+  } finally { f.cleanup(); }
+});
+
+
+function receiptRealtimeFixture(mode = 'receiving') {
+  const runtime = hooks(); const routes = []; const invalidations = []; const realtime = {};
+  const documentId = '11111111-1111-4111-8111-111111111111';
+  const receiptId = '22222222-2222-4222-8222-222222222222';
+  const selection = { identity: 'user', warehouseId: 'warehouse', revision: 1, signature: 'scope' };
+  let selected = selection; let focused = true; let fetches = 0;
+  const P = { GOODS_RECEIPTS_VIEW: 'view', GOODS_RECEIPTS_PUTAWAY: 'putaway', NOTIFICATIONS_VIEW: 'notifications' };
+  const profile = { id: 'user', permissions: Object.values(P) };
+  const server = { id: receiptId, inboundRequestId: documentId, warehouseId: 'warehouse', version: 'v1', status: 'PendingApproval',
+    receivingAssignedTo: 'user', putAwayAssignedTo: 'user', receivingSlotId: 'staging', arrivalStockPostedAt: 'today',
+    putAwayTaskExecutionStatus: 'Queued', items: [{ remainingPutAwayQuantity: 2 }] };
+  const serverActions = { currentVersion: 'v1', allowedActions: [] };
+  const receipt = { isSuccess: true, data: structuredClone(server), refetch: async () => {
+    fetches++; receipt.data = structuredClone(server); return { data: receipt.data, isError: false };
+  } };
+  const actions = { data: structuredClone(serverActions), refetch: async () => {
+    actions.data = structuredClone(serverActions); return { data: actions.data, isError: false };
+  } };
+  const client = { getQueryData: () => profile, invalidateQueries: options => {
+    invalidations.push(options.queryKey); receipt.data = structuredClone(server); actions.data = structuredClone(serverActions);
+    return Promise.resolve();
+  } };
+  const schema = load('src/features/notifications/notifications.schema.ts', { '@/lib/dotnet-guid.schema': load('src/lib/dotnet-guid.schema.ts') });
+  const { useReceiptContext } = load('src/features/receiving/hooks/use-receipt-context.ts', {
+    react: runtime.react, 'expo-router/react-navigation': { useIsFocused: () => focused },
+    '@tanstack/react-query': { useQueryClient: () => client, useQuery: options => options.queryKey.includes('task')
+      ? { data: { activeGoodsReceiptId: receiptId } } : options.queryKey.includes('receipt') ? receipt : actions },
+    '@/features/notifications/notifications.schema': schema,
+    '@/features/notifications/hooks/use-notification-realtime': { useNotificationRealtime: (enabled, identity, signature, callback) => { Object.assign(realtime, { enabled, callback }); } },
+    '@/config/permission-codes': { P }, '@/features/auth/auth.store': { useAuth: { getState: () => ({ signedIn: true }) } },
+    '@/features/my-tasks/my-tasks': { taskScopeMatches: scope => JSON.stringify(scope) === JSON.stringify(selected) },
+    '@/features/warehouse-access/hooks/use-warehouse-access': { useWarehouseAccess: () => ({ ready: true, selection, profile: { data: profile } }) },
+    '@/features/warehouse-access/warehouse-access': { profileQueryKey: ['profile'] },
+    '@/features/warehouse-access/warehouse-access.store': { useWarehouseSelection: { getState: () => selected } },
+    '@/lib/dotnet-guid.schema': { nonEmptyDotNetGuidSchema: () => ({ safeParse: () => ({ success: true }) }) },
+    '../receiving': { assertReceivingContext() {} }, '../receiving.api': {},
+  });
+  const { useReceiptHandoff } = load('src/features/receiving/hooks/use-receipt-handoff.ts', {
+    react: runtime.react, 'expo-router': { router: { replace: route => routes.push(route) },
+      useFocusEffect: callback => runtime.react.useEffect(callback, [callback]) },
+    'react-native': { AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } },
+    '@/hooks/use-screen-exit': { useScreenExit: () => null }, '@/config/permission-codes': { P },
+  });
+  const render = () => runtime.render(() => {
+    const context = useReceiptContext(mode, mode === 'putaway' ? receiptId : documentId);
+    useReceiptHandoff(context, false); return context;
+  });
+  render();
+  return { render, server, serverActions, routes, realtime, invalidations, receiptId, documentId,
+    fetches: () => fetches, blur: () => { focused = false; },
+    changeWarehouse: () => { selected = { ...selection, warehouseId: 'other' }; }, cleanup: () => runtime.cleanup() };
+}
+
+test('receipt approval event refreshes the context and starts guarded putaway handoff without waiting for the poll timer', async () => {
+  const f = receiptRealtimeFixture();
+  try {
+    await tick(); assert.equal(f.routes.length, 0); assert.equal(f.realtime.enabled, true);
+    f.server.status = 'Approved'; f.server.version = 'v2';
+    f.serverActions.currentVersion = 'v2'; f.serverActions.allowedActions = ['PutAway'];
+    f.realtime.callback({ referenceType: 'GoodsReceipt', referenceId: f.receiptId });
+    assert.deepEqual(f.invalidations, [['warehouse', 'user', 'warehouse', 1, 'receiving']]);
+    f.render(); await tick();
+    assert.deepEqual(f.routes, [{ pathname: '/(account)/putaway/[id]', params: { id: f.receiptId } }]);
+    f.render(); await tick(); assert.equal(f.routes.length, 1);
+  } finally { f.cleanup(); }
+});
+
+test('receipt realtime observes receiving and putaway references and ignores unrelated documents, malformed hints and stale warehouse scope', async () => {
+  for (const mode of ['receiving', 'putaway']) {
+    const f = receiptRealtimeFixture(mode);
+    try {
+      await tick();
+      for (const event of [null, {}, { referenceType: 'StockIssueRequest', referenceId: f.receiptId },
+        { referenceType: 'GoodsReceipt', referenceId: f.documentId }, { referenceType: 'GoodsReceipt', referenceId: 'bad-id' }])
+        f.realtime.callback(event);
+      assert.equal(f.invalidations.length, 0);
+      f.realtime.callback({ referenceType: 'InboundRequest', referenceId: f.documentId });
+      assert.equal(f.invalidations.length, mode === 'receiving' ? 1 : 0);
+      f.realtime.callback({ referenceType: 'GoodsReceipt', referenceId: f.receiptId });
+      const expected = mode === 'receiving' ? 2 : 1; assert.equal(f.invalidations.length, expected);
+      f.realtime.callback(); assert.equal(f.invalidations.length, expected + 1);
+      assert.equal(f.routes.length, 0);
+      f.changeWarehouse(); f.realtime.callback(); assert.equal(f.invalidations.length, expected + 1);
+      f.blur(); f.render(); assert.equal(f.realtime.enabled, false);
+    } finally { f.cleanup(); }
+  }
+});
+
+test('approval event does not hand off when manager keeps goods at receiving, assigns another worker or actions are stale', async () => {
+  for (const change of [{ keptAtReceiving: true }, { putAwayAssignedTo: 'other' }, { staleActions: true }]) {
+    const f = receiptRealtimeFixture();
+    try {
+      await tick(); Object.assign(f.server, { status: 'Approved', version: 'v2', ...change });
+      Object.assign(f.serverActions, { currentVersion: change.staleActions ? 'v1' : 'v2', allowedActions: ['PutAway'] });
+      f.realtime.callback({ referenceType: 'GoodsReceipt', referenceId: f.receiptId }); f.render(); await tick();
+      assert.equal(f.routes.length, 0);
+    } finally { f.cleanup(); }
+  }
+});
+
+
+function scanAudioFixture({ modeFailure = false } = {}) {
+  const runtime = hooks(); const warnings = []; const alerts = []; let failMode = modeFailure; let modeCalls = 0; let activeCalls = 0;
+  const players = ['success', 'error'].map(name => ({ name, plays: 0, pauses: 0, seeks: [], isLoaded: true, listeners: new Set(),
+    addListener(_, callback) { this.listeners.add(callback); return { remove: () => this.listeners.delete(callback) }; },
+    emit(status) { if (status.isLoaded !== undefined) this.isLoaded = status.isLoaded; for (const listener of [...this.listeners]) listener(status); },
+    play() { this.plays++; }, pause() { this.pauses++; }, async seekTo(seconds) { this.seeks.push(seconds); } }));
+  const app = { currentState: 'active', addEventListener: (_, callback) => { app.change = callback; return { remove() { app.change = null; } }; } };
+  const context = { Provider: 'AudioProvider' };
+  const { ScanFeedbackProvider } = load('src/providers/scan-feedback-provider.tsx', {
+    react: { ...runtime.react, createContext: () => context, useContext: () => null },
+    'react/jsx-runtime': { jsx: (type, props) => ({ type, props }) }, 'react-native': { AppState: app, Alert: { alert: (...args) => alerts.push(args) } },
+    'expo-audio': { useAudioPlayer: (source, options) => { assert.equal(options.downloadFirst, true); assert.equal(options.keepAudioSessionActive, true); return players[source]; },
+      setIsAudioActiveAsync: async active => { activeCalls++; assert.equal(active, true); }, setAudioModeAsync: async mode => {
+      modeCalls++; assert.equal(mode.playsInSilentMode, true); assert.equal(mode.shouldRouteThroughEarpiece, false);
+      assert.equal(mode.shouldPlayInBackground, false); assert.equal(mode.allowsRecording, false);
+      assert.equal(mode.interruptionMode, 'mixWithOthers');
+      if (failMode) { failMode = false; throw new Error('no audio device'); }
+    } },
+    '../../assets/sounds/scan-success.wav': 0, '../../assets/sounds/scan-error.wav': 1,
+    '@/lib/logger': { logger: { warn: message => warnings.push(message) } },
+  });
+  const tree = runtime.render(() => ScanFeedbackProvider({ children: 'screen' }));
+  return { play: tree.props.value, players, app, warnings, alerts, activeCalls: () => activeCalls, modeCalls: () => modeCalls, cleanup: () => runtime.cleanup() };
+}
+
+test('root-owned scan audio replays distinct verdict tones, cancels superseded/background playback and survives camera teardown', async () => {
+  const f = scanAudioFixture();
+  try {
+    f.play(true); await tick(); assert.equal(f.players[0].plays, 1); assert.deepEqual(f.players[0].seeks, [0]);
+    f.play(false); await tick(); assert.equal(f.players[1].plays, 1); assert.equal(f.modeCalls(), 1);
+    f.play(true); f.play(false); await tick(); assert.equal(f.players[0].plays, 1); assert.equal(f.players[1].plays, 2);
+    let completeSeek; f.players[0].seekTo = () => new Promise(resolve => { completeSeek = resolve; });
+    f.play(true); await tick(); f.app.change('background'); completeSeek(); await tick();
+    assert.equal(f.players[0].plays, 1);
+    f.app.change('active'); f.play(false); await tick(); assert.equal(f.players[1].plays, 3);
+    const latePlay = f.play; f.cleanup(); latePlay(false); await tick(); assert.equal(f.players[1].plays, 3);
+  } finally { f.cleanup(); }
+});
+
+test('scan validation drives audio and haptics once per accepted attempt, including final auto-close, without blocking on audio failure', async () => {
+  const audio = scanAudioFixture({ modeFailure: true }); const runtime = hooks(); const verdicts = []; const vibrations = []; const warnings = [];
+  let cameraClosed = false;
+  const { useScanGuard } = load('src/features/scanner/hooks/use-scan-guard.ts', {
+    react: runtime.react, 'expo-haptics': { NotificationFeedbackType: { Success: 'success', Error: 'error' },
+      notificationAsync: async kind => { vibrations.push(kind); if (kind === 'success') throw new Error('haptics unavailable'); } },
+    '@/providers/scan-feedback-provider': { useScanFeedback: () => valid => { verdicts.push(valid); audio.play(valid); } },
+    '@/lib/logger': { logger: { warn: message => warnings.push(message), error() {} } },
+  });
+  const onScan = async code => {
+    if (code === 'throw') throw new Error('invalid scan');
+    if (code === 'silent') return;
+    if (code === 'valid') cameraClosed = true;
+    return code === 'valid';
+  };
+  const render = () => runtime.render(() => useScanGuard(onScan));
+  try {
+    await render().handleCode('valid'); await tick();
+    assert.equal(cameraClosed, true); assert.equal(render().lastScan.isValid, true);
+    assert.equal(audio.warnings.length, 1); assert.equal(warnings.length, 1);
+    await render().handleCode('valid'); assert.equal(verdicts.length, 1);
+    await render().handleCode('valid', { isManual: true }); await tick(); assert.equal(audio.players[0].plays, 1);
+    await render().handleCode('wrong'); await tick(); assert.equal(audio.players[1].plays, 1);
+    await render().handleCode('silent'); await render().handleCode('');
+    assert.deepEqual(verdicts, [true, true, false]);
+    await render().handleCode('throw'); await tick(); assert.deepEqual(verdicts, [true, true, false, false]);
+    assert.deepEqual(vibrations, ['success', 'success', 'error', 'error']);
+    assert.equal(render().lastScan.isValid, false); assert.equal(render().isProcessing, false);
+  } finally { audio.cleanup(); runtime.cleanup(); }
+});
+
+test('bundled scan sounds contain a short high success beep and two low error beeps separated by silence', () => {
+  function samples(name) {
+    const wav = readFileSync(path.join(root, 'assets', 'sounds', `scan-${name}.wav`));
+    assert.equal(wav.toString('ascii', 0, 4), 'RIFF'); assert.equal(wav.toString('ascii', 8, 12), 'WAVE');
+    assert.equal(wav.readUInt16LE(22), 1); assert.equal(wav.readUInt32LE(24), 48000); assert.equal(wav.readUInt16LE(34), 16);
+    return Array.from({ length: (wav.length - 44) / 2 }, (_, index) => wav.readInt16LE(44 + index * 2));
+  }
+  const success = samples('success'); const error = samples('error');
+  const segment = (values, from, to) => values.slice(Math.round(from * 48000), Math.round(to * 48000));
+  const frequency = values => values.reduce((count, value, index) => count + (index > 0 && value >= 0 && values[index - 1] < 0 ? 1 : 0), 0) / (values.length / 48000);
+  assert.ok(Math.abs(frequency(segment(success, .04, .09)) - 1760) < 35);
+  // Keep the browser-rendered gain/envelope, rather than amplifying a raw sampled square wave.
+  assert.ok(success.every(value => Math.abs(value) <= .081 * 32768));
+  assert.ok(error.every(value => Math.abs(value) <= .081 * 32768));
+  assert.ok(success.some(value => Math.abs(value) > .06 * 32768));
+  const rms = values => Math.sqrt(values.reduce((sum, value) => sum + value * value, 0) / values.length);
+  assert.ok(rms(segment(success, .04, .05)) < rms(segment(success, 0, .01)) * .1);
+  assert.ok(segment(success, .095, .105).every(value => value === 0));
+  assert.ok(Math.abs(frequency(segment(error, 0, .1)) - 330) < 20);
+  assert.ok(segment(error, .145, .195).every(value => value === 0));
+  assert.ok(segment(error, .2, .3).some(value => Math.abs(value) > 1000));
+});
+
+
+test('scan audio waits for native loading, restores playback and cancels load subscriptions on background or newer verdict', async () => {
+  const f = scanAudioFixture();
+  try {
+    f.players[0].isLoaded = false;
+    f.play(true); await tick(); assert.equal(f.players[0].plays, 0); assert.equal(f.players[0].listeners.size, 1);
+    f.players[0].emit({ isLoaded: true }); await tick(); assert.equal(f.players[0].plays, 1);
+    assert.equal(f.activeCalls(), 1); assert.equal(f.players[0].listeners.size, 0);
+    f.players[0].isLoaded = false; f.play(true); await tick(); f.play(false); await tick();
+    assert.equal(f.players[0].listeners.size, 0); assert.equal(f.players[1].plays, 1);
+    f.play(true); await tick(); f.app.change('background'); await tick();
+    assert.equal(f.players[0].listeners.size, 0); assert.equal(f.warnings.length, 0);
+  } finally { f.cleanup(); }
+});
+
+test('manual sound diagnostics report a native load failure or timeout without generating a scan or vibration', async context => {
+  context.mock.timers.enable({ apis: ['setTimeout'] });
+  const f = scanAudioFixture();
+  try {
+    f.players[0].isLoaded = false; f.play(true, true); await tick();
+    f.players[0].emit({ error: 'unreadable asset' }); await tick();
+    assert.equal(f.alerts.length, 1); assert.match(f.alerts[0][1], /không đọc được/);
+    f.play(true, true); await tick(); context.mock.timers.tick(3_000); await tick();
+    assert.equal(f.alerts.length, 2); assert.match(f.alerts[1][1], /Không tải được/);
+    assert.equal(f.players[0].listeners.size, 0); assert.equal(f.players[0].plays, 0);
+  } finally { f.cleanup(); }
+});
+
+
+test('Android ended clips replay by seeking before waiting for isLoaded, without relying on another status event', async () => {
+  const f = scanAudioFixture();
+  try {
+    for (const valid of [true, false]) {
+      const player = f.players[valid ? 0 : 1];
+      player.isLoaded = false; player.duration = valid ? .11 : .36;
+      player.seekTo = async seconds => {
+        player.seeks.push(seconds);
+        // SDK Android: STATE_ENDED -> false; seekTo(0) -> READY -> true.
+        player.isLoaded = true;
+      };
+      f.play(valid); await tick(); assert.equal(player.plays, 1);
+      player.isLoaded = false;
+      f.play(valid); await tick(); assert.equal(player.plays, 2);
+      assert.equal(player.listeners.size, 0); assert.deepEqual(player.seeks, [0, 0]);
+    }
+    assert.equal(f.warnings.length, 0);
+  } finally { f.cleanup(); }
+});
+
+
+test('draft restoration gate remains a rejected submit with inline text but does not produce a duplicate LogBox error', async () => {
+  const logged = [];
+  const errors = load('src/lib/api-error.ts', { './logger': { logger: {
+    warn: message => logged.push(['warn', message]), error: message => logged.push(['error', message]),
+  } } });
+  const f = draftFixture();
+  try {
+    const draft = f.render();
+    let blocked;
+    try { await draft.beforeSubmit({ operation: 'Pick', commandId: 'command', content: 'body', expectedVersion: 'v1', documentId: 'inbound' }); }
+    catch (failure) { blocked = failure; }
+    assert.equal(blocked?.name, 'WorkflowBlockedError');
+    assert.match(errors.getApiErrorMessage(blocked), /Đang kiểm tra bản nháp/);
+    // Classes are evaluated once per fixture loader; use its public type for the logger regression.
+    errors.logApiError(new errors.WorkflowBlockedError(blocked.message)); assert.deepEqual(logged, []);
+    errors.logApiError(new Error('unexpected storage failure')); assert.equal(logged[0][0], 'error');
+    errors.logApiError({ statusCode: 409, message: 'stale version' }); assert.equal(logged[1][0], 'warn');
+    await tick();
+  } finally { f.cleanup(); }
 });

@@ -32,7 +32,7 @@ export function useReceiptHandoff(context: ReceiptContext, paused: boolean) {
     receipt.items.some(item => item.remainingPutAwayQuantity > 0);
   const key = `${context.contextKey}:${context.receiptId}`;
   useFocusEffect(useCallback(() => {
-    if (!watching) return;
+    if (!watching || !receipt?.version) return;
     let active = true;
     let foreground = AppState.currentState === 'active';
     let running = false;
@@ -69,6 +69,6 @@ export function useReceiptHandoff(context: ReceiptContext, paused: boolean) {
     });
     void check();
     return () => { active = false; cancelTimer(); subscription.remove(); };
-  }, [watching, key]));
+  }, [watching, key, receipt?.version]));
   return { watching };
 }

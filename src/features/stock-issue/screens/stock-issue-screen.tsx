@@ -17,7 +17,7 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { formatQuantity } from '@/lib/number-format';
 
 import { PickingEditor } from '../components/picking-editor';
-import { DispatchSelectionModal } from '../components/dispatch-selection-modal';
+import { DispatchConfirmationModal } from '../components/dispatch-confirmation-modal';
 import { StockIssueItemCard } from '../components/stock-issue-item-card';
 import { useStockIssue } from '../hooks/use-stock-issue';
 import { usePickIssueReport } from '../hooks/use-pick-issue-report';
@@ -61,7 +61,11 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
           {state.detail.data && <>
             <Text style={[styles.text, { color: theme.textSecondary }]}>{state.detail.data.warehouseName} · {state.detail.data.stockRecipientName}</Text>
             <AlertBanner title={`Chờ xuất: ${pending.length} lượt lấy hàng`}
-              description="Lấy hàng giữ nguyên tổng tồn. Chỉ xác nhận xuất sau khi phần hàng liệt kê đã thực tế rời kho. Phần chưa lấy hoặc chưa xuất tiếp tục mở." />
+              description={state.detail.data.status === 'Picked'
+                ? 'Đã lấy đủ hàng. Chờ quản lý cho phép xuất kho; sau đó bạn xác nhận khi hàng thực tế rời kho.'
+                : state.detail.data.status === 'AuthorizedForDispatch'
+                  ? 'Đã được phép xuất kho. Kiểm tra toàn bộ hàng của phiếu và xác nhận sau khi hàng thực tế rời kho.'
+                  : 'Quét vị trí và sản phẩm, nhập số lượng rồi xác nhận lấy hàng. Lấy hàng vào khu chờ xuất chưa ghi giảm tổng tồn kho.'} />
             {!state.detail.data.items.length && <AlertBanner title="Phiếu không có dòng hàng." />}
             {state.actions.data?.denialReasonCode === 'DAMAGE_WORKFLOW_OUT_OF_SCOPE' && <AlertBanner title="Phiếu này thuộc quy trình xử lý hàng hỏng ngoài phạm vi mobile hiện tại." />}
             <Text style={[styles.text, { color: theme.primary }]}>{items.filter(item => item.pickedQuantity >= item.quantity).length}/{items.length} dòng đã lấy đủ</Text>
@@ -71,10 +75,10 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
         </>}
         <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
       </View>} ListEmptyComponent={items.length > 0 ? <Text style={[styles.text, { color: theme.textSecondary }]}>Không có dòng hàng phù hợp. Đổi bộ lọc để xem lại.</Text> : null} />
-    {(canPick || canDispatch) && <WorkActionBar hint={canPick && nextPick ? 'Quét vị trí nguồn → mã hàng → số lượng thực lấy.' : `${pending.length} lượt đang chờ xuất · Chỉ chọn phần hàng đã thực tế rời kho.`}>
+    {(canPick || canDispatch) && <WorkActionBar hint={canPick && nextPick ? 'Quét vị trí nguồn → mã hàng → số lượng thực lấy.' : 'Chỉ xác nhận sau khi toàn bộ hàng của phiếu đã thực tế rời kho.'}>
       {canPick && nextPick && <Button label="Quét & lấy hàng" disabled={busy} renderIcon={color => <ScanLine size={22} color={color} />}
         onPress={() => { void state.beginPick(nextPick.item, nextPick.location.inventoryStockId); }} />}
-      {canDispatch && <Button label="Chọn phần hàng đã rời kho" variant={canPick && nextPick ? 'outline' : 'primary'} disabled={busy || !pending.length} onPress={state.beginDispatch} />}
+      {canDispatch && <Button label="Xác nhận hàng rời kho" variant={canPick && nextPick ? 'outline' : 'primary'} disabled={busy || !pending.length} onPress={state.beginDispatch} />}
     </WorkActionBar>}
     <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : closeEditor}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>{state.editor && <PickingEditor
@@ -88,11 +92,8 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
           busy={busy} onConfirm={state.discardChanges} onCancel={() => state.setDiscard(false)} />
       </SafeAreaView>
     </Modal>
-    <DispatchSelectionModal visible={!!state.dispatchSelection && state.target?.action !== 'Dispatch'} picks={pending}
-      selected={state.dispatchSelection?.ids ?? []} busy={busy} onToggle={state.toggleDispatch} onReview={state.reviewDispatch} onClose={state.closeDispatch} />
-    <ConfirmationModal visible={state.target?.action === 'Dispatch'} title="Xác nhận hàng đã thực tế rời kho?"
-      description={`${state.target?.pickDetailIds?.length ?? 0} lượt đã chọn sẽ được xác nhận xuất. Phần chưa chọn hoặc chưa lấy vẫn mở và tiếp tục được theo dõi.`}
-      busy={busy} error={state.mutation.error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />
+    <DispatchConfirmationModal visible={state.target?.action === 'Dispatch'} picks={pending}
+      busy={busy} error={state.mutation.error} onConfirm={() => { void state.confirm(); }} onClose={state.cancelConfirmation} />
     <PickIssueReportModal state={report} />
   </SafeAreaView>;
 }
