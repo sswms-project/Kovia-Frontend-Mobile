@@ -9,6 +9,7 @@ import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 import type { outstandingPicks } from '../stock-issue';
+import { formatStockIssueStagingLocation } from '../stock-issue';
 
 interface Props {
   readonly visible: boolean; readonly picks: ReturnType<typeof outstandingPicks>; readonly selected: readonly string[];
@@ -26,7 +27,7 @@ export function DispatchSelectionModal({ visible, picks, selected, busy, onToggl
         </View>}
         renderItem={({ item }) => <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <Text style={[styles.text, { color: theme.text }]}>{item.sku} · {item.productName}</Text>
-          <Text style={[styles.text, { color: theme.textSecondary }]}>{item.stagingSlotCode} · Lô {item.lotNumber ?? 'Không có'} · {item.pickedQuantity} đơn vị cơ sở</Text>
+          <Text style={[styles.text, { color: theme.textSecondary }]}>{formatStockIssueStagingLocation(item)} · Lô {item.lotNumber ?? 'Không có'} · {item.pickedQuantity} đơn vị cơ sở</Text>
           <Button label={selected.includes(item.id) ? 'Đã chọn · Bỏ chọn lượt này' : 'Chọn lượt đã rời kho'} variant={selected.includes(item.id) ? 'primary' : 'outline'}
             disabled={busy || (!selected.includes(item.id) && selected.length >= 500)} onPress={() => onToggle(item.id)} />
         </View>}

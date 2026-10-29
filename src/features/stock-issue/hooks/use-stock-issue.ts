@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useFormDraft } from '@/hooks/use-form-draft';
+import { formatInventoryLocation } from '@/features/inventory/inventory.labels';
 
 import { P, type PermissionCode } from '@/config/permission-codes';
 import { useAuth } from '@/features/auth/auth.store';
@@ -34,7 +35,7 @@ export function useStockIssue(documentId: string) {
     queryFn: ({ signal }) => stockIssueApi.detail(documentId, scope!.warehouseId, userId, signal) });
   const actions = useQuery({ queryKey: [...prefix, 'actions'], enabled: !!scope && detail.isSuccess, retry: false,
     queryFn: ({ signal }) => stockIssueApi.actions(documentId, signal) });
-  const [editor, setEditor] = useState<{ key: string; version: string; item: StockIssueItem; slotCode: string; destinationId: string; destinationPath: string } | null>(null);
+  const [editor, setEditor] = useState<{ key: string; version: string; item: StockIssueItem; sourcePath: string; destinationId: string; destinationPath: string } | null>(null);
   const [target, setTarget] = useState<Target | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [discard, setDiscard] = useState(false);
@@ -102,7 +103,7 @@ export function useStockIssue(documentId: string) {
       if (destination.version !== expectedVersion) throw new Error('Phiếu đã đổi phiên bản. Vui lòng tải lại trước khi lấy hàng.');
       form.reset({ stockIssueRequestItemId: item.id, inventoryStockId, pickedQuantity: Number.NaN, scannedBarcode: '', scannedSlotCode: '',
         destinationStagingSlotId: destination.slotId, scannedStagingSlotCode: '' });
-      setEditor({ key: contextKey, version: expectedVersion, item, slotCode: location.slotCode,
+      setEditor({ key: contextKey, version: expectedVersion, item, sourcePath: formatInventoryLocation(location),
         destinationId: destination.slotId, destinationPath: destination.path });
       setNotice(null);
     } catch (error) { logApiError(error); setNotice(getApiErrorMessage(error)); }

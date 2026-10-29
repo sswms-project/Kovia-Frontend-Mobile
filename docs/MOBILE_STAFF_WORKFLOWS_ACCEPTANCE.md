@@ -49,3 +49,20 @@ lịch sử có thể thu gọn; nút xác nhận nằm ngoài phần cuộn c�
 TypeScript, Expo lint và 140 kiểm thử tập trung qua. RN Web đã thử với API/SQL thật trên DB test
 riêng: xuất 2/5, lấy đủ 3 điều chuyển, lưu/gửi kiểm kê 5, nhận 8 tốt/1 hỏng rồi cất 3+5.
 Màn dọc 375×812, ngang 844×390 và tablet 768×1024 đã kiểm tra. Đây không thay thế nghiệm thu native/camera.
+
+## Bổ sung tham chiếu web responsive và quét lấy hàng — 29/10/2026
+
+Đã xem web deploy bằng Edge/Playwright ở390×844, phiếu XK000007, mở Quét & lấy hàng; thử mã vị trí sai, mã A04 đúng và mã hàng sai trong form. Không bấm xác nhận lượt lấy/xuất. Nguồn tham chiếu: RecordStockPickingDialog, StockIssuePickEntry, useStockIssuePickScan và hợp đồng RecordStockPicking của BE.
+
+Mobile có nút Quét & lấy hàng ở thanh hành động; chọn dòng đầu theo khu/kệ/ô trong các nguồn đã được giữ, không phân bổ lại hàng. Card hiển thị yêu cầu/đã lấy/còn cần lấy theo đơn vị của dòng. Form có một phiên camera liên tiếp vị trí→mã hàng, nhập tay/máy quét, quét từng Hộp/Thùng, số lượng theo đơn vị dòng rồi quy đổi về đơn vị cơ sở. Giữ bước kiểm tra/xác nhận hiện có trước khi gửi; sau khi ghi thành công quay lại danh sách đã tải mới, chưa tự mở camera cho dòng tiếp theo như web.
+
+Các ca cần thử trên điện thoại:
+
+1. Vào phiếu→Quét & lấy hàng: thấy đúng SKU, nguồn và điểm chờ xuất. Quét vị trí trước; bước mã hàng/số lượng khóa khi chưa đủ điều kiện.
+2. Camera giữ mở sau mã vị trí hợp lệ để quét tiếp sản phẩm. Sai mã không tăng số lượng; barcode đã cấu hình không được thay bằng SKU. Camera không tự gửi lệnh; đóng camera để kiểm tra số lượng.
+3. Bật quét từng đơn vị: mỗi lượt cộng1đơn vị của dòng, ví dụ1Hộp=10đơn vị cơ sở. Hai lượt=2Hộp; lượt vượt lượng giữ bị chặn. Máy quét nhập+Enter vẫn cộng dồn và chuyển focus theo bước; không bật bàn phím phía sau camera.
+4. Nhập thiếu1Hộp thì payload là10đơn vị cơ sở; không nhận1,5Hộp nếu chỉ lấy nguyên kiện. Đổi vị trí/quét lại phải xóa xác nhận sản phẩm và số lượng cũ. Giữ-bỏ nháp vẫn qua guard hiện có.
+5. Nhãn SLOT QR khớp slotId được kiểm tra tại client. Nhãn RACK QR hợp lệ nhưng DTO thiếu rackId chỉ hiện Đã nhận mã QR kệ, không hiện Đã quét đúng; BE xác minh chính xác khi ghi lượt lấy. Sai rack ID phải bị BE từ chối, không đổi tồn. Đây là giới hạn metadata hiện có của hợp đồng, không thay quyền hay xác thực BE.
+6. Kiểm tra trên màn nhỏ/font lớn, đóng/mở camera, bàn phím, Back/Home, mất mạng, phản hồi chưa rõ và tải lại phiên bản sau khi ghi. Không tự gửi lại hoặc bỏ marker đối soát.
+
+Kiểm chứng source:205/205test, TypeScript và Expo lint pass. Đã render các component mobile thực qua RN Web với fixture không gọi API và xem trạng thái ban đầu/đã quét ở390px; screenshot tại ../outputs/playwright/mobile-picking-{initial,ready}-390.png. Preview này không thay nghiệm thu camera/native. Không sửa BE/web hoặc ghi DB trong lượt thiết kế này.

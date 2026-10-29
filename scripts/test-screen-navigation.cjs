@@ -40,6 +40,10 @@ function hooks() {
     cleanup() { slots.forEach(slot => slot?.cleanup?.()); } };
 }
 const navigationLogic = load('src/lib/screen-navigation.ts');
+const inventoryLabels = load('src/features/inventory/inventory.labels.ts', {
+  '@/lib/number-format': load('src/lib/number-format.ts'),
+  './inventory.types': load('src/features/inventory/inventory.types.ts'),
+});
 function navigationTree() {
   return { key: 'root', type: 'stack', stale: false, routeNames: ['(app)', '(account)'], index: 1, routes: [
     { key: 'app', name: '(app)', state: { type: 'tab', stale: false, index: 1, history: [{ type: 'route', key: 'tasks-tab' }], routes: [
@@ -420,6 +424,7 @@ function stockIssueFixture(failures = []) {
   const selection = { identity: 'user', warehouseId: 'warehouse', revision: 1, signature: 'scope' };
   const detail = { isSuccess: true, data: { version: 'v1', items: [] } };
   const { useStockIssue } = load('src/features/stock-issue/hooks/use-stock-issue.ts', {
+    '@/features/inventory/inventory.labels': inventoryLabels,
     react: runtime.react, '@hookform/resolvers/zod': { zodResolver() {} }, 'react-hook-form': { useForm: () => persisted.form },
     '@tanstack/react-query': { useQueryClient: () => ({ getQueryData: () => profile }),
       useQuery: options => options.queryKey.includes('detail') ? detail : { data: { currentVersion: 'v1', allowedActions: ['Pick'] } },
