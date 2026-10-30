@@ -1,6 +1,6 @@
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
 import { useAuth } from '@/features/auth/auth.store';
@@ -11,8 +11,9 @@ import { tokenStorage } from '@/lib/token-storage';
 
 import { assertNotificationContext } from '../notifications';
 
-export function useNotificationRealtime(enabled: boolean, identity: string | null, signature: string | null, onRefresh?: (event?: unknown) => void) {
+export function useNotificationRealtime(enabled: boolean, identity: string | null, signature: string | null, onRefresh?: (event?: unknown) => void, transfer?: { readonly id: string; readonly onChange: (event?: unknown) => void }) {
   const client = useQueryClient();
+  const transferSession = useRef<string | null>(null);
   const [active, setActive] = useState(AppState.currentState === 'active');
   const [connectionState, setConnectionState] = useState<{ signature: string | null; connected: boolean } | null>(null);
   useEffect(() => {
@@ -24,6 +25,7 @@ export function useNotificationRealtime(enabled: boolean, identity: string | nul
     let disposed = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let retryDelay = 5_000;
+    let startedOnce = false;
     const assertCurrent = () => {
       if (disposed) throw new Error('Kết nối thông báo đã đóng.');
       assertNotificationContext(identity, signature, client.getQueryData<UserProfile>(profileQueryKey), useAuth.getState().signedIn);
@@ -40,6 +42,19 @@ export function useNotificationRealtime(enabled: boolean, identity: string | nul
     const connection = new HubConnectionBuilder().withUrl(`${API_BASE_URL.replace(/\/api$/, '')}/hubs/notifications`, {
       accessTokenFactory: async () => { assertCurrent(); const tokens = await tokenStorage.get(); assertCurrent(); return tokens?.accessToken ?? ''; },
     }).configureLogging(LogLevel.None).withAutomaticReconnect().build();
+    const transferChanged = (event: unknown) => {
+      try { assertCurrent(); transfer?.onChange(event); } catch { /* Old sessions cannot update an active document. */ }
+    };
+    async function joinTransfer(reconnected: boolean) {
+      if (!transfer) return;
+      try {
+        assertCurrent(); await connection.invoke('JoinTransfer', transfer.id); assertCurrent();
+        const key = JSON.stringify([identity, signature, transfer.id]);
+        const resumed = transferSession.current === key;
+        transferSession.current = key;
+        if (reconnected || resumed) transfer.onChange();
+      } catch { if (!disposed) transferChanged(undefined); }
+    }
     function scheduleStart() {
       if (disposed || retryTimer) return;
       try { assertCurrent(); } catch { return; }
@@ -55,15 +70,16 @@ export function useNotificationRealtime(enabled: boolean, identity: string | nul
       void connection.start().then(() => {
         if (disposed) { void connection.stop().catch(() => undefined); return; }
         retryDelay = 5_000;
-        setConnectionState({ signature, connected: true }); refresh();
+        setConnectionState({ signature, connected: true }); refresh(); void joinTransfer(startedOnce); startedOnce = true;
       }).catch(() => {
         if (!disposed) { setConnectionState({ signature, connected: false }); scheduleStart(); }
       });
     }
     connection.on('NotificationCreated', refresh);
+    if (transfer) connection.on('TransferChanged', transferChanged);
     connection.onreconnecting(() => { if (!disposed) setConnectionState({ signature, connected: false }); });
     connection.onreconnected(() => {
-      if (!disposed) { retryDelay = 5_000; setConnectionState({ signature, connected: true }); refresh(); }
+      if (!disposed) { retryDelay = 5_000; setConnectionState({ signature, connected: true }); refresh(); void joinTransfer(true); }
     });
     connection.onclose(() => {
       if (!disposed) { setConnectionState({ signature, connected: false }); scheduleStart(); }
@@ -74,8 +90,9 @@ export function useNotificationRealtime(enabled: boolean, identity: string | nul
       disposed = true;
       if (retryTimer) clearTimeout(retryTimer);
       connection.off('NotificationCreated', refresh);
+      if (transfer) connection.off('TransferChanged', transferChanged);
       void connection.stop().catch(() => undefined);
     };
-  }, [client, enabled, identity, signature, active, onRefresh]);
+  }, [client, enabled, identity, signature, active, onRefresh, transfer]);
   return enabled && active && connectionState?.signature === signature && connectionState.connected;
 }

@@ -4,9 +4,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { getTaskTypeLabel } from '@/features/warehouse-task/warehouse-task.labels';
 
 import { ACTION_LABELS, availableTaskActions, DEADLINE_LABELS, EXECUTION_LABELS,
-  TASK_LABELS, taskDate } from '../../my-tasks';
+  taskDate } from '../../my-tasks';
 import type { TaskActionInput, WarehouseTask } from '../../my-tasks.schema';
 
 interface TaskCardProps {
@@ -27,7 +28,7 @@ export const TaskCard = memo(function TaskCard({ task, history, canManage, busy,
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: urgent ? theme.error : theme.border }]}>
       <View style={styles.heading}>
-        <Text style={[styles.kind, { color: theme.primary }]}>{TASK_LABELS[task.taskType]}</Text>
+        <Text style={[styles.kind, { color: theme.primary }]}>{getTaskTypeLabel(task)}</Text>
         {task.priority === 'Urgent' && <Text style={[styles.badge, { color: theme.error }]}>Khẩn</Text>}
       </View>
       <Text style={[styles.reference, { color: theme.text }]}>{task.referenceCode}</Text>

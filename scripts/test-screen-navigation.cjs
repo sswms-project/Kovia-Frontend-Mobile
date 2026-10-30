@@ -608,7 +608,7 @@ test('handoff response racing a Home dialog is dropped, while a later fresh chec
 });
 
 
-function notificationRealtimeFixture(startFailures = 0) {
+function notificationRealtimeFixture(startFailures = 0, transfer) {
   const runtime = hooks(); const invalidations = []; const refreshes = []; const connections = [];
   const app = { currentState: 'active', addEventListener: (_, callback) => { app.change = callback; return { remove() { app.change = null; } }; } };
   const access = { valid: true }; const options = { enabled: true, identity: 'user', signature: 'scope' };
@@ -618,7 +618,8 @@ function notificationRealtimeFixture(startFailures = 0) {
     withUrl(url, config) { this.config = config; return this; }
     configureLogging() { return this; } withAutomaticReconnect() { return this; }
     build() {
-      const connection = { config: this.config, starts: 0, stops: 0, handlers: {},
+      const connection = { config: this.config, starts: 0, stops: 0, handlers: {}, joins: [],
+        async invoke(method, id) { this.joins.push([method, id]); },
         on(name, callback) { this.handlers[name] = callback; }, off(name) { delete this.handlers[name]; },
         onreconnecting(callback) { this.reconnecting = callback; }, onreconnected(callback) { this.reconnected = callback; },
         onclose(callback) { this.closed = callback; },
@@ -637,7 +638,7 @@ function notificationRealtimeFixture(startFailures = 0) {
     '@/lib/token-storage': { tokenStorage: { get: async () => ({ accessToken: 'fixture-token' }) } },
     '../notifications': { assertNotificationContext: () => { if (!access.valid) throw new Error('revoked'); } },
   });
-  const render = () => runtime.render(() => useNotificationRealtime(options.enabled, options.identity, options.signature, onRefresh));
+  const render = () => runtime.render(() => useNotificationRealtime(options.enabled, options.identity, options.signature, onRefresh, transfer));
   render();
   return { render, app, options, access, connections, invalidations, refreshes, cleanup: () => runtime.cleanup() };
 }
@@ -979,4 +980,131 @@ test('stock issue preserves editor and confirmation identity during refetch/erro
     f.actions.data.allowedActions = []; assert.equal(f.render().target, null);
     f.actions.data.allowedActions = ['Dispatch']; f.detail.data.status = 'Dispatched'; assert.equal(f.render().target, null);
   } finally { f.cleanup(); }
+});
+
+
+test('transfer realtime joins its authorized document, rejoins on recovery and ignores late events after disposal', async () => {
+  const events = []; const subscription = { id: 'transfer-id', onChange: event => events.push(event) };
+  const f = notificationRealtimeFixture(0, subscription);
+  try {
+    await tick(); const connection = f.connections[0];
+    assert.deepEqual(connection.joins, [['JoinTransfer', 'transfer-id']]);
+    assert.equal(events.length, 0);
+    const changed = { transferId: 'transfer-id' }; connection.handlers.TransferChanged(changed);
+    assert.deepEqual(events, [changed]);
+    connection.reconnected(); await tick(); assert.equal(connection.joins.length, 2); assert.equal(events.length, 2);
+    const late = connection.handlers.TransferChanged; f.options.enabled = false; f.render();
+    late(changed); assert.equal(events.length, 2); assert.equal(connection.handlers.TransferChanged, undefined);
+  } finally { f.cleanup(); }
+});
+
+test('transfer change hints retain current edits, match only the current transfer and do not clear a newer event during reload', () => {
+  const runtime = hooks(); const calls = []; let focused = true;
+  const access = { selection: { identity: 'user', signature: 'scope', warehouseId: 'warehouse', revision: 1 }, profile: { data: { permissions: ['notifications'] } } };
+  const { useTransferChanges } = load('src/features/transfer-picking/hooks/use-transfer-changes.ts', {
+    '@/lib/transfer-client': { transferClientId: 'this-session' },
+    react: runtime.react, 'expo-router/react-navigation': { useIsFocused: () => focused },
+    '@/config/permission-codes': { P: { NOTIFICATIONS_VIEW: 'notifications' } },
+    '@/lib/dotnet-guid.schema': load('src/lib/dotnet-guid.schema.ts'),
+    '@/features/notifications/hooks/use-notification-realtime': { useNotificationRealtime: (...args) => { calls.push(args); return true; } },
+  });
+  const id = '11111111-1111-4111-8111-111111111111';
+  const render = () => runtime.render(() => useTransferChanges(id, access, true));
+  try {
+    render(); const transfer = calls.at(-1)[4]; assert.equal(calls.at(-1)[0], true);
+    transfer.onChange({ transferId: 'bad' }); assert.equal(render().changed, false);
+    transfer.onChange({ transferId: id, originClientId: 'this-session' }); assert.equal(render().changed, false);
+    transfer.onChange({ transferId: '22222222-2222-4222-8222-222222222222' }); assert.equal(render().changed, false);
+    transfer.onChange({ transferId: id }); assert.equal(render().changed, true);
+    const seen = render().capture(); transfer.onChange({ transferId: id }); render().accept(seen); assert.equal(render().changed, true);
+    render().accept(render().capture()); assert.equal(render().changed, false);
+    transfer.onChange(); assert.equal(render().changed, true);
+    access.selection.revision++; assert.equal(render().changed, false);
+    focused = false; render(); assert.equal(calls.at(-1)[0], false);
+  } finally { runtime.cleanup(); }
+});
+
+
+test('transfer receipt commands are blocked by pending realtime hints without discarding the form or changing quantities', async () => {
+  const runtime = hooks(); let mutation; const sent = [];
+  const profile = { permissions: ['view', 'receive'] };
+  const selection = { identity: 'user', warehouseId: 'warehouse', signature: 'scope', revision: 1 };
+  const state = { realtime: { changed: true }, canView: true, mode: 'PutAway', detail: {}, access: { selection, profile: { data: profile } },
+    data: { document: { isLegacyWorkflow: false }, receipt: { version: 'v1', status: 'AwaitingPutAway' }, shipment: { putAwayTaskStatus: 'InProgress' } } };
+  const { useTransferReceiptExecution } = load('src/features/transfer-receiving/hooks/use-transfer-receipt-execution.ts', {
+    react: runtime.react, '@tanstack/react-query': { useQueryClient: () => ({ getQueryData: () => profile }),
+      useMutation: options => { mutation = options; return { reset() {} }; } },
+    '@/config/permission-codes': { P: { TRANSFERS_VIEW: 'view', TRANSFERS_RECEIVE: 'receive' } },
+    '@/features/auth/auth.store': { useAuth: { getState: () => ({ signedIn: true }) } },
+    '@/features/my-tasks/my-tasks': { taskScopeMatches: () => true },
+    '@/features/warehouse-access/warehouse-access': { profileQueryKey: ['profile'], warehouseSnapshot: () => ({ activeUser: true, compatible: true, signature: 'scope' }) },
+    '@/features/warehouse-access/warehouse-access.store': { useWarehouseSelection: { getState: () => selection } },
+    '@/lib/api-error': { logApiError() {} }, '@/lib/warehouse-command': {},
+    '../receiving': {}, '../transfer-receiving': { transferReceiptActionAllowed: () => true },
+    '../transfer-receiving.api': { transferReceivingApi: { execute: async () => sent.push('write') } },
+  });
+  try {
+    const result = runtime.render(() => useTransferReceiptExecution(state, 'transfer', 'shipment', { current: { execute: async (_, send) => send() } }));
+    assert.equal(result.allowed('PutAway'), false);
+    await assert.rejects(mutation.mutationFn({ action: 'PutAway', scopeKey: result.key, body: { expectedVersion: 'v1' } }), /Trạng thái/);
+    assert.deepEqual(sent, []);
+  } finally { runtime.cleanup(); }
+});
+
+test('receipt handoff navigates only after successful submission, fresh data and while the same screen is active', () => {
+  const runtime = hooks(), routes = [], frames = new Map(); let frameId = 0, focused = true, eligible = true;
+  const oldRequest = global.requestAnimationFrame, oldCancel = global.cancelAnimationFrame;
+  global.requestAnimationFrame = callback => { frames.set(++frameId, callback); return frameId; };
+  global.cancelAnimationFrame = id => frames.delete(id);
+  const selection = { identity: 'user', warehouseId: 'warehouse', revision: 1, signature: 'scope' };
+  const state = { mode: 'Receive', canView: true, detail: { isSuccess: true, isFetching: false }, realtime: { changed: false },
+    access: { selection, profile: { data: { id: 'user', permissions: [] } } }, data: { document: {}, receipt: {} } };
+  const { useTransferReceiptHandoff } = load('src/features/transfer-receiving/hooks/use-transfer-receipt-handoff.ts', {
+    react: runtime.react, 'expo-router': { router: { replace: value => routes.push(value) } },
+    'expo-router/react-navigation': { useIsFocused: () => focused }, '@/hooks/use-screen-exit': { useScreenExit: () => null },
+    '@/features/auth/auth.store': { useAuth: { getState: () => ({ signedIn: true }) } },
+    '@/features/my-tasks/my-tasks': { taskScopeMatches: () => true },
+    '@/features/warehouse-access/warehouse-access.store': { useWarehouseSelection: { getState: () => selection } },
+    '../transfer-receiving': { canContinueTransferPutaway: () => eligible },
+  });
+  const render = () => runtime.render(() => useTransferReceiptHandoff({ ...state }, 'transfer', 'shipment'));
+  const flush = () => { for (const callback of frames.values()) callback(); frames.clear(); };
+  try {
+    render(); flush(); assert.equal(routes.length, 0);
+    render().submitted(); state.detail.isFetching = true; render(); flush(); assert.equal(routes.length, 0);
+    state.detail.isFetching = false; focused = false; render(); flush(); assert.equal(routes.length, 0);
+    focused = true; eligible = false; render(); flush(); assert.equal(routes.length, 0);
+    eligible = true; state.realtime.changed = true; render(); flush(); assert.equal(routes.length, 0);
+    state.realtime.changed = false; render(); flush(); assert.equal(routes.length, 1);
+    assert.deepEqual(routes[0], { pathname: '/(account)/transfer-putaway/[id]', params: { id: 'transfer', shipmentId: 'shipment' } });
+    render(); flush(); assert.equal(routes.length, 1);
+  } finally { runtime.cleanup(); global.requestAnimationFrame = oldRequest; global.cancelAnimationFrame = oldCancel; }
+});
+
+test('successful receipt submit remains locked on old data if its post-commit reload fails', async () => {
+  const runtime = hooks(); let mutation; const calls = [];
+  const profile = { permissions: ['view', 'receive'] }, selection = { identity: 'user', warehouseId: 'warehouse', signature: 'scope', revision: 1 };
+  const state = { realtime: { changed: false }, canView: true, mode: 'Receive', detail: {}, access: { selection, profile: { data: profile } },
+    data: { document: { isLegacyWorkflow: false }, receipt: { version: 'v1', status: 'Receiving' }, shipment: { receiveTaskStatus: 'InProgress' } },
+    refresh: async () => { calls.push('fresh-read'); return { isError: true }; } };
+  const { useTransferReceiptExecution } = load('src/features/transfer-receiving/hooks/use-transfer-receipt-execution.ts', {
+    react: runtime.react, '@tanstack/react-query': { useQueryClient: () => ({ getQueryData: () => profile, invalidateQueries: async () => calls.push('invalidate') }),
+      useMutation: options => { mutation = options; return { reset() {} }; } },
+    '@/config/permission-codes': { P: { TRANSFERS_VIEW: 'view', TRANSFERS_RECEIVE: 'receive' } },
+    '@/features/auth/auth.store': { useAuth: { getState: () => ({ signedIn: true }) } },
+    '@/features/my-tasks/my-tasks': { taskScopeMatches: () => true },
+    '@/features/warehouse-access/warehouse-access': { profileQueryKey: ['profile'], warehouseSnapshot: () => ({ activeUser: true, compatible: true, signature: 'scope' }) },
+    '@/features/warehouse-access/warehouse-access.store': { useWarehouseSelection: { getState: () => selection } },
+    '@/lib/api-error': { logApiError() {} }, '@/lib/warehouse-command': {},
+    '../transfer-receiving': { transferReceiptActionAllowed: () => true }, '../transfer-receiving.api': {},
+  });
+  const render = () => runtime.render(() => useTransferReceiptExecution(state, 'transfer', 'shipment', { current: null }, () => calls.push('committed')));
+  try {
+    const before = render(); assert.equal(before.allowed('Submit'), true);
+    await mutation.onSuccess({ clear: async () => calls.push('clear') }, { scopeKey: before.key, action: 'Submit', body: { expectedVersion: 'v1' } });
+    assert.equal(render().allowed('Submit'), false); assert.match(render().notice, /không gửi thêm/);
+    assert.ok(calls.indexOf('fresh-read') > calls.indexOf('clear'));
+    assert.ok(calls.indexOf('committed') > calls.indexOf('clear'));
+    assert.ok(calls.indexOf('committed') < calls.indexOf('fresh-read'));
+  } finally { runtime.cleanup(); }
 });

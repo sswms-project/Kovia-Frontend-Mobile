@@ -59,11 +59,15 @@ export function transferAllocationEntries(form: TransferAllocationForm, sheet: T
     if (offPlan && (!line.reasonCode || (line.reasonCode === 'Other' && line.note.trim().length < 5)))
       throw new Error(`${row.sku}: chọn lý do khác kế hoạch; lý do khác cần ghi chú ít nhất 5 ký tự.`);
     const scan = scans[`${index}:${line.destination.id}`];
-    if (!scan?.slot.trim() || !scan.product.trim()) throw new Error(`Phân bổ ${index + 1}: xác nhận mã vị trí và mã sản phẩm thực tế.`);
+    const unreadable = line.slotCodeUnreadable === true;
+    if (unreadable && (!['LabelMismatch', 'Other'].includes(line.reasonCode ?? '') ||
+      line.reasonCode === 'Other' && line.note.trim().length < 5)) throw new Error(`${row.sku}: không quét được mã cần lý do nhãn hỏng hoặc lý do khác có ghi chú ít nhất 5 ký tự.`);
+    if (!unreadable && !scan?.slot.trim()) throw new Error(`Phân bổ ${index + 1}: xác nhận mã vị trí thực tế.`);
     const product = sheet.receipt.lines.find(value => value.lineId === line.lineId);
-    if (!product || !codesMatch(scan.product, product.sku, product.barcode)) throw new Error(`${row.sku}: mã sản phẩm không khớp dòng hàng.`);
+    if (scan?.product.trim() && (!product || !codesMatch(scan.product, product.sku, product.barcode))) throw new Error(`${row.sku}: mã sản phẩm không khớp dòng hàng.`);
     return { lineId: line.lineId, lotId: line.lotId, qualityStatus: 'Good' as const, destinationSlotId: line.destination.id,
-      quantity, scannedSlotCode: scan.slot.trim(), scannedProductCode: scan.product.trim(),
-      deviationReasonCode: offPlan ? line.reasonCode : null, note: line.note.trim() || null, slotCodeUnreadable: false as const };
+      quantity, scannedSlotCode: unreadable ? null : scan!.slot.trim(), scannedProductCode: scan?.product.trim() || null,
+      deviationReasonCode: offPlan || unreadable ? line.reasonCode : null, note: line.note.trim() || null, slotCodeUnreadable: unreadable };
+
   });
 }

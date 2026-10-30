@@ -41,6 +41,7 @@ export const warehouseTaskSchema = z.object({
   pauseReason: z.string().nullable(), assignedTo: z.string().nullable(), assignedToName: z.string().nullable(),
   assignedAt: z.string().nullable(), updatedAt: z.string(), transferId: z.string().nullable(),
   transferShipmentId: z.string().nullable(),
+  isCombinedTransferReceipt: z.boolean().optional(),
 });
 
 export const warehouseTaskListSchema = z.object({

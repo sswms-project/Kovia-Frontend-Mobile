@@ -38,6 +38,48 @@ const lineId = randomUUID(), stockId = randomUUID();
 const location = { slotId, slotCode: 'S01', rackCode: 'R01', rackId, zoneCode: 'Z01', slotBarcode: 'CUSTOM-LABEL', isSystemDefaultSlot: false };
 const base = { expectedVersion: 'AQ==', commandId: randomUUID() };
 
+test('receipt handoff requires fresh matching assignment, active putaway, permissions and no keep-at-receiving', () => {
+  const { P } = load('src/config/permission-codes.ts');
+  const permissions = [P.TRANSFERS_VIEW, P.TRANSFERS_RECEIVE];
+  const user = randomUUID(), warehouse = randomUUID();
+  const shipment = { id: shipmentId, version: 'v2', status: 'AwaitingPutAway', putAwayTaskId: randomUUID(),
+    putAwayTaskStatus: 'Queued', putAwayAssigneeId: user, receiveAssigneeId: user };
+  const document = { id: transferId, status: 'InProgress', isLegacyWorkflow: false, destinationWarehouseId: warehouse, shipments: [shipment] };
+  const sheet = { transferId, shipmentId, version: 'v2', status: 'AwaitingPutAway', receiptFlowVersion: 2,
+    receiptSubmittedAt: '2026-10-30T05:00:00Z', keptAtReceiving: false };
+  const allowed = (receipt = sheet, detail = document, rights = permissions) => receiptRules.canContinueTransferPutaway(detail, receipt, user, warehouse, rights);
+  assert.equal(allowed(), true);
+  assert.equal(allowed({ ...sheet, execution: { destinationWarehouseId: warehouse, receiveAssigneeId: user, putAwayAssigneeId: user } }), true);
+  for (const change of [{ keptAtReceiving: true }, { status: 'Received' }, { status: 'ReceivedWithDiscrepancy' }, { status: 'Receiving' },
+    { version: 'old' }, { receiptSubmittedAt: null }, { execution: { destinationWarehouseId: warehouse, receiveAssigneeId: user, putAwayAssigneeId: randomUUID() } }])
+    assert.equal(allowed({ ...sheet, ...change }), false);
+  for (const change of [{ putAwayAssigneeId: randomUUID() }, { putAwayTaskId: null }, { putAwayTaskStatus: 'Paused' }, { putAwayTaskStatus: 'Completed' }])
+    assert.equal(allowed(sheet, { ...document, shipments: [{ ...shipment, ...change }] }), false);
+  assert.equal(allowed(sheet, { ...document, destinationWarehouseId: randomUUID() }), false);
+  assert.equal(allowed(sheet, document, []), false);
+});
+
+test('transfer scan shortcut skips completed, manager-blocked and unreserved rows and advances after picking', () => {
+  const source = { inventoryStockId: stockId, suggestedQuantity: 2, reservedQuantity: 2 };
+  const row = { lineId, remainingQuantity: 2, status: 'Picking', suggestions: [source] };
+  const rows = [
+    { ...row, remainingQuantity: 0 },
+    { ...row, status: 'PendingManager' },
+    { ...row, suggestions: [{ ...source, reservedQuantity: 0 }] },
+    { ...row, suggestions: [{ ...source, suggestedQuantity: 0 }] },
+    row,
+    { ...row, lineId: 'next' },
+  ];
+  const before = structuredClone(rows);
+  assert.equal(pickRules.nextTransferPick(rows).line, row);
+  assert.equal(pickRules.nextTransferPick(rows).source, source);
+  assert.deepEqual(rows, before);
+  rows[4] = { ...row, remainingQuantity: 0 };
+  assert.equal(pickRules.nextTransferPick(rows).line.lineId, 'next');
+  assert.equal(pickRules.nextTransferPick(rows.slice(0, 5)), null);
+  assert.equal(pickRules.nextTransferPick([]), null);
+});
+
 test('slot QR, custom barcode, composite labels match web/BE; unrelated labels are rejected', () => {
   for (const code of ['s01', ' CUSTOM-label ', `KOVIA:LOC:SLOT:${slotId}`, 'Z01-R01-S01'])
     assert.equal(scans.matchesWarehouseLocation(code, location), true, code);

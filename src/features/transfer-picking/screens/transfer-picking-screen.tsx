@@ -1,5 +1,6 @@
 import { useExitProtection, useModalExit, useScreenSubtitle } from '@/hooks/use-screen-exit';
 import { WorkCompletionActions } from '@/components/work-completion-actions';
+import { ScanLine } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { WorkActionBar } from '@/components/work-action-bar';
 import { WorkListTools, matchesWorkLine, type WorkFilter } from '@/components/work-list-tools';
@@ -12,6 +13,7 @@ import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { formatInventoryLocation } from '@/features/inventory/inventory.labels';
 import { StagingPointField } from '@/features/warehouse-access/components/staging-point-field';
 
 import { TransferPickEditor } from '../components/transfer-pick-editor';
@@ -20,6 +22,7 @@ import { useTransferPicking } from '../hooks/use-transfer-picking';
 import { useTransferExceptions } from '../hooks/use-transfer-exceptions';
 import { TransferExceptionModal } from '../components/transfer-exception-modal';
 import type { TransferPickLine } from '../transfer-picking.schema';
+import { nextTransferPick } from '../transfer-picking';
 
 export function TransferPickingScreen({ transferId, shipmentId }: { readonly transferId: string; readonly shipmentId: string }) {
   const state = useTransferPicking(transferId, shipmentId);
@@ -29,9 +32,12 @@ export function TransferPickingScreen({ transferId, shipmentId }: { readonly tra
   const busy = state.mutation.isPending || exceptions.mutation.isPending || exceptions.visible;
   useExitProtection(() => ({ busy: state.mutation.isPending || exceptions.mutation.isPending }));
   const sheet = state.detail.data?.sheet;
+  const confirmedLine = sheet?.lines.find(line => line.lineId === state.target?.values?.lineId);
+  const confirmedSource = confirmedLine?.suggestions.find(source => source.inventoryStockId === state.target?.values?.inventoryStockId);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<WorkFilter>('all');
   const lines = state.canView ? sheet?.lines ?? [] : [];
+  const nextPick = nextTransferPick(lines);
   const visible = lines.filter(line => matchesWorkLine(search, line.remainingQuantity > 0 || line.pendingReturnQuantity > 0 || line.status === 'PendingManager', filter,
     [line.sku, line.productName, ...line.suggestions.flatMap(source => [source.slotCode, source.rackCode, source.lotNumber])]));
   const blocked = lines.filter(line => line.remainingQuantity > 0 || line.pendingReturnQuantity > 0 || line.status === 'PendingManager').length;
@@ -63,27 +69,30 @@ export function TransferPickingScreen({ transferId, shipmentId }: { readonly tra
           <Text style={[styles.text, { color: theme.primary }]}>{lines.length - blocked}/{lines.length} dòng sẵn sàng chuyển chờ xuất</Text>
           <WorkListTools search={search} onSearch={setSearch} filter={filter} onFilter={setFilter} shown={visible.length} total={lines.length} disabled={busy} />
         </>}
+        {state.realtime.changed && <AlertBanner title="Phiếu điều chuyển có cập nhật" description="Giữ nguyên dữ liệu đang nhập. Đóng biểu mẫu và tải lại trước khi xác nhận." />}
         {state.notice && <AlertBanner title={state.notice} />}
         <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
       </View>} ListEmptyComponent={lines.length > 0 ? <Text style={[styles.text, { color: theme.textSecondary }]}>Không có dòng phù hợp với bộ lọc.</Text> : null} />
-    {state.canPick && <WorkActionBar hint={blocked ? `${blocked} dòng còn thiếu hàng, cần trả hoặc chờ quản lý. Hoàn tất các dòng trước khi chuyển chờ xuất.` : 'Đã đủ điều kiện hoàn tất lấy hàng. Tổng tồn chưa giảm.'}>
-      <Button label="Hoàn tất lấy hàng, chuyển chờ xuất" disabled={busy || !state.canComplete} onPress={state.beginComplete} />
+    {state.canPick && <WorkActionBar hint={nextPick ? `Tiếp theo: ${nextPick.line.sku} · ${nextPick.line.productName}. Quét vị trí nguồn → mã hàng → số lượng thực lấy.` : blocked ? `${blocked} dòng còn thiếu hàng, cần trả hoặc chờ quản lý. Hoàn tất các dòng trước khi chuyển chờ xuất.` : 'Đã đủ điều kiện hoàn tất lấy hàng. Tổng tồn chưa giảm.'}>
+      {nextPick && <Button label="Quét & lấy hàng" disabled={busy} renderIcon={color => <ScanLine size={22} color={color} />}
+        onPress={() => state.beginPick(nextPick.line, nextPick.source.inventoryStockId)} />}
+      <Button label="Hoàn tất lấy hàng, chuyển chờ xuất" variant={nextPick ? 'outline' : 'primary'} disabled={busy || !state.canComplete} onPress={state.beginComplete} />
     </WorkActionBar>}
     <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : closeEditor}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>{state.editor && <TransferPickEditor
-        key={`${state.contextKey}:${state.editor.line.lineId}:${state.form.getValues('inventoryStockId')}`}
-        line={state.editor.line} slotCode={state.editor.slotCode} form={state.form} busy={busy} notice={state.notice}
+        key={`${state.contextKey}:${state.editor.line.lineId}:${state.editor.inventoryStockId}`}
+        line={state.editor.line} slotCode={state.editor.slotCode} form={state.form} busy={busy} submitDisabled={!state.canPick} notice={state.realtime.changed ? 'Phiếu đã có thay đổi. Đóng biểu mẫu và tải lại trước khi gửi.' : state.notice ?? (state.detail.error ? getApiErrorMessage(state.detail.error) : null)}
         onReview={() => { void state.review(); }} onClose={state.closeEditor} />}
         <ConfirmationModal visible={state.target?.action === 'Pick'} title="Xác nhận số hàng đã thực tế lấy?"
-          description={`${state.target?.values?.quantity ?? ''} ${state.editor?.line.baseUnitName ?? ''} từ ${state.editor?.slotCode ?? ''}. Tổng tồn của kho chưa giảm.`}
-          busy={busy} error={state.mutation.error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />
+          description={`${state.target?.values?.quantity ?? ''} ${confirmedLine?.baseUnitName ?? ''} từ ${confirmedSource ? formatInventoryLocation(confirmedSource) : 'nguồn không còn hợp lệ'}. Tổng tồn của kho chưa giảm.`}
+          busy={busy} confirmDisabled={!state.canPick || !confirmedSource} error={state.mutation.error ?? state.detail.error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />
         <ConfirmationModal visible={state.discard} title="Bỏ thay đổi chưa lưu?" description="Dữ liệu đang nhập sẽ bị bỏ."
           busy={busy} onConfirm={state.discardChanges} onCancel={() => state.setDiscard(false)} />
       </SafeAreaView>
     </Modal>
     <ConfirmationModal visible={state.target?.action === 'Complete'} title="Đã lấy đủ hàng của đợt?"
       description="Công việc lấy hàng sẽ hoàn tất và chuyển sang chờ xác nhận xuất thực tế. Thao tác này chưa giảm tồn kho."
-      busy={busy} error={state.mutation.error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />
+      busy={busy} confirmDisabled={!state.canPick} error={state.mutation.error ?? state.detail.error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />
     <TransferExceptionModal state={exceptions} />
   </SafeAreaView>;
 }

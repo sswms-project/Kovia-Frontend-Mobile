@@ -4,8 +4,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-export function WorkDetails({ title, children }: { readonly title: string; readonly children: ReactNode }) {
-  const [open, setOpen] = useState(false);
+export function WorkDetails({ title, children, defaultOpen = false }: { readonly title: string; readonly children: ReactNode; readonly defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   const theme = useTheme();
   const Icon = open ? ChevronUp : ChevronDown;
   return <View style={[styles.root, { borderColor: theme.border }]}>

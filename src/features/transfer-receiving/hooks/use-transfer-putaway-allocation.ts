@@ -14,10 +14,15 @@ import { useTransferReceiptExecution } from './use-transfer-receipt-execution';
 
 export function useTransferPutawayAllocation(state: ReturnType<typeof useTransferReceiving>, transferId: string, shipmentId: string) {
   const persistence = useRef<ReturnType<typeof useFormDraft> | null>(null);
-  const execution = useTransferReceiptExecution(state, transferId, shipmentId, persistence);
+  const execution = useTransferReceiptExecution(state, transferId, shipmentId, persistence, target => {
+    if (target.action !== 'PutAway') return;
+    generation.current++; setSnapshot(null); setPicker(null); setConfirmPlan(false);
+    form.reset({ lines: [] }); resetScans(); setError(null);
+  });
   const [snapshot, setSnapshot] = useState<{ key: string; version: string; planVersion: string } | null>(null);
   const [picker, setPicker] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmPlan, setConfirmPlan] = useState(false);
   const [texts, setTexts] = useState<Record<number, string>>({});
   const [scans, setScans] = useState<Record<string, { slot: string; product: string }>>({});
   const generation = useRef(0);
@@ -46,14 +51,35 @@ export function useTransferPutawayAllocation(state: ReturnType<typeof useTransfe
   const suggestions = useQuery({ queryKey: ['warehouse', execution.key, 'transfer-putaway-suggestions', snapshot?.version, snapshot?.planVersion],
     enabled: false, retry: false, queryFn: ({ signal }) => transferReceivingApi.suggestions(transferId, shipmentId, signal) });
   function resetScans() { generation.current++; setScans({}); setTexts({}); }
+  function resetRowScan(index: number) {
+    scanRequests.current[index] = (scanRequests.current[index] ?? 0) + 1;
+    setScans(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => !key.startsWith(`${index}:`))));
+    setTexts(previous => { const next = { ...previous }; delete next[index]; return next; });
+  }
   function replacePlan() {
     if (locked || !sheet) return;
-    fields.replace(buildTransferAllocations(sheet.rows).lines); resetScans(); setError(null);
+    const planned = buildTransferAllocations(sheet.rows).lines;
+    const current = form.getValues('lines');
+    const unchanged = current.length === planned.length && planned.every((line, index) => {
+      const existing = current[index];
+      return existing.lineId === line.lineId && existing.lotId === line.lotId && existing.destination?.id === line.destination?.id &&
+        Number(existing.quantity.replace(',', '.')) === Number(line.quantity) && !existing.slotCodeUnreadable &&
+        !existing.reasonCode && !existing.note.trim();
+    });
+    if (unchanged) return;
+    setConfirmPlan(true);
   }
-  return { form, fields, values, sheet, execution, visible, stale, locked, picker, setPicker, error, texts, scans, suggestions,
+  function confirmReplacePlan() {
+    if (locked || !sheet) return;
+    fields.replace(buildTransferAllocations(sheet.rows).lines); resetScans(); setError(null);
+    setConfirmPlan(false);
+  }
+  return { pendingChange: state.realtime.changed, form, fields, values, sheet, execution, visible, stale, locked, picker, setPicker, error, texts, scans, suggestions,
+    confirmPlan, confirmReplacePlan, cancelReplacePlan: () => setConfirmPlan(false),
     open: () => {
       if (!sheet || !state.data?.receipt.version || !execution.allowed('PutAway')) return;
       try {
+        setConfirmPlan(false);
         form.reset(buildTransferAllocations(sheet.rows)); resetScans(); setError(null);
         setSnapshot({ key: execution.key, version: state.data.receipt.version, planVersion: sheet.planVersion });
       } catch (failure) { setError(getApiErrorMessage(failure)); }
@@ -68,12 +94,30 @@ export function useTransferPutawayAllocation(state: ReturnType<typeof useTransfe
     },
     add: (index: number) => {
       const line = values[index]; if (locked || !line || values.length >= 500) return;
-      fields.append({ lineId: line.lineId!, lotId: line.lotId ?? null, destination: null, quantity: '', reasonCode: null, note: '' }); resetScans();
+      fields.append({ lineId: line.lineId!, lotId: line.lotId ?? null, slotCodeUnreadable: false, destination: null, quantity: '', reasonCode: null, note: '' });
     },
-    remove: (index: number) => { if (!locked) { fields.remove(index); resetScans(); } },
+    remove: (index: number) => {
+      if (locked || !form.getValues(`lines.${index}`)) return;
+      // In-flight requests use old indices; completed proofs move with their allocation.
+      generation.current++; scanRequests.current = {};
+      setScans(previous => Object.fromEntries(Object.entries(previous).flatMap(([key, proof]) => {
+        const separator = key.indexOf(':'), oldIndex = Number(key.slice(0, separator));
+        return oldIndex === index ? [] : [[`${oldIndex > index ? oldIndex - 1 : oldIndex}${key.slice(separator)}`, proof]];
+      })));
+      setTexts(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => Number(key) !== index)
+        .map(([key, text]) => [Number(key) > index ? Number(key) - 1 : Number(key), text])));
+      fields.remove(index);
+      setPicker(null);
+    },
     choose: (destination: TransferExecutionSlot) => {
       if (locked || picker === null) return;
-      form.setValue(`lines.${picker}.destination`, destination, { shouldDirty: true }); setPicker(null); resetScans();
+      if (form.getValues(`lines.${picker}.destination`)?.id !== destination.id) resetRowScan(picker);
+      form.setValue(`lines.${picker}.destination`, destination, { shouldDirty: true }); setPicker(null);
+    },
+    setUnreadable: (index: number, value: boolean) => {
+      if (locked) return;
+      if (!!form.getValues(`lines.${index}.slotCodeUnreadable`) === value) return;
+      form.setValue(`lines.${index}.slotCodeUnreadable`, value, { shouldDirty: true }); resetRowScan(index);
     },
     changeScan: (index: number, value: string) => {
       if (locked) return;
@@ -84,7 +128,7 @@ export function useTransferPutawayAllocation(state: ReturnType<typeof useTransfe
     },
     scanSlot: async (index: number, value: string) => {
       if (locked || !snapshot) return false;
-      const line = form.getValues(`lines.${index}`); if (!line?.destination) return false;
+      const line = form.getValues(`lines.${index}`); if (!line?.destination || line.slotCodeUnreadable) return false;
       const epoch = generation.current;
       const request = (scanRequests.current[index] ?? 0) + 1;
       scanRequests.current[index] = request;
@@ -121,6 +165,6 @@ export function useTransferPutawayAllocation(state: ReturnType<typeof useTransfe
           commandId: '', entries: transferAllocationEntries(parsed, sheet!, scans) } }); setError(null);
       } catch (failure) { setError(getApiErrorMessage(failure)); }
     }, () => setError('Dữ liệu phân bổ chưa hợp lệ. Kiểm tra các dòng trước khi xác nhận.'))(); },
-    confirm: async () => { const success = await execution.confirm(); if (success) { generation.current++; setSnapshot(null); form.reset({ lines: [] }); resetScans(); } },
+    confirm: async () => { await execution.confirm(); },
   };
 }

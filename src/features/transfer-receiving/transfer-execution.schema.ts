@@ -14,13 +14,19 @@ export const submitTransferReceivingSchema = z.object({ ...common, keepAtReceivi
     reasonCode: text.trim().max(50).nullable(), note: text.trim().max(500).nullable() })).min(1).max(500) });
 export const putAwayTransferSchema = z.object({ ...common, planVersion: text.min(1), entries: z.array(z.object({
   lineId: id, lotId: id.nullable(), qualityStatus: z.literal('Good'), destinationSlotId: id, quantity: quantity.positive(),
-  scannedSlotCode: text.trim().min(1).max(100), scannedProductCode: text.trim().min(1).max(100),
-  deviationReasonCode: z.enum(['SlotFull', 'SlotBlocked', 'LabelMismatch', 'Consolidation', 'Other']).nullable(), note: text.trim().max(500).nullable(), slotCodeUnreadable: z.literal(false),
+  scannedSlotCode: text.trim().max(100).nullable(), scannedProductCode: text.trim().max(100).nullable(),
+  deviationReasonCode: z.enum(['SlotFull', 'SlotBlocked', 'LabelMismatch', 'Consolidation', 'Other']).nullable(), note: text.trim().max(500).nullable(), slotCodeUnreadable: z.boolean(),
+}).superRefine((value, context) => {
+  if (value.slotCodeUnreadable) {
+    if (value.scannedSlotCode?.trim()) context.addIssue({ code: 'custom', path: ['scannedSlotCode'], message: 'Không quét được mã thì để trống mã vị trí.' });
+    if (!['LabelMismatch', 'Other'].includes(value.deviationReasonCode ?? '')) context.addIssue({ code: 'custom', path: ['deviationReasonCode'], message: 'Chọn lý do nhãn hỏng hoặc lý do khác.' });
+  } else if (!value.scannedSlotCode?.trim()) context.addIssue({ code: 'custom', path: ['scannedSlotCode'], message: 'Xác nhận mã vị trí thực tế.' });
+  if (value.deviationReasonCode === 'Other' && (value.note?.trim().length ?? 0) < 5) context.addIssue({ code: 'custom', path: ['note'], message: 'Lý do khác cần ghi chú ít nhất 5 ký tự.' });
 })).min(1).max(500) });
 export const transferExecutionSlotsSchema = z.array(z.object({ id, code: text, path: text }));
 export type TransferExecutionSlot = z.infer<typeof transferExecutionSlotsSchema>[number];
 export const transferAllocationSchema = z.object({ lines: z.array(z.object({ lineId: id, lotId: id.nullable(),
-  destination: transferExecutionSlotsSchema.element.nullable(), quantity: text.max(20), note: text.max(500),
+  slotCodeUnreadable: z.boolean().optional(), destination: transferExecutionSlotsSchema.element.nullable(), quantity: text.max(20), note: text.max(500),
   reasonCode: z.enum(['SlotFull', 'SlotBlocked', 'LabelMismatch', 'Consolidation', 'Other']).nullable(),
 })).min(1).max(500) });
 export type TransferAllocationForm = z.infer<typeof transferAllocationSchema>;
