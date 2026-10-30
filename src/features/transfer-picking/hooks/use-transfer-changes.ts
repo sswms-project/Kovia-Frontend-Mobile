@@ -5,8 +5,9 @@ import { P } from '@/config/permission-codes';
 import { useNotificationRealtime } from '@/features/notifications/hooks/use-notification-realtime';
 import type { useWarehouseAccess } from '@/features/warehouse-access/hooks/use-warehouse-access';
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
+import { transferClientId } from '@/lib/transfer-client';
 
-const eventSchema = z.object({ transferId: nonEmptyDotNetGuidSchema('Mã phiếu không hợp lệ.') });
+const eventSchema = z.object({ transferId: nonEmptyDotNetGuidSchema('Mã phiếu không hợp lệ.'), originClientId: z.string().nullable().optional() });
 
 /** Editable workflows receive hints, never a background overwrite of quantities or scans. */
 export function useTransferChanges(transferId: string, access: ReturnType<typeof useWarehouseAccess>, canView: boolean) {
@@ -19,6 +20,7 @@ export function useTransferChanges(transferId: string, access: ReturnType<typeof
     if (event !== undefined) {
       const parsed = eventSchema.safeParse(event);
       if (!parsed.success || parsed.data.transferId !== transferId) return;
+      if (parsed.data.originClientId === transferClientId) return;
     }
     setPending({ key, generation: ++generation.current });
   }, [key, transferId]);

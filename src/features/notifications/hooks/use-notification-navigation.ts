@@ -10,6 +10,7 @@ import { useWarehouseAccess } from '@/features/warehouse-access/hooks/use-wareho
 import { profileQueryKey } from '@/features/warehouse-access/warehouse-access';
 import { useWarehouseSelection } from '@/features/warehouse-access/warehouse-access.store';
 import { warehouseTaskApi } from '@/features/warehouse-task/warehouse-task.api';
+import { matchesTaskType } from '@/features/warehouse-task/warehouse-task.labels';
 import type { WarehouseTaskType } from '@/features/warehouse-task/warehouse-task.types';
 import { ApiError } from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -76,7 +77,7 @@ export function useNotificationNavigation(dismissOverlay = false) {
         const params = { warehouseId, taskType, pageNumber, pageSize: 100 };
         const page = await (history ? warehouseTaskApi.getHistory(params, profile.id, request.signal) : warehouseTaskApi.getCurrent(params, profile.id, request.signal));
         assertCurrent();
-        if (taskType && page.items.some(task => task.taskType !== taskType)) throw new ApiError('Loại công việc trả về không khớp thông báo.', 409);
+        if (taskType && page.items.some(task => !matchesTaskType(task, taskType))) throw new ApiError('Loại công việc trả về không khớp thông báo.', 409);
         return page;
       }, request.signal, (page, history) => setStatus({ key, active: true,
         message: `Đang tìm trong ${history ? 'lịch sử' : 'công việc hiện tại'} · trang ${page}`, canContinue: false }));

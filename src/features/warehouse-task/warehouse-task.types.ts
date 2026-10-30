@@ -60,6 +60,7 @@ export interface MyWarehouseTask {
   /** Only set for transfer pick/receive tasks. */
   transferId: string | null;
   transferShipmentId: string | null;
+  isCombinedTransferReceipt?: boolean;
 }
 
 export interface MyWarehouseTaskQuery {

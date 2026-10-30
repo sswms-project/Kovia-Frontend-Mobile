@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { ScanLine } from 'lucide-react-native';
 import { Alert } from 'react-native';
 
 import { nextScanQuantity } from '../warehouse-scan';
@@ -7,17 +8,20 @@ import { ScanCodeButton } from './scan-code-button';
 interface Props {
   readonly title: string; readonly quantity: number; readonly maximum: number; readonly unitName: string;
   readonly step?: number; readonly disabled: boolean; readonly matches: (code: string) => boolean;
+  readonly compact?: boolean;
+  readonly label?: string;
   readonly onConfirm: (quantity: number, code: string) => void;
 }
 
 // Same explicit pending-scan confirmation as receiving: camera events never submit warehouse commands.
-export function ScanCountButton({ title, quantity, maximum, unitName, step = 1, disabled, matches, onConfirm }: Props) {
+export function ScanCountButton({ title, quantity, maximum, unitName, step = 1, disabled, matches, onConfirm, compact = true, label = 'Quét đếm' }: Props) {
   const count = useRef(0);
   const base = useRef(0);
   const lastCode = useRef('');
   const [scanned, setScanned] = useState(0);
   function reset() { count.current = 0; lastCode.current = ''; setScanned(0); }
-  return <ScanCodeButton compact continuous label="Quét đếm" title={title} disabled={disabled}
+  return <ScanCodeButton compact={compact} continuous label={label} title={title} disabled={disabled}
+    renderIcon={color => <ScanLine size={22} color={color} />}
     status={`Đã quét ${scanned} lượt · Mỗi lượt ${step} ${unitName} · Tối đa ${maximum} ${unitName}`}
     onOpen={() => { reset(); base.current = Number.isFinite(quantity) ? quantity : 0; }}
     onScan={code => {

@@ -23,6 +23,12 @@ export function useTransferReceiving(transferId: string, shipmentId: string, mod
   const lostAccess = detail.error instanceof TransferDestinationScopeError ||
     ['unauthorized', 'forbidden', 'notFound'].includes(getApiErrorKind(detail.error));
   return { realtime, access, validId, canView, detail, mode, data: canView && !lostAccess ? detail.data : undefined,
-    refresh: async () => { const seen = realtime.capture(); await client.invalidateQueries({ queryKey: prefix }); if (client.getQueryState([...prefix, signature])?.status === 'success') realtime.accept(seen); },
+    refresh: async () => {
+      const seen = realtime.capture();
+      await client.cancelQueries({ queryKey: [...prefix, signature], exact: true });
+      const fresh = await detail.refetch();
+      if (!fresh.isError) realtime.accept(seen);
+      return fresh;
+    },
   };
 }

@@ -1,7 +1,7 @@
 import { formatInventoryLocation } from '@/features/inventory/inventory.labels';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useFormDraft } from '@/hooks/use-form-draft';
 
@@ -17,7 +17,7 @@ import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
 import { warehouseCommand, type WarehouseCommandMemory } from '@/lib/warehouse-command';
 
 import { useTransferChanges } from './use-transfer-changes';
-import { assertTransferPick, transferPickingComplete } from '../transfer-picking';
+import { assertTransferPick, nextTransferPick, transferPickingComplete } from '../transfer-picking';
 import { transferPickingApi } from '../transfer-picking.api';
 import { transferPickFormSchema, type TransferPickForm, type TransferPickLine } from '../transfer-picking.schema';
 
@@ -31,9 +31,11 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
   const scope: TaskScope | null = canView && identity && warehouseId && signature ? { identity, warehouseId, signature, revision } : null;
   const prefix = ['warehouse', identity, warehouseId, revision, 'transfer-pick', transferId, shipmentId];
   const contextKey = JSON.stringify([...prefix, signature]);
+  const latestContext = useRef(contextKey);
+  useLayoutEffect(() => { latestContext.current = contextKey; }, [contextKey]);
   const detail = useQuery({ queryKey: [...prefix, signature], enabled: !!scope, retry: false, staleTime: 0,
     queryFn: ({ signal }) => transferPickingApi.load(transferId, shipmentId, scope!.warehouseId, access.profile.data!.id, signal) });
-  const [editor, setEditor] = useState<{ key: string; version: string; line: TransferPickLine; slotCode: string } | null>(null);
+  const [editor, setEditor] = useState<{ key: string; version: string; line: TransferPickLine; slotCode: string; inventoryStockId: string } | null>(null);
   const [target, setTarget] = useState<Target | null>(null);
   const [notice, setNotice] = useState<{ key: string; message: string } | null>(null);
   const [discard, setDiscard] = useState(false);
@@ -64,7 +66,7 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
       throw new Error('Kho, quyền hoặc đợt xuất đã thay đổi. Vui lòng tải lại công việc.');
   }
   const draft = useFormDraft({ form, feature: 'transfer-pick', documentId: `${transferId}:${shipmentId}`,
-    lineId: editor ? `${editor.line.lineId}:${form.getValues('inventoryStockId')}` : undefined, version: editor?.version ?? target?.version,
+    lineId: editor ? `${editor.line.lineId}:${editor.inventoryStockId}` : undefined, version: editor?.version ?? target?.version,
     enabled: (editor?.key === contextKey || target?.key === contextKey) && canView && !!access.profile.data?.permissions.includes(P.TRANSFERS_PICK),
     assertCurrent: () => assertCurrent({ key: contextKey, action: target?.action ?? 'Pick', version: editor?.version ?? target?.version ?? '' }) });
   const mutation = useMutation<unknown, Error, Target>({ retry: false, mutationFn: async original => {
@@ -90,14 +92,33 @@ export function useTransferPicking(transferId: string, shipmentId: string) {
     setTarget(null); setEditor(null); form.reset();
     setNotice({ key: contextKey, message: original.action === 'Pick' ? 'Đã ghi nhận số lượng thực tế lấy. Tổng tồn kho chưa giảm.'
       : 'Đã hoàn tất lấy hàng. Hàng chờ người có quyền xác nhận xuất thực tế.' });
-    await client.invalidateQueries({ queryKey: ['warehouse', identity, warehouseId, revision] });
+    const seen = realtime.capture();
+    await client.cancelQueries({ queryKey: [...prefix, signature], exact: true });
+    await client.invalidateQueries({ queryKey: ['warehouse', identity, warehouseId, revision], refetchType: 'none' });
+    const fresh = await detail.refetch();
+    if (latestContext.current !== original.key || !scope || !taskScopeMatches(scope, useWarehouseSelection.getState()) || !useAuth.getState().signedIn) return;
+    if (fresh.isError || !fresh.data) {
+      setNotice({ key: contextKey, message: 'Đã ghi nhận thao tác nhưng chưa tải được dữ liệu mới. Hãy tải lại phiếu trước khi tiếp tục.' });
+      return;
+    }
+    realtime.accept(seen);
+    const updated = fresh.data;
+    if (original.action !== 'Pick' || realtime.capture() !== seen || !updated.sheet.version || updated.document.status !== 'InProgress' ||
+      updated.sheet.shipmentStatus !== 'Picking' || !['Queued', 'InProgress'].includes(updated.shipment.pickTaskStatus ?? '')) return;
+    const previous = updated.sheet.lines.find(line => line.lineId === original.values?.lineId);
+    const next = (previous ? nextTransferPick([previous]) : null) ?? nextTransferPick(updated.sheet.lines);
+    if (next) {
+      form.reset({ lineId: next.line.lineId, inventoryStockId: next.source.inventoryStockId, quantity: Number.NaN, scannedSlotCode: '', scannedProductCode: '' });
+      setEditor({ key: contextKey, version: updated.sheet.version, line: next.line,
+        slotCode: formatInventoryLocation(next.source), inventoryStockId: next.source.inventoryStockId });
+    }
   } });
   function beginPick(line: TransferPickLine, inventoryStockId: string) {
     const source = line.suggestions.find(value => value.inventoryStockId === inventoryStockId);
     if (!canPick || !source || !data?.sheet.version || lock.current) return;
     mutation.reset(); setNotice(null); setDiscard(false);
     form.reset({ lineId: line.lineId, inventoryStockId, quantity: Number.NaN, scannedSlotCode: '', scannedProductCode: '' });
-    setEditor({ key: contextKey, version: data.sheet.version, line, slotCode: formatInventoryLocation(source) });
+    setEditor({ key: contextKey, version: data.sheet.version, line, slotCode: formatInventoryLocation(source), inventoryStockId });
   }
   async function review() {
     await form.handleSubmit(values => {

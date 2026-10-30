@@ -1,6 +1,7 @@
 import { api, unwrap, type ApiResponse } from '@/lib/api';
 import type { AxiosRequestConfig } from 'axios';
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
+import { transferClientId } from '@/lib/transfer-client';
 
 import { assertTransferDestinationScope } from './transfer-receiving';
 import { transferDestinationScopeSchema, transferPutAwaySheetSchema, transferReceiptSheetSchema,
@@ -31,7 +32,7 @@ export const transferReceivingApi = {
   },
   execute: async (transferId: string, shipmentId: string, target: TransferExecutionTarget, assertCurrentContext: () => void) => {
     id.parse(transferId); id.parse(shipmentId); assertCurrentContext();
-    const config: AxiosRequestConfig & { assertCurrentContext: () => void } = { assertCurrentContext };
+    const config: AxiosRequestConfig & { assertCurrentContext: () => void } = { assertCurrentContext, headers: { 'X-Transfer-Client-Id': transferClientId } };
     const action = target.action === 'Start' ? 'start-receiving' : target.action === 'Submit' ? 'submit-receipt' : target.action === 'Resume' ? 'resume-putaway' : 'putaway';
     const body = target.action === 'Start' ? startTransferReceivingSchema.parse(target.body)
       : target.action === 'Submit' ? submitTransferReceivingSchema.parse(target.body)

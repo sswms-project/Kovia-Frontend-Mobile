@@ -1,4 +1,5 @@
 import { formatInventoryLocation } from '@/features/inventory/inventory.labels';
+import { ScanLine } from 'lucide-react-native';
 import { memo, useState } from 'react';
 import { SelectionField } from '@/components/ui/selection-field';
 import { WorkDetails } from '@/components/ui/work-details';
@@ -38,7 +39,6 @@ export const TransferPickLineCard = memo(function TransferPickLineCard({ line, c
             description: `Lô ${value.lotNumber ?? 'không có'} · HSD ${value.expiryDate ?? 'không có'} · Giữ ${value.reservedQuantity} ${line.baseUnitName}` }))} onChange={setSourceId} />
         <Text style={[styles.text, { color: theme.text }]}>{formatInventoryLocation(source)} · Lô {source.lotNumber ?? 'không có'}</Text>
         <Text style={[styles.text, { color: theme.textSecondary }]}>Gợi ý {source.suggestedQuantity} · Giữ chỗ {source.reservedQuantity} {line.baseUnitName}{source.expiryDate ? ` · HSD ${source.expiryDate}` : ''}</Text>
-        <Button label={`Lấy tại ${formatInventoryLocation(source)}`} variant="outline" disabled={busy} onPress={() => onPick(line, source.inventoryStockId)} />
       </View>}
     </>}
     {canPick && line.remainingQuantity > 0 && line.status !== 'PendingManager' && <>
@@ -56,6 +56,10 @@ export const TransferPickLineCard = memo(function TransferPickLineCard({ line, c
       Vướng mắc: {exception.reasonCode} · {exception.status}{exception.note ? ` · ${exception.note}` : ''}
     </Text>)}
     </WorkDetails>}
+    {canPick && line.remainingQuantity > 0 && line.status !== 'PendingManager' && source &&
+      <Button label="Quét & lấy hàng" variant="outline" renderIcon={color => <ScanLine size={20} color={color} />}
+        accessibilityLabel={`Quét và lấy ${line.productName} tại ${formatInventoryLocation(source)}`} disabled={busy}
+        onPress={() => onPick(line, source.inventoryStockId)} />}
   </View>;
 });
 const styles = StyleSheet.create({ card: { borderWidth: 1, borderRadius: Radius.lg, padding: 16, gap: 12 },

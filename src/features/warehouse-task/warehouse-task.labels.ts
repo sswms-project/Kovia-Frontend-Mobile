@@ -21,6 +21,17 @@ export const TASK_TYPE_LABEL: Record<WarehouseTaskType, string> = {
   Picking: 'Lấy hàng xuất kho',
 };
 
+export function getTaskTypeLabel(task: Pick<MyWarehouseTask, 'taskType' | 'isCombinedTransferReceipt'>) {
+  return task.isCombinedTransferReceipt && (task.taskType === 'TransferReceive' || task.taskType === 'TransferPutAway')
+    ? 'Nhận và cất hàng điều chuyển' : TASK_TYPE_LABEL[task.taskType];
+}
+
+export function matchesTaskType(task: Pick<MyWarehouseTask, 'taskType' | 'isCombinedTransferReceipt'>, type: WarehouseTaskType) {
+  return task.taskType === type || !!task.isCombinedTransferReceipt &&
+    (type === 'TransferReceive' || type === 'TransferPutAway') &&
+    (task.taskType === 'TransferReceive' || task.taskType === 'TransferPutAway');
+}
+
 export const EXECUTION_STATUS_LABEL: Record<WarehouseTaskExecutionStatus, string> = {
   Queued: 'Chờ bắt đầu',
   InProgress: 'Đang làm',

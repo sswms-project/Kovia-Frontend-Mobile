@@ -21,7 +21,7 @@ import {
   DEADLINE_STATUS_TONE,
   EXECUTION_STATUS_LABEL,
   EXECUTION_STATUS_TONE,
-  TASK_TYPE_LABEL,
+  getTaskTypeLabel,
 } from '../warehouse-task.labels';
 import type { MyWarehouseTask, WarehouseTaskType } from '../warehouse-task.types';
 
@@ -47,7 +47,7 @@ interface TaskCardProps {
 export function TaskCard({ task, onPress, showAssignee = false }: TaskCardProps) {
   const theme = useTheme();
   const Icon = TASK_TYPE_ICON[task.taskType] ?? ClipboardList;
-  const typeLabel = TASK_TYPE_LABEL[task.taskType] ?? task.taskType;
+  const typeLabel = getTaskTypeLabel(task);
   const executionLabel = EXECUTION_STATUS_LABEL[task.executionStatus] ?? task.executionStatus;
   const isOverdue = task.deadlineStatus === 'Overdue';
   const progress = Math.max(0, Math.min(100, task.progressPercentage));

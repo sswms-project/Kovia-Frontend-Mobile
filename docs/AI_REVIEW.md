@@ -547,3 +547,22 @@ See MOBILE_TRANSFER_RESPONSIVE_ALIGNMENT.md for design, BE contracts, limitation
 Extended existing SignalR transport with optional transfer group join/events. Transfer screens show pending-change hints without refetching over unsent edits; command entry/confirmation is blocked until an explicit fresh reload. Newer events cannot be cleared by an earlier reload. Foreground/reconnect rejoins; stale cached detail is refetched on mount. No transfer-group messages grant permissions or supply authoritative quantities/status.
 
 Validation: **245/245 automated tests pass**, TypeScript/Expo lint pass, diff check passes. Actual RN Web component fixture previews at 390 px inspected for picking/putaway; camera, selectors/confirmations and business requests are stubbed in previews. No live write or native acceptance performed. New Edge session remains at login; earlier responsive web screenshots and current FE/BE source were used. No BE/web edits, migration, DB action, dependency update, commit or push. Native audio remains unresolved from the earlier task and was not changed here.
+
+## Combined transfer receiving/putaway handoff — 2026-10-30
+
+Implemented mobile staff alignment with BE feat/huytv 6fc9b4e9 and web screen/huytv 60f23412. See MOBILE_COMBINED_TRANSFER_RECEIPT.md. Optional combined flag is preserved without local task merging; effective task IDs/types remain authoritative. Post-submit fresh reads drive guarded same-assignee navigation, task feed refresh and no-repeat submission after failed reload. Notification type validation accepts the opposite destination phase only for BE-marked combined workflows. Manager assignment remains on web; mobile has no assignment form.
+
+This is implementer self-review. No BE/web edits, DB operations, migration or deployment. Native/deployed API acceptance pending. Earlier uncommitted scanning/UI changes are preserved and remain separate in scope.
+Validation: 256/256 automated tests pass; TypeScript, Expo lint and git diff --check pass. Logs: ../outputs/mobile-combined-transfer-tests-20261030.log. Device/deployed API acceptance not run.
+
+## Transfer review findings repaired — 2026-10-30
+
+P2 pick confirmation now derives its location/unit from the immutable target lineId/inventoryStockId against the current sheet, and disables confirmation when that source is missing. Source switching by QR no longer leaves the original source in the confirmation text.
+
+P2 local allocation edits preserve completed evidence for unaffected rows. Appending keeps existing proofs; selecting the same destination preserves proof; changing destination/unreadable state invalidates only that row and its pending scan request. Removing a row remaps evidence/text indices and cancels pending requests against obsolete indices. Full plan/suggestion replacement still invalidates all evidence as designed.
+
+Verification: 258/258 tests, TypeScript, Expo lint and diff check pass. New regressions render the actual confirmation and exercise allocation add/change/remove plus late responses. No BE/web changes, DB actions, device acceptance, commit or push.
+
+## Putaway success refresh flash — 2026-10-30
+
+Confirmed source race: a successful putaway refreshed receipt/plan versions while the allocation snapshot remained open until mutateAsync finished all cache refreshes. This briefly displayed the destructive stale-plan banner for the user's own successful write. The execution hook now calls an optional post-commit callback after durable operation cleanup and session validation, before invalidation/refetch. Allocation closes and clears only on confirmed PutAway success; rejection/unknown outcome keeps its form/evidence. External stale-plan guards remain unchanged. Regression checks cover callback order and allocation closure before version update. 259/259 tests, TypeScript and Expo lint pass. Mobile only, no live API/device acceptance or commit.

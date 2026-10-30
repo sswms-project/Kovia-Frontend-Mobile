@@ -1,15 +1,15 @@
-import { ScanLine } from 'lucide-react-native';
+import { Minus, Plus, ScanLine } from 'lucide-react-native';
 import { WorkScreenHeader } from '@/components/work-screen-header';
 import { WorkActionBar } from '@/components/work-action-bar';
 import { useModalExit } from '@/hooks/use-screen-exit';
 import { useEffect, useRef, useState } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, View, type TextInput } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View, type TextInput } from 'react-native';
 
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
-import { FontFamily } from '@/constants/theme';
+import { FontFamily, Radius } from '@/constants/theme';
 import { ScanCodeButton } from '@/features/scanner/components/scan-code-button';
 import { useTransferPickScan } from '../hooks/use-transfer-pick-scan';
 import { formatInventoryLocation } from '@/features/inventory/inventory.labels';
@@ -56,11 +56,25 @@ export function TransferPickEditor({ line, slotCode, form, busy, submitDisabled 
           maxLength={100} showSoftInputOnFocus={!scan.hardware} onChangeText={scan.changeProduct} onSubmitEditing={() => scan.scanProduct(scan.productText)}
           labelAccessory={<Button label="Kiểm tra" variant="ghost" disabled={busy || !scan.sourceReady || !scan.productText.trim()} onPress={() => scan.scanProduct(scan.productText)} />} />
         {scan.ready && <AlertBanner variant="success" title="Đã quét đúng sản phẩm" />}
-        <View onLayout={event => { quantityOffset.current = event.nativeEvent.layout.y; }}><Controller control={form.control} name="quantity" render={({ field, fieldState }) => <TextField
-          label={`3. Số lượng thực lấy (${line.baseUnitName})`} keyboardType={line.baseQuantityPrecision === 0 ? 'number-pad' : 'decimal-pad'} editable={!busy && scan.ready}
+        <Text style={[styles.label, { color: theme.text }]}>3. Số lượng thực lấy ({line.baseUnitName})</Text>
+        <View style={styles.quantityRow} onLayout={event => { quantityOffset.current = event.nativeEvent.layout.y; }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Giảm 1 ${line.baseUnitName}`} accessibilityState={{ disabled: !scan.canDecrease }}
+            disabled={!scan.canDecrease} onPress={() => scan.adjustQuantity(-1)}
+            style={[styles.step, { borderColor: theme.border, backgroundColor: theme.card }, !scan.canDecrease && styles.inactive]}>
+            <Minus size={22} color={theme.primary} />
+          </Pressable>
+          <View style={styles.quantityField}><Controller control={form.control} name="quantity" render={({ field, fieldState }) => <TextField
+          hideLabel label={`3. Số lượng thực lấy (${line.baseUnitName})`} keyboardType={line.baseQuantityPrecision === 0 ? 'number-pad' : 'decimal-pad'} editable={!busy && !submitDisabled && scan.ready}
           inputRef={quantityRef} selectTextOnFocus showSoftInputOnFocus={!scan.hardware} value={Number.isFinite(field.value) ? String(field.value) : ''}
           onChangeText={value => field.onChange(value.trim() ? Number(value.replace(',', '.')) : Number.NaN)}
-          onBlur={field.onBlur} error={fieldState.error?.message} hint={`Tối đa ${scan.maximum} ${line.baseUnitName}. Kiểm tra số đã lấy thực tế trước khi gửi.`} />} /></View>
+          onBlur={field.onBlur} error={fieldState.error?.message} />} /></View>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Tăng 1 ${line.baseUnitName}`} accessibilityState={{ disabled: !scan.canIncrease }}
+            disabled={!scan.canIncrease} onPress={() => scan.adjustQuantity(1)}
+            style={[styles.step, { borderColor: theme.border, backgroundColor: theme.card }, !scan.canIncrease && styles.inactive]}>
+            <Plus size={22} color={theme.primary} />
+          </Pressable>
+        </View>
+        <Text style={[styles.text, { color: theme.textSecondary }]}>Tối đa {scan.maximum} {line.baseUnitName}. Mỗi nút +/− thay đổi 1 {line.baseUnitName}.</Text>
         {scan.error && <AlertBanner variant="destructive" title={scan.error} />}
         <Button label="Quét lại từ đầu" variant="outline" disabled={busy} onPress={scan.reset} />
       </ScrollView>
@@ -71,5 +85,7 @@ export function TransferPickEditor({ line, slotCode, form, busy, submitDisabled 
   );
 }
 const styles = StyleSheet.create({ root: { flex: 1 }, content: { width: '100%', maxWidth: 640, alignSelf: 'center', padding: 20, gap: 18 },
+  quantityRow: { flexDirection: 'row', alignItems: 'center', gap: 10 }, quantityField: { flex: 1, minWidth: 0 },
+  step: { width: 48, height: 52, borderWidth: 1, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' }, inactive: { opacity: 0.45 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 12 }, label: { flex: 1, fontFamily: FontFamily.regular, fontSize: 15 },
   title: { fontFamily: FontFamily.bold, fontSize: 25, lineHeight: 34 }, text: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 23 } });

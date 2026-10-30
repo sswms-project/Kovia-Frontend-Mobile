@@ -3,6 +3,7 @@ import type { AxiosRequestConfig } from 'axios';
 
 import { api, unwrap, type ApiResponse } from '@/lib/api';
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
+import { transferClientId } from '@/lib/transfer-client';
 
 import { assertTransferPickScope } from './transfer-picking';
 import { transferCompleteCommandSchema, transferPickCommandSchema, transferPickSheetSchema, transferScopeSchema } from './transfer-picking.schema';
@@ -10,7 +11,9 @@ import { z as schema } from 'zod';
 import { transferAlternativeSchema, switchTransferCommandSchema, escalateTransferCommandSchema, returnTransferCommandSchema } from './transfer-exception.schema';
 
 const id = nonEmptyDotNetGuidSchema('Mã điều chuyển không hợp lệ.');
-function guarded(assertCurrentContext: () => void): AxiosRequestConfig & { assertCurrentContext: () => void } { return { assertCurrentContext }; }
+function guarded(assertCurrentContext: () => void): AxiosRequestConfig & { assertCurrentContext: () => void } {
+  return { assertCurrentContext, headers: { 'X-Transfer-Client-Id': transferClientId } };
+}
 export const transferPickingApi = {
   alternatives: async (transferId: string, shipmentId: string, lineId: string, signal?: AbortSignal) => {
     [transferId, shipmentId, lineId].forEach(value => id.parse(value));

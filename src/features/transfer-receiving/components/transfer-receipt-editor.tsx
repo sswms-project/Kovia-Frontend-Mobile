@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { CheckSquare, Square } from 'lucide-react-native';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
-import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { TextField } from '@/components/ui/text-field';
-import { FontFamily } from '@/constants/theme';
+import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useFormDraft } from '@/hooks/use-form-draft';
 import { useExitProtection, useModalExit } from '@/hooks/use-screen-exit';
 import { WorkActionBar } from '@/components/work-action-bar';
-import { SelectionField } from '@/components/ui/selection-field';
 import { P } from '@/config/permission-codes';
 import { StagingPointField } from '@/features/warehouse-access/components/staging-point-field';
 import { ScanCodeButton } from '@/features/scanner/components/scan-code-button';
@@ -29,9 +29,10 @@ import { transferReceivingApi } from '../transfer-receiving.api';
 const countKey = (lineId: string, lotId: string | null) => `${lineId}:${lotId ?? 'none'}`;
 function actual(value: string) { return value.trim() ? Number(value.trim().replace(',', '.')) : Number.NaN; }
 
-export function TransferReceiptEditor({ state, transferId, shipmentId, mode, children }: {
+export function TransferReceiptEditor({ state, transferId, shipmentId, mode, children, onSubmitted }: {
   readonly state: ReturnType<typeof useTransferReceiving>; readonly transferId: string; readonly shipmentId: string; readonly mode: TransferReceivingMode;
   readonly children: (controls: ReactNode) => ReactNode;
+  readonly onSubmitted?: () => void;
 }) {
   const persistence = useRef<ReturnType<typeof useFormDraft> | null>(null);
   const execution = useTransferReceiptExecution(state, transferId, shipmentId, persistence);
@@ -47,6 +48,7 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
   const damageScan = useWatch({ control: form.control, name: 'damageScan' });
   const setDamageScan = (value: string) => form.setValue('damageScan', value, { shouldDirty: true });
   const keep = useWatch({ control: form.control, name: 'keepAtReceiving' });
+  const KeepIcon = keep === true ? CheckSquare : Square;
   const counts = useWatch({ control: form.control, name: 'counts' });
   const [open, setOpen] = useState(false);
   const [discard, setDiscard] = useState(false);
@@ -94,7 +96,7 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
   function openReceipt() {
     if (!data?.receipt.version) return;
     setVersion(data.receipt.version); setError(null); setPutRow(null);
-    form.reset({ action: 'Receipt', keepAtReceiving: data.receipt.receiptFlowVersion === 2, counts: Object.fromEntries(lots.map(row => [row.key, { good: '', damaged: '0', missing: '0', reason: '' }])),
+    form.reset({ action: 'Receipt', keepAtReceiving: false, counts: Object.fromEntries(lots.map(row => [row.key, { good: '', damaged: '0', missing: '0', reason: '' }])),
       scan: '', damageScan: '', productScan: '', putQuantity: '', note: '' });
     setOpen(true);
   }
@@ -157,7 +159,7 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
         onPress={() => execution.prepare({ action: 'Start', body: { expectedVersion: data.receipt.version!, commandId: '',
           receivingSlotId: staged ? receivingSlotId : location!.id, ...(staged ? {} : { scannedSlotCode: scan.trim() }) } })} />
     </>}
-    {mode === 'Receive' && data.receipt.status === 'Receiving' && <Button label="Ghi số thực nhận tốt / hỏng / thiếu" disabled={!execution.allowed('Submit') || busy} onPress={openReceipt} />}
+    {mode === 'Receive' && data.receipt.status === 'Receiving' && <Button label="Ghi số lượng thực nhận / hỏng / thiếu" disabled={!execution.allowed('Submit') || busy} onPress={openReceipt} />}
     {mode === 'PutAway' && data.putAway?.canResumePutAway && <Button label="Tiếp tục cất phần hàng còn ở khu nhận" variant="outline"
       disabled={!execution.allowed('Resume') || busy} onPress={() => execution.prepare({ action: 'Resume', body: { expectedVersion: data.receipt.version!, commandId: '' } })} />}
     {mode === 'PutAway' && data.receipt.status === 'AwaitingPutAway' && data.putAway?.rows.filter(row => row.remainingQuantity > 0).map(row =>
@@ -186,16 +188,22 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
               <TextField label="Ghi chú nếu khác kế hoạch" value={note} onChangeText={setNote} maxLength={500} editable={!busy} multiline />
             </> : <AlertBanner title="Nhập số đã kiểm thực tế" description="Không tự sao chép số dự kiến thành số đã nhận. Tổng tốt, hỏng và thiếu của mỗi lô phải khớp số đã xuất." />}
           </View>}
-          renderItem={({ item: row }) => <View style={styles.section}>
+          renderItem={({ item: row }) => <View style={[styles.receiptCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <Text style={[styles.title, { color: theme.text }]}>{row.line.sku} · Lô {row.lot.lotNumber ?? 'Không có'}</Text>
             <Text style={[styles.text, { color: theme.textSecondary }]}>Đã xuất {row.lot.dispatchedQuantity} {row.line.baseUnitName}</Text>
-            <ScanCountButton title={`Quét đếm ${row.line.sku} · Lô ${row.lot.lotNumber ?? 'không có'}`}
+            <ScanCountButton compact={false} label="Quét mã hàng" title={`Quét đếm ${row.line.sku} · Lô ${row.lot.lotNumber ?? 'không có'}`}
               quantity={actual(counts[row.key]?.good ?? '')} maximum={row.lot.dispatchedQuantity - actual(counts[row.key]?.damaged ?? '0') - actual(counts[row.key]?.missing ?? '0')}
               unitName={row.line.baseUnitName} disabled={busy || !execution.allowed('Submit')} matches={code => codesMatch(code, row.line.sku, row.line.barcode)}
               onConfirm={quantity => form.setValue(`counts.${row.key}.good`, String(quantity), { shouldDirty: true, shouldValidate: true })} />
+            <Text style={[styles.hint, { color: theme.textSecondary }]}>Quét để đếm hàng đạt. Xác nhận lượt quét để cộng vào SL thực nhận; ghi riêng hàng hỏng và thiếu.</Text>
+            <View style={styles.quantities}>
+              {(['good', 'damaged', 'missing'] as const).map(field => <View key={`label-${field}`} style={styles.quantity}>
+                <Text style={[styles.quantityLabel, { color: theme.text }]}>{{ good: 'SL thực nhận', damaged: 'SL hỏng', missing: 'SL thiếu' }[field]}</Text>
+              </View>)}
+            </View>
             <View style={styles.quantities}>
               {(['good', 'damaged', 'missing'] as const).map(field => <View key={field} style={styles.quantity}>
-                <TextField label={{ good: 'Thực nhận tốt', damaged: 'Hỏng', missing: 'Thiếu' }[field]}
+                <TextField hideLabel label={{ good: 'SL thực nhận', damaged: 'SL hỏng', missing: 'SL thiếu' }[field]}
                   value={counts[row.key]?.[field] ?? ''} editable={!busy} keyboardType="decimal-pad" maxLength={20}
                   error={form.formState.errors.counts?.[row.key]?.[field]?.message}
                   onChangeText={value => form.setValue(`counts.${row.key}.${field}`, value, { shouldDirty: true })} />
@@ -209,11 +217,15 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
           </View>}
           ListFooterComponent={<View style={styles.section}>
             {!putRow && data.receipt.receiptFlowVersion === 2 && <>
-              <SelectionField label="Xử lý hàng đạt" value={keep === true ? 'receiving' : keep === false ? 'putaway' : ''}
-                placeholder="Chọn giữ tại khu nhận hoặc tiếp tục cất" disabled={busy}
-                options={[{ value: 'receiving', label: 'Giữ tại khu nhận', description: 'Khả dụng theo FEFO, không bắt buộc cất lên kệ' },
-                  { value: 'putaway', label: 'Tiếp tục cất hàng đạt', description: 'Hàng chờ cất theo kế hoạch trước khi khả dụng' }]}
-                onChange={value => form.setValue('keepAtReceiving', value === 'receiving', { shouldDirty: true, shouldValidate: true })} />
+              <Pressable accessibilityRole="checkbox" accessibilityLabel="Giữ hàng đạt tại khu nhận"
+                accessibilityState={{ checked: keep === true, disabled: busy }} disabled={busy}
+                onPress={() => form.setValue('keepAtReceiving', keep !== true, { shouldDirty: true, shouldValidate: true })}
+                style={({ pressed }) => [styles.keepChoice, { borderColor: keep === true ? theme.primary : theme.border,
+                  backgroundColor: keep === true ? theme.primaryContainer : theme.card }, (busy || pressed) && styles.dim]}>
+                <KeepIcon size={24} color={theme.primary} />
+                <Text style={[styles.keepLabel, { color: theme.text }]}>Giữ hàng đạt tại khu nhận</Text>
+              </Pressable>
+              <Text style={[styles.hint, { color: theme.textSecondary }]}>Tick: hàng đạt có thể được lấy trực tiếp theo FEFO tại khu nhận. Không tick: hàng tiếp tục chờ cất. Hàng hỏng luôn được cách biệt.</Text>
               {hasDamage && <>
                 <TransferLocationSelector warehouseId={data.document.destinationWarehouseId} scopeKey={execution.key} title="Vị trí thực tế cách biệt hàng hỏng" selected={damageLocation} onSelect={setDamageLocation} disabled={busy} includeIsolation />
                 <TextField label="Quét hoặc nhập mã vị trí cách biệt" value={damageScan} onChangeText={setDamageScan} maxLength={200} editable={!busy} autoCapitalize="characters"
@@ -228,7 +240,10 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
         </KeyboardAvoidingView>
         <ConfirmationModal visible={!!execution.target && execution.target.action !== 'Start'} title="Xác nhận đã thực hiện thực tế?"
           description={putRow ? 'Chỉ xác nhận số lượng đã cất đúng vị trí, lô và mã sản phẩm.' : keep ? 'Xác nhận số thực nhận đã kiểm. Hàng đạt ở khu nhận có thể được phân bổ FEFO ngay; hàng hỏng đã đặt cách biệt và vẫn bị Hold.' : 'Xác nhận số thực nhận đã kiểm. Hàng đạt tiếp tục chờ cất; hàng hỏng đã cách biệt và vẫn bị Hold.'}
-          busy={busy} confirmDisabled={state.realtime.changed} error={execution.mutation.error} onConfirm={() => { void execution.confirm().then(success => { if (success) setOpen(false); }); }} onCancel={execution.cancel} />
+          busy={busy} confirmDisabled={state.realtime.changed} error={execution.mutation.error} onConfirm={() => {
+            const submitted = execution.target?.action === 'Submit';
+            void execution.confirm().then(success => { if (success) { form.reset(); setOpen(false); if (submitted) onSubmitted?.(); } });
+          }} onCancel={execution.cancel} />
         <ConfirmationModal visible={discard} title="Bỏ thay đổi chưa lưu?" description="Dữ liệu nhập trong biểu mẫu chưa được lưu. Bạn có muốn đóng?"
           busy={busy} onConfirm={() => { void draft.discardAndClose(() => { setOpen(false); setDiscard(false); execution.cancel(); }); }} onCancel={() => setDiscard(false)} />
       </View>
@@ -240,5 +255,8 @@ export function TransferReceiptEditor({ state, transferId, shipmentId, mode, chi
       busy={busy} confirmDisabled={state.realtime.changed} error={execution.mutation.error} onConfirm={() => { void execution.confirm(); }} onCancel={execution.cancel} />
   </>;
 }
-const styles = StyleSheet.create({ root: { flex: 1, minHeight: 0 }, section: { gap: 12 }, quantities: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, quantity: { flex: 1, minWidth: 88 }, content: { padding: 20, gap: 20, paddingBottom: 48 },
+const styles = StyleSheet.create({ root: { flex: 1, minHeight: 0 }, section: { gap: 12 }, quantities: { flexDirection: 'row', gap: 8 }, quantity: { flex: 1, minWidth: 0 }, quantityLabel: { fontFamily: FontFamily.semibold, fontSize: 14, lineHeight: 20 }, content: { padding: 20, gap: 20, paddingBottom: 48 },
+  keepChoice: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, padding: 12, borderWidth: 1, borderRadius: Radius.md },
+  keepLabel: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 15, lineHeight: 22 }, dim: { opacity: 0.6 },
+  receiptCard: { gap: 12, padding: 16, borderWidth: 1, borderRadius: Radius.lg }, hint: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 20 },
   title: { fontFamily: FontFamily.semibold, fontSize: 17, lineHeight: 25 }, text: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 22 } });

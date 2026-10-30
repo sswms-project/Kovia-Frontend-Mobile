@@ -19,7 +19,8 @@ import { ReceiptLotCard } from '../components/receipt-lot-card';
 import { TransferReceiptEditor } from '../components/transfer-receipt-editor';
 import { TransferPutAwayCard, TransferPutAwayHistoryCard } from '../components/transfer-putaway-card';
 import { useTransferReceiving } from '../hooks/use-transfer-receiving';
-import { transferReceivingDate, transferReceivingStatus } from '../transfer-receiving';
+import { useTransferReceiptHandoff } from '../hooks/use-transfer-receipt-handoff';
+import { canContinueTransferPutaway, transferReceivingDate, transferReceivingStatus } from '../transfer-receiving';
 import type { TransferPutAwayEvent, TransferPutAwayRow, TransferReceiptLine, TransferReceivingMode } from '../transfer-receiving.schema';
 
 type Row = { key: string; kind: 'Title'; text: string }
@@ -31,9 +32,12 @@ export function TransferReceivingScreen({ transferId, shipmentId, mode }: {
   readonly transferId: string; readonly shipmentId: string; readonly mode: TransferReceivingMode;
 }) {
   const state = useTransferReceiving(transferId, shipmentId, mode);
+  const handoff = useTransferReceiptHandoff(state, transferId, shipmentId);
   const allocation = useTransferPutawayAllocation(state, transferId, shipmentId);
   const theme = useTheme();
   const data = state.data;
+  const continuing = !!data && canContinueTransferPutaway(data.document, data.receipt, state.access.profile.data?.id,
+    state.access.selection.warehouseId, state.access.profile.data?.permissions ?? []);
   useScreenSubtitle(data?.receipt.transferCode);
   const rows = useMemo(() => {
     const result: Row[] = [];
@@ -67,7 +71,7 @@ export function TransferReceivingScreen({ transferId, shipmentId, mode }: {
       contentContainerStyle={styles.content} refreshing={state.detail.isFetching} onRefresh={() => { void state.refresh(); }}
       ListHeaderComponent={<View style={styles.header}>
         <WorkCompletionActions visible={!state.detail.isFetching && !state.detail.isError &&
-          (mode === 'Receive' ? data?.shipment.receiveTaskStatus : data?.shipment.putAwayTaskStatus) === 'Completed'} message="Đã hoàn tất bước điều chuyển được giao." />
+          !(mode === 'Receive' && continuing) && (mode === 'Receive' ? data?.shipment.receiveTaskStatus : data?.shipment.putAwayTaskStatus) === 'Completed'} message="Đã hoàn tất bước điều chuyển được giao." />
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{mode === 'Receive' ? 'Phiếu nhận điều chuyển' : 'Phiếu cất điều chuyển'}</Text>
         {!state.validId && <AlertBanner variant="destructive" title="Liên kết điều chuyển không hợp lệ." />}
         {!state.canView && <>
@@ -85,6 +89,7 @@ export function TransferReceivingScreen({ transferId, shipmentId, mode }: {
           <Text style={[styles.text, { color: theme.textSecondary }]}>Bắt đầu nhận: {transferReceivingDate(data.receipt.arrivedAt)}</Text>
           <Text style={[styles.text, { color: theme.textSecondary }]}>Gửi kết quả kiểm hàng: {transferReceivingDate(data.receipt.receiptSubmittedAt)}</Text>
           {controls}
+          {mode === 'Receive' && continuing && <AlertBanner title="Đã kiểm nhận — tiếp tục cất hàng" description="Bạn được giao cả hai bước. Phần hàng đạt vẫn cần được cất và xác nhận để hoàn tất công việc." />}
           {!data.receipt.lines.length && <AlertBanner title="Chưa có dòng hàng đã xuất trong đợt này." />}
           {data.receipt.keptAtReceiving && <AlertBanner title="Đã chọn giữ hàng đạt tại khu nhận" description="Hàng đủ điều kiện được lấy theo FEFO từ vị trí thực tế hiện tại. Cất sau chỉ chuyển vị trí, không ghi nhập tồn thêm; hàng hỏng vẫn không khả dụng." />}
           {(data.document.isLegacyWorkflow || (![1, 2].includes(data.receipt.receiptFlowVersion) && data.receipt.status !== 'InTransit')) && <AlertBanner
@@ -113,7 +118,7 @@ export function TransferReceivingScreen({ transferId, shipmentId, mode }: {
         busy={allocation.execution.mutation.isPending} error={allocation.execution.mutation.error}
         onConfirm={() => { void allocation.execution.confirm(); }} onCancel={allocation.execution.cancel} />
     </> : <TransferReceiptEditor key={JSON.stringify([state.access.selection.identity, state.access.selection.warehouseId, state.access.selection.revision, state.access.selection.signature, transferId, shipmentId, mode])}
-      state={state} transferId={transferId} shipmentId={shipmentId} mode={mode}>{content}</TransferReceiptEditor>}
+      state={state} transferId={transferId} shipmentId={shipmentId} mode={mode} onSubmitted={handoff.submitted}>{content}</TransferReceiptEditor>}
   </SafeAreaView>;
 }
 function Separator() { return <View style={styles.separator} />; }
