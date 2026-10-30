@@ -142,6 +142,12 @@ export function useCycleCount(documentId: string) {
     editor: editor?.key === contextKey ? editor : null, target: target?.key === contextKey ? target : null,
     notice: notice?.key === contextKey ? notice.message : null, files: photos?.key === contextKey && photos.version === editor?.version && photos.itemId === editor.item.id ? photos.files : [],
     begin, beginRecord, reviewRecord, addPhoto, confirm,
+    removePhoto: (id: string) => {
+      if (lock.current || !editor || photos?.key !== contextKey || photos.itemId !== editor.item.id || photos.version !== editor.version) return;
+      const files = photos.files.filter(file => file.id !== id);
+      setPhotos({ ...photos, files });
+      form.setValue('damageEvidenceIds', files.map(file => file.id), { shouldDirty: true, shouldValidate: true });
+    },
     refresh: async () => { await client.invalidateQueries({ queryKey: prefix }); },
     closeEditor: () => { if (!lock.current) { setEditor(null); setTarget(null); } },
     discardChanges: () => { if (!lock.current) { void draft.discardAndClose(() => { setEditor(null); setPhotos(null); setDiscard(false); form.reset(); }); } },

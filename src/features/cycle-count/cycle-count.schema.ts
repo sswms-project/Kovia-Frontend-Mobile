@@ -16,7 +16,8 @@ export const countItemSchema = z.object({ id, productId: id, productName: text, 
   expiryDate: nullableText, countedByName: nullableText, note: nullableText, countedDamagedQuantity: quantity.nullable(),
   countMethod: z.enum(['Manual', 'Scanned']), scannedBarcode: nullableText, productBarcode: nullableText, slotBarcode: nullableText,
   damageReason: nullableText, damageEvidence: z.array(z.object({ id, fileName: text })).nullable(), damageConfirmedAt: nullableText,
-  damageCaseId: id.nullable(), damageCaseStatus: nullableText, snapshotCapturedAt: nullableText });
+  damageCaseId: id.nullable(), damageCaseStatus: nullableText, snapshotCapturedAt: nullableText,
+  rackId: id.nullable().optional(), zoneCode: nullableText.optional(), zoneName: nullableText.optional(), rackName: nullableText.optional() });
 export const cycleCountSchema = z.object({ id, warehouseId: id, warehouseName: text, zoneId: id.nullable(), zoneName: nullableText,
   status: z.enum(['Scheduled', 'Counting', 'Recount', 'Submitted', 'Completed', 'Cancelled']), scheduledDate: text,
   priority: text, dueAt: nullableText, isBlindCount: z.boolean(), recountRound: quantity.int(), assignedTo: id.nullable(),

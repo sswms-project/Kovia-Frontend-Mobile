@@ -103,6 +103,18 @@ const countValues = () => ({ countedQuantity: 0, countedDamagedQuantity: 0, note
 const countItem = () => ({ id: lineId, productSku: 'SKU-01', productBarcode: 'BAR-01', countedQuantity: null,
   systemQuantity: null, difference: null, snapshotCapturedAt: '2026-10-20T01:00:00Z', requestedRecountRound: null, countHistory: [], damageEvidence: [] });
 const countDocument = () => ({ warehouseId, assignedTo: userId, isBlindCount: true, status: 'Counting', recountRound: 0, items: [countItem()] });
+
+test('count location matching accepts rack and slot QR while excluding internal sentinel, foreign labels and already-counted rows', () => {
+  const slotId = '11111111-1111-4111-8111-111111111111', rackId = '22222222-2222-4222-8222-222222222222';
+  const item = { ...countItem(), slotId, rackId, slotCode: '__SYSTEM_DEFAULT__', rackCode: 'A01', zoneCode: 'K01', isSystemDefaultSlot: true };
+  const document = { ...countDocument(), items: [item] };
+  for (const code of [`KOVIA:LOC:RACK:${rackId}`, `KOVIA:LOC:SLOT:${slotId}`, 'K01-A01', 'a01'])
+    assert.equal(countLogic.findCountLines(document, 'Location', code).length, 1);
+  assert.equal(countLogic.findCountLines(document, 'Location', '__SYSTEM_DEFAULT__').length, 0);
+  assert.equal(countLogic.findCountLines(document, 'Location', 'K02-A01').length, 0);
+  assert.equal(countLogic.findCountLines({ ...document, items: [{ ...item, countedQuantity: 0 }] }, 'Location', 'A01').length, 0);
+  assert.equal(countLogic.findCountLines({ ...document, items: [{ ...item, isSystemDefaultSlot: false, slotCode: 'S01' }] }, 'Location', `KOVIA:LOC:RACK:${rackId}`).length, 0);
+});
 test('count form allows explicit zero, rejects blank/negative/nonfinite and overprecision', () => {
   assert.ok(countSchema.countFormSchema.safeParse(countValues()).success);
   for (const countedQuantity of [NaN, Infinity, -1, 0.001]) assert.equal(countSchema.countFormSchema.safeParse({ ...countValues(), countedQuantity }).success, false);

@@ -566,3 +566,10 @@ Verification: 258/258 tests, TypeScript, Expo lint and diff check pass. New regr
 ## Putaway success refresh flash — 2026-10-30
 
 Confirmed source race: a successful putaway refreshed receipt/plan versions while the allocation snapshot remained open until mutateAsync finished all cache refreshes. This briefly displayed the destructive stale-plan banner for the user's own successful write. The execution hook now calls an optional post-commit callback after durable operation cleanup and session validation, before invalidation/refetch. Allocation closes and clears only on confirmed PutAway success; rejection/unknown outcome keeps its form/evidence. External stale-plan guards remain unchanged. Regression checks cover callback order and allocation closure before version update. 259/259 tests, TypeScript and Expo lint pass. Mobile only, no live API/device acceptance or commit.
+
+## Staff cycle count workspace redesign — 2026-10-30
+
+Implemented only on feat/huytv in mobile after BE/web source comparison. See MOBILE_CYCLE_COUNT_WORKSPACE.md. Shared physical-location matching now accepts rack/slot QR and rejects the system-default sentinel; position metadata matches BE response with older API tolerance. Position-first product/lot selection retains the selected position across saves, with ambiguous lots explicit. Editor has quantity step controls and optional scan increments; damage reason/evidence is conditional and new evidence can be removed locally. Existing explicit command confirmation, scope/version/draft guards, blind-count and recount rules remain.
+
+Actual RN Web editor SSR fixtures inspected via Edge/Playwright at 390 and 320 px. No real camera, keyboard or authenticated API acceptance; no BE/web edit, DB operation, dependency change, commit or push. Prior GitNexus keyword query returned no flows with missing FTS-index warning; source inspection used for comparison.
+Validation: 262/262 automated tests pass; TypeScript, Expo lint and git diff --check pass. Log: ../outputs/mobile-cycle-redesign-full-20261030.log. Native/device acceptance pending.
