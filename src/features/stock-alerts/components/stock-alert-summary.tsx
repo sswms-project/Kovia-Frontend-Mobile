@@ -5,6 +5,7 @@ import { ErrorState } from '@/components/ui/error-state';
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
+import { useAlertAutoRead } from '../hooks/use-alert-auto-read';
 import { useStockAlertCounts } from '../hooks/use-stock-alerts';
 import type { StockAlertKind } from '../stock-alerts.types';
 
@@ -19,6 +20,7 @@ const CHART_HEIGHT = 120;
 export function StockAlertSummary({ warehouseId }: { readonly warehouseId: string | null }) {
   const theme = useTheme();
   const { canView, counts, isError, isPending, refetch } = useStockAlertCounts(warehouseId);
+  useAlertAutoRead(warehouseId, counts, canView && !isPending && !isError);
   if (!canView) return null;
   const max = Math.max(1, ...counts.map((c) => c.total));
   const open = () => router.push('/catalog/stock-alerts');

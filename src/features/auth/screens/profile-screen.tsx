@@ -17,7 +17,7 @@ import {
 } from 'lucide-react-native';
 import { useState, type ReactNode } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
 import { SelectionField } from '@/components/ui/selection-field';
 import { APPEARANCE_OPTIONS, useAppearance } from '@/stores/appearance.store';
+import { useSpeechPreference } from '@/stores/speech.store';
 import { getRoleLabel } from '@/config/roles';
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -93,6 +94,9 @@ export function ProfileScreen() {
   const savingAppearance = useAppearance(state => state.saving);
   const appearanceError = useAppearance(state => state.error);
   const chooseAppearance = useAppearance(state => state.choose);
+  const autoReadAlerts = useSpeechPreference(state => state.autoReadAlerts);
+  const speechHydrated = useSpeechPreference(state => state.hydrated);
+  const setAutoReadAlerts = useSpeechPreference(state => state.setAutoReadAlerts);
   const queryClient = useQueryClient();
   const signOut = useAuth((state) => state.signOut);
   const [editing, setEditing] = useState(false);
@@ -237,6 +241,13 @@ export function ProfileScreen() {
             if (value === 'system' || value === 'light' || value === 'dark') void chooseAppearance(value);
           }} />
         {appearanceError && <AlertBanner variant="destructive" title={appearanceError} />}
+        <View style={styles.switchRow}>
+          <View style={styles.switchText}>
+            <Text style={[styles.switchLabel, { color: theme.text }]}>Tự đọc cảnh báo khẩn</Text>
+            <Text style={[styles.switchHint, { color: theme.textSecondary }]}>Đọc thành tiếng khi có hàng dưới mức tối thiểu hoặc quá hạn, mỗi kho một lần mỗi phiên.</Text>
+          </View>
+          <Switch value={autoReadAlerts} disabled={!speechHydrated} onValueChange={value => void setAutoReadAlerts(value)} accessibilityLabel="Tự đọc cảnh báo khẩn" />
+        </View>
       </View>
       <View style={[styles.card, styles.menu, card]}>
         <MenuRow icon={Shield} label="Bảo mật và xác thực hai bước" disabled={busy} onPress={() => router.push('/security')} />
@@ -267,6 +278,10 @@ export function ProfileScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  switchText: { flex: 1, gap: 2 },
+  switchLabel: { fontFamily: FontFamily.semibold, fontSize: 15 },
+  switchHint: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 16 },
   flex: { flex: 1 },
   content: { width: '100%', maxWidth: 480, alignSelf: 'center', padding: 20, paddingTop: 16, paddingBottom: 40, gap: 16 },
   title: { fontFamily: FontFamily.semibold, fontSize: 26, lineHeight: 32 },

@@ -13,6 +13,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { FontFamily } from '@/constants/theme';
 import { useAppearance } from '@/stores/appearance.store';
+import { useSpeechPreference } from '@/stores/speech.store';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Toaster } from 'sonner-native';
 
@@ -29,6 +30,7 @@ export default function RootLayout() {
   const colors = useTheme();
   const reduceMotion = useReducedMotion();
   const hydrateAppearance = useAppearance(state => state.hydrate);
+  const hydrateSpeech = useSpeechPreference(state => state.hydrate);
   const baseTheme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
   const navigationTheme = { ...baseTheme, colors: { ...baseTheme.colors, primary: colors.primary, background: colors.background,
     card: colors.card, text: colors.text, border: colors.border, notification: colors.error }, fonts: { ...baseTheme.fonts,
@@ -52,6 +54,7 @@ export default function RootLayout() {
     restore();
   }, [restore]);
   useEffect(() => { void hydrateAppearance(); }, [hydrateAppearance]);
+  useEffect(() => { void hydrateSpeech(); }, [hydrateSpeech]);
 
   useEffect(() => {
     if (ready && fontsSettled) SplashScreen.hideAsync();
