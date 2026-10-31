@@ -19,7 +19,15 @@ function runtime() {
 const jsx = (type, props) => ({ type, props });
 const nodes = node => Array.isArray(node) ? node.flatMap(nodes) : node && typeof node === 'object' ? [node, ...nodes(node.props?.children)] : [];
 const scans = load('src/features/scanner/warehouse-scan.ts');
-const rules = load('src/features/cycle-count/cycle-count.ts', { '@/features/scanner/warehouse-scan': scans });
+const labels = load('src/features/inventory/inventory.labels.ts', { './inventory.types': { STOCK_MOVEMENT_TYPES: {} }, '@/lib/number-format': {} });
+const rules = load('src/features/cycle-count/cycle-count.ts', { '@/features/scanner/warehouse-scan': scans, '@/features/inventory/inventory.labels': labels });
+test('count location shows names with codes and falls back to codes without exposing default slots', () => {
+  const location = { zoneCode: 'K01', rackCode: 'A07', slotCode: '__SYSTEM_DEFAULT__' };
+  assert.equal(rules.formatCountLocation({ ...location, zoneName: 'Kho thường', rackName: 'Bia' }), 'Khu vực Kho thường (K01) / Kệ Bia (A07)');
+  assert.equal(rules.formatCountLocation(location), 'Khu vực K01 / Kệ A07');
+  assert.equal(rules.formatCountLocation({ ...location, zoneName: 'Khu vực 1', rackName: 'Kệ bia' }), 'Khu vực 1 (K01) / Kệ bia (A07)');
+  assert.equal(rules.formatCountLocation({ ...location, zoneName: ' KHU VỰC  1 ', rackName: ' KỆ A07 ' }), 'Khu vực 1 (K01) / Kệ A07');
+});
 function dependencies(run) {
   const result = { react: run.react, 'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { View: 'View', Text: 'Text', Switch: 'Switch', ScrollView: 'ScrollView', KeyboardAvoidingView: 'Root', Platform: { OS: 'android' }, StyleSheet: { create: value => value } },

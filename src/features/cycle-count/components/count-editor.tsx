@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
 import { FontFamily, Radius } from '@/constants/theme';
 import { ScanCodeButton } from '@/features/scanner/components/scan-code-button';
-import { formatInventoryLocation } from '@/features/inventory/inventory.labels';
+import { formatCountLocation } from '../cycle-count';
 import { codesMatch } from '@/features/scanner/warehouse-scan';
 import { useTheme } from '@/hooks/use-theme';
 import type { CountForm, CountItem } from '../cycle-count.schema';
@@ -41,7 +41,7 @@ export function CountEditor({ item, form, busy, canScan, submitDisabled, notice,
       <View style={[styles.card, { borderColor: theme.border, backgroundColor: theme.card }]}>
         <Text style={[styles.text, { color: theme.textSecondary }]}>{item.productSku}</Text>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{item.productName}</Text>
-        <Text style={[styles.text, { color: theme.text }]}>{formatInventoryLocation(item)}</Text>
+        <Text style={[styles.text, { color: theme.text }]}>{formatCountLocation(item)}</Text>
         <Text style={[styles.text, { color: theme.textSecondary }]}>Lô {item.lotNumber ?? 'không có'} · {item.qualityStatus === 'Good' ? 'Hàng đạt' : item.qualityStatus === 'Damaged' ? 'Hàng hỏng' : 'Cách ly'} · Đơn vị {item.unitName ?? 'cơ sở'}</Text>
       </View>
       {notice && <AlertBanner title={notice} />}

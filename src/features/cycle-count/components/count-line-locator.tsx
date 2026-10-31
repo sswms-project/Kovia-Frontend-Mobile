@@ -7,9 +7,8 @@ import { SelectionField } from '@/components/ui/selection-field';
 import { TextField } from '@/components/ui/text-field';
 import { FontFamily, Radius } from '@/constants/theme';
 import { ScanCodeButton } from '@/features/scanner/components/scan-code-button';
-import { formatInventoryLocation } from '@/features/inventory/inventory.labels';
 import { useTheme } from '@/hooks/use-theme';
-import { canRecordCountItem, findCountLines } from '../cycle-count';
+import { canRecordCountItem, findCountLines, formatCountLocation } from '../cycle-count';
 import type { CountItem, CycleCount } from '../cycle-count.schema';
 
 interface Props {
@@ -60,9 +59,9 @@ export function CountLineLocator({ document, disabled, onRecord }: Props) {
     <ScanCodeButton continuous label={slotId ? 'Quét mã hàng' : 'Quét vị trí và mã hàng'} title={slotId ? 'Quét hàng tại vị trí đang kiểm' : 'Quét vị trí kiểm kê'}
       renderIcon={color => <ScanLine size={22} color={color} />} disabled={disabled} showScannedCode={false}
       onOpen={() => { pending.current = null; productAccepted.current = false; }} onScan={scan} closeAfterScan={() => productAccepted.current}
-      onClose={afterCamera} status={error ?? (slot ? formatInventoryLocation(slot) : 'Quét nhãn vị trí, sau đó quét sản phẩm.')} />
+      onClose={afterCamera} status={error ?? (slot ? formatCountLocation(slot) : 'Quét nhãn vị trí, sau đó quét sản phẩm.')} />
     <SelectionField label="Vị trí đang kiểm" value={slotId} disabled={disabled}
-      options={slots.map(row => ({ value: row.slotId, label: formatInventoryLocation(row) }))} onChange={changeSlot} />
+      options={slots.map(row => ({ value: row.slotId, label: formatCountLocation(row) }))} onChange={changeSlot} />
     {slotId && <>
       <Text style={[styles.hint, { color: theme.textSecondary }]}>{available.filter(row => row.slotId === slotId).length} dòng còn cần đếm tại vị trí này</Text>
       <TextField label="Mã hàng / SKU từ máy quét" value={input} editable={!disabled} onChangeText={setInput} autoCapitalize="none" autoCorrect={false} maxLength={100}

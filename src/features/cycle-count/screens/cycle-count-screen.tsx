@@ -46,7 +46,6 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
         canRecord={canRecord && !!document && canRecordCountItem(document, item)} onRecord={state.beginRecord} onOpenEvidence={file => { void evidence.open(file); }} />}
       ListHeaderComponent={<View style={styles.header}>
         <WorkCompletionActions visible={!busy && !state.detail.isFetching && !state.detail.isError && !!document && ['Completed', 'Submitted'].includes(document.status)} message={document?.status === 'Submitted' ? 'Đã gửi kết quả kiểm kê.' : 'Đã hoàn tất kiểm kê.'} />
-        <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{document?.code || 'Kiểm kê được giao'}</Text>
         {!state.access.ready && <WarehouseWorkspaceControl access={state.access} />}
         {!state.canView ? <AlertBanner title={state.validId ? 'Chọn kho được giao và kiểm tra quyền xem kiểm kê.' : 'Mã kiểm kê không hợp lệ.'} /> : <>
           {state.detail.isPending && <AlertBanner title="Đang tải phiếu kiểm kê…" />}
@@ -96,5 +95,5 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
 }
 function Separator() { return <View style={styles.separator} />; }
 const styles = StyleSheet.create({ root: { flex: 1 }, content: { padding: 20, width: '100%', maxWidth: 760, alignSelf: 'center' },
-  header: { gap: 16, paddingBottom: 16 }, separator: { height: 16 }, title: { fontFamily: FontFamily.bold, fontSize: 26, lineHeight: 34 },
+  header: { gap: 16, paddingBottom: 16 }, separator: { height: 16 },
   text: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 23 } });
