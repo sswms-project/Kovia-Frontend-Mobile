@@ -243,10 +243,10 @@ export function ProfileScreen() {
         {appearanceError && <AlertBanner variant="destructive" title={appearanceError} />}
         <View style={styles.switchRow}>
           <View style={styles.switchText}>
-            <Text style={[styles.switchLabel, { color: theme.text }]}>Tự đọc cảnh báo khẩn</Text>
+            <Text style={[styles.switchLabel, { color: theme.text }]}>Tự đọc cảnh báo và công việc mới</Text>
             <Text style={[styles.switchHint, { color: theme.textSecondary }]}>Đọc thành tiếng khi có hàng dưới mức tối thiểu hoặc quá hạn, mỗi kho một lần mỗi phiên.</Text>
           </View>
-          <Switch value={autoReadAlerts} disabled={!speechHydrated} onValueChange={value => void setAutoReadAlerts(value)} accessibilityLabel="Tự đọc cảnh báo khẩn" />
+          <Switch value={autoReadAlerts} disabled={!speechHydrated} onValueChange={value => void setAutoReadAlerts(value)} accessibilityLabel="Tự đọc cảnh báo và công việc mới" />
         </View>
       </View>
       <View style={[styles.card, styles.menu, card]}>

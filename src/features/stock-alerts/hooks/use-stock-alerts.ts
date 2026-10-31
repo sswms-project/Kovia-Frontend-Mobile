@@ -45,7 +45,7 @@ export function useStockAlertCounts(warehouseId: string | null) {
     isError: results.some((r) => r.isError),
     isPending: results.some((r) => r.isPending),
     refetch: () => { results.forEach((r) => { void r.refetch(); }); },
-    counts: SUMMARY_KINDS.map((kind, i) => ({ kind, total: results[i].data?.total ?? 0, names: results[i].data?.names ?? [] })),
+    counts: SUMMARY_KINDS.map((kind, i) => ({ kind, total: results[i].data?.total ?? 0 })),
   };
 }
 
