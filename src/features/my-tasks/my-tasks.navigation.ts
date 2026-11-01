@@ -4,9 +4,14 @@ import { P } from '@/config/permission-codes';
 import type { UserProfile } from '@/features/auth/auth.types';
 
 import type { WarehouseTask } from './my-tasks.schema';
+import { hasReturnPermissions } from '@/features/return-work/return-work';
 
 export function getTaskDestination(task: WarehouseTask, profile: UserProfile | undefined, warehouseId?: string): Href | null {
   if (!profile || task.warehouseId !== warehouseId || task.assignedTo !== profile.id) return null;
+  if (task.taskType === 'CustomerReturnReceive' || task.taskType === 'SupplierReturnDispatch') {
+    const supplier = task.taskType === 'SupplierReturnDispatch';
+    return hasReturnPermissions(supplier, profile) ? { pathname: supplier ? '/(account)/supplier-return/[id]' : '/(account)/customer-return/[id]', params: { id: task.id } } : null;
+  }
   const permission = task.taskType === 'Relocation' ? P.WAREHOUSE_TASKS_VIEW_OWN : task.taskType.startsWith('Transfer')
     ? P.TRANSFERS_VIEW : task.taskType === 'Picking' ? P.STOCK_ISSUE_REQUESTS_VIEW
       : task.taskType === 'CycleCount' ? P.CYCLE_COUNTS_VIEW : P.GOODS_RECEIPTS_VIEW;

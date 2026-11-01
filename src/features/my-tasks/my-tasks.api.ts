@@ -19,7 +19,7 @@ export const myTasksApi = {
   action: (taskType: string, taskId: string, input: TaskActionInput, assertCurrentContext?: () => void) => {
     const type = taskTypeSchema.parse(taskType);
     nonEmptyDotNetGuidSchema('Mã công việc không hợp lệ').parse(taskId);
-    if (type === 'Picking' || type === 'DamagedStock')
+    if (type === 'Picking' || type === 'DamagedStock' || type === 'CustomerReturnReceive' || type === 'SupplierReturnDispatch')
       throw new Error('Loại công việc này được xử lý trong màn hình nghiệp vụ riêng.');
     const body = taskActionSchema.parse(input);
     const config: AxiosRequestConfig & { assertCurrentContext?: () => void } = { assertCurrentContext };

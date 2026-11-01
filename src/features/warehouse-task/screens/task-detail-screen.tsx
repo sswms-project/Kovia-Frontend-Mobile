@@ -51,7 +51,8 @@ export function TaskDetailScreen({ taskType, taskId, history = false, warehouseI
   const readOnly = !!query.data?.history || task?.executionStatus === 'Completed' || task?.executionStatus === 'Cancelled';
   const fresh = query.isSuccess && !query.isFetching;
   const canManage = fresh && !readOnly && !!profile?.permissions.includes(P.WAREHOUSE_TASKS_MANAGE_OWN);
-  const destination = task && profile ? readOnly ? getTaskReference(task, profile)
+  const returnTask = task?.taskType === 'CustomerReturnReceive' || task?.taskType === 'SupplierReturnDispatch';
+  const destination = task && profile ? readOnly && !returnTask ? getTaskReference(task, profile)
     : getTaskDestination(task, profile, scope?.warehouseId) : null;
 
   function back() { if (router.canGoBack()) router.back(); else router.replace('/tasks'); }

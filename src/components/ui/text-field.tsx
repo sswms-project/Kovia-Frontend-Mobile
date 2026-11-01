@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Radius.md,
   },
-  input: { flex: 1, minHeight: 48, paddingHorizontal: 12, fontFamily: FontFamily.regular, fontSize: 16 },
+  input: { flex: 1, minWidth: 0, minHeight: 48, paddingHorizontal: 12, fontFamily: FontFamily.regular, fontSize: 16 },
   inputWithToggle: { paddingRight: 4 },
   multiline: { minHeight: 104, paddingVertical: 12, textAlignVertical: 'top' },
   toggle: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
