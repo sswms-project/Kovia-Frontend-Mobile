@@ -16,6 +16,7 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { homeNavigationState } from '@/lib/screen-navigation';
 
 const TITLES: Readonly<Record<string, string>> = {
+  'customer-return': 'Nhận hàng khách trả', 'supplier-return': 'Giao trả nhà cung cấp',
   receiving: 'Nhận hàng', putaway: 'Cất hàng', 'stock-issue': 'Thực hiện xuất hàng', 'cycle-count': 'Kiểm kê',
   relocation: 'Di chuyển hàng', 'transfer-pick': 'Lấy hàng điều chuyển', 'transfer-receipt': 'Nhận hàng điều chuyển',
   'transfer-putaway': 'Cất hàng điều chuyển', 'receiving-review': 'Rà soát phiếu nhận', 'smart-allocation': 'Phân bổ hàng', security: 'Bảo mật',

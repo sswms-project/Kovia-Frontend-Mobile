@@ -46,7 +46,6 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
         canRecord={canRecord && !!document && canRecordCountItem(document, item)} onRecord={state.beginRecord} onOpenEvidence={file => { void evidence.open(file); }} />}
       ListHeaderComponent={<View style={styles.header}>
         <WorkCompletionActions visible={!busy && !state.detail.isFetching && !state.detail.isError && !!document && ['Completed', 'Submitted'].includes(document.status)} message={document?.status === 'Submitted' ? 'Đã gửi kết quả kiểm kê.' : 'Đã hoàn tất kiểm kê.'} />
-        <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{document?.code || 'Kiểm kê được giao'}</Text>
         {!state.access.ready && <WarehouseWorkspaceControl access={state.access} />}
         {!state.canView ? <AlertBanner title={state.validId ? 'Chọn kho được giao và kiểm tra quyền xem kiểm kê.' : 'Mã kiểm kê không hợp lệ.'} /> : <>
           {state.detail.isPending && <AlertBanner title="Đang tải phiếu kiểm kê…" />}
@@ -64,8 +63,8 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
             {state.actions.data?.denialReasonCode === 'TASK_PAUSED_OR_CANCELLED' && <AlertBanner title="Công việc đang tạm dừng hoặc đã hủy. Mở Công việc để tiếp tục khi đủ điều kiện." />}
             <Text style={[styles.text, { color: theme.primary }]}>{items.length - remaining}/{items.length} dòng đã ghi đếm</Text>
             <WorkListTools search={search} onSearch={setSearch} filter={filter} onFilter={setFilter} shown={visible.length} total={items.length} disabled={busy} />
-            {canRecord && state.allowed('Scan') && !busy && <CountLineLocator key={`${state.contextKey}:${document.version}`}
-              document={document} onRecord={state.beginRecord} />}
+            {state.actions.data?.allowedActions.includes('Scan') && <CountLineLocator key={`${state.contextKey}:${document.recountRound}`}
+              document={document} disabled={busy || !canRecord || !state.allowed('Scan')} onRecord={state.beginRecord} />}
             {!document.items.length && <AlertBanner title="Phiếu không có dòng kiểm kê." />}
           </>}
         </>}
@@ -78,6 +77,7 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
     <Modal visible={!!state.editor} animationType="slide" onRequestClose={busy ? undefined : closeEditor}>
       <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>{state.editor && <CountEditor key={`${state.contextKey}:${state.editor.item.id}:${state.editor.version}`}
         item={state.editor.item} form={state.form} busy={busy} canScan={state.allowed('Scan')} notice={state.notice} files={state.files}
+        submitDisabled={!state.allowed('Record')} onRemovePhoto={state.removePhoto}
         onPhoto={(source) => { void state.addPhoto(source); }} onReview={() => { void state.reviewRecord(); }} onClose={state.closeEditor} />}
         <ConfirmationModal visible={state.target?.action === 'Record'} title="Lưu số đếm thực tế?"
           description={`Tổng số đếm ${state.target?.values?.countedQuantity ?? ''}, trong đó hỏng ${state.target?.values?.countedDamagedQuantity ?? ''}. Số lượng tồn chưa thay đổi. Kết quả được giữ để quản lý rà soát.`}
@@ -95,5 +95,5 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
 }
 function Separator() { return <View style={styles.separator} />; }
 const styles = StyleSheet.create({ root: { flex: 1 }, content: { padding: 20, width: '100%', maxWidth: 760, alignSelf: 'center' },
-  header: { gap: 16, paddingBottom: 16 }, separator: { height: 16 }, title: { fontFamily: FontFamily.bold, fontSize: 26, lineHeight: 34 },
+  header: { gap: 16, paddingBottom: 16 }, separator: { height: 16 },
   text: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 23 } });

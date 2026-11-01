@@ -8,6 +8,7 @@ import { EvidenceLinks } from '@/components/ui/evidence-preview';
 import type { EvidenceFile } from '@/hooks/use-evidence-preview';
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { formatCountLocation } from '../cycle-count';
 
 import type { CountItem } from '../cycle-count.schema';
 
@@ -17,7 +18,8 @@ export const CountItemCard = memo(function CountItemCard({ item, canRecord, busy
   return <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
     <Text style={[styles.title, { color: theme.text }]}>{item.productSku} · {item.productName}</Text>
     <StatusPill label={item.countedQuantity === null ? 'Chưa ghi đếm' : 'Đã ghi đếm'} tone={item.countedQuantity === null ? 'neutral' : 'success'} />
-    <Text style={[styles.text, { color: theme.textSecondary }]}>{item.rackCode ?? ''} / {item.slotCode} · {item.unitName ?? 'Đơn vị cơ sở'}</Text>
+    <Text style={[styles.text, { color: theme.textSecondary }]}>{formatCountLocation(item)} · {item.unitName ?? 'Đơn vị cơ sở'}</Text>
+    <Text style={[styles.text, { color: theme.textSecondary }]}>Tình trạng: {item.qualityStatus === 'Good' ? 'Hàng đạt' : item.qualityStatus === 'Damaged' ? 'Hàng hỏng' : 'Hàng cách ly'}</Text>
     <Text style={[styles.text, { color: theme.textSecondary }]}>Lô: {item.lotNumber ?? 'Không áp dụng'} · Hạn: {item.expiryDate ?? 'Không áp dụng'}</Text>
     <Text style={[styles.text, { color: theme.text }]}>{item.countedQuantity === null ? 'Chưa ghi nhận số đếm' : `Đã đếm: ${item.countedQuantity} · Hỏng trong số đếm: ${item.countedDamagedQuantity ?? 0}`}</Text>
     {item.systemQuantity !== null && <Text style={[styles.text, { color: theme.textSecondary }]}>Tồn tại mốc kiểm kê: {item.systemQuantity} · Chênh lệch: {item.difference ?? 'Chưa xác định'}</Text>}
@@ -30,7 +32,7 @@ export const CountItemCard = memo(function CountItemCard({ item, canRecord, busy
       <Text style={[styles.text, { color: theme.textSecondary }]}>Yêu cầu đếm lại: {history.recountReason}</Text>
     </View>)}
     </WorkDetails>}
-    {canRecord && <Button label={`Ghi đếm ${item.productSku} tại ${item.slotCode}`} variant="outline" disabled={busy} onPress={() => onRecord(item)} />}
+    {canRecord && <Button label="Nhập số đếm" accessibilityLabel={`Ghi đếm ${item.productSku} tại ${formatCountLocation(item)}`} variant="outline" disabled={busy} onPress={() => onRecord(item)} />}
     {item.countedQuantity !== null && <Text style={[styles.text, { color: theme.textSecondary }]}>Nếu cần sửa số đếm, liên hệ quản lý yêu cầu đếm lại để giữ lịch sử.</Text>}
   </View>;
 });

@@ -19,6 +19,8 @@ export const TASK_TYPE_LABEL: Record<WarehouseTaskType, string> = {
   TransferReceive: 'Nhận hàng điều chuyển',
   TransferPutAway: 'Cất hàng điều chuyển',
   Picking: 'Lấy hàng xuất kho',
+  CustomerReturnReceive: 'Nhận hàng khách trả',
+  SupplierReturnDispatch: 'Giao trả nhà cung cấp',
 };
 
 export function getTaskTypeLabel(task: Pick<MyWarehouseTask, 'taskType' | 'isCombinedTransferReceipt'>) {
@@ -82,6 +84,8 @@ export const HISTORY_STATUS_FILTERS: readonly FilterOption<WarehouseTaskExecutio
 export const TASK_TYPE_FILTERS: readonly FilterOption<WarehouseTaskType>[] = [
   { value: 'Receiving', label: 'Nhận hàng' },
   { value: 'Picking', label: 'Lấy hàng xuất kho' },
+  { value: 'CustomerReturnReceive', label: 'Nhận hàng khách trả' },
+  { value: 'SupplierReturnDispatch', label: 'Giao trả nhà cung cấp' },
   { value: 'PutAway', label: 'Cất hàng' },
   { value: 'CycleCount', label: 'Kiểm kê' },
   { value: 'Relocation', label: 'Điều chuyển vị trí' },
@@ -113,7 +117,7 @@ export function getAvailableActions(
   { canManage, currentUserId }: ActionContext,
 ): readonly WarehouseTaskAction[] {
   if (!canManage || task.assignedTo !== currentUserId) return [];
-  if (task.taskType === 'DamagedStock' || task.taskType === 'Picking') return [];
+  if (task.taskType === 'DamagedStock' || task.taskType === 'Picking' || task.taskType === 'CustomerReturnReceive' || task.taskType === 'SupplierReturnDispatch') return [];
   if (task.executionStatus === 'InProgress') return ['Pause'];
   if (task.executionStatus === 'Queued' || task.executionStatus === 'Paused') {
     return ['Start', 'Return'];

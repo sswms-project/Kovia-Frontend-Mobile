@@ -566,3 +566,24 @@ Verification: 258/258 tests, TypeScript, Expo lint and diff check pass. New regr
 ## Putaway success refresh flash — 2026-10-30
 
 Confirmed source race: a successful putaway refreshed receipt/plan versions while the allocation snapshot remained open until mutateAsync finished all cache refreshes. This briefly displayed the destructive stale-plan banner for the user's own successful write. The execution hook now calls an optional post-commit callback after durable operation cleanup and session validation, before invalidation/refetch. Allocation closes and clears only on confirmed PutAway success; rejection/unknown outcome keeps its form/evidence. External stale-plan guards remain unchanged. Regression checks cover callback order and allocation closure before version update. 259/259 tests, TypeScript and Expo lint pass. Mobile only, no live API/device acceptance or commit.
+
+## Staff cycle count workspace redesign — 2026-10-30
+
+Implemented only on feat/huytv in mobile after BE/web source comparison. See MOBILE_CYCLE_COUNT_WORKSPACE.md. Shared physical-location matching now accepts rack/slot QR and rejects the system-default sentinel; position metadata matches BE response with older API tolerance. Position-first product/lot selection retains the selected position across saves, with ambiguous lots explicit. Editor has quantity step controls and optional scan increments; damage reason/evidence is conditional and new evidence can be removed locally. Existing explicit command confirmation, scope/version/draft guards, blind-count and recount rules remain.
+
+Actual RN Web editor SSR fixtures inspected via Edge/Playwright at 390 and 320 px. No real camera, keyboard or authenticated API acceptance; no BE/web edit, DB operation, dependency change, commit or push. Prior GitNexus keyword query returned no flows with missing FTS-index warning; source inspection used for comparison.
+Validation: 262/262 automated tests pass; TypeScript, Expo lint and git diff --check pass. Log: ../outputs/mobile-cycle-redesign-full-20261030.log. Native/device acceptance pending.
+
+## Staff customer and supplier returns — 2026-11-01
+
+Mobile-only implementation on feat/huytv. See MOBILE_RETURN_WORKFLOWS.md for contracts, workflow, recovery and device checklist. Added both return task types to feeds/filters/navigation/notification resolution, excluded generic unversioned commands, and built compact expandable staff workspaces with condition-specific customer placement and sequential source/product supplier scanning. Quantities and confirmation remain explicit; full original versioned requests are securely persisted for uncertain replay. Removed the obsolete unversioned customer-receiving hook/API path; catalog detail opens the assigned task. Failed background assignment reads retain unsent form values while blocking confirmation.
+
+Read .rules and the requested taste skill (native-mobile exclusion respected). Authenticated Edge web-responsive inspection found both task filters but no assigned return tasks; approved customer/supplier details were inspected read-only. Actual mobile RN Web SSR fixtures inspected at 320/390 px with API/camera mocked. A narrow quantity input overflow found during inspection was fixed using minWidth: 0 on the shared TextField. No production icon replacement.
+
+Validation: 273/273 tests, TypeScript, Expo lint and diff check pass. New tests cover permissions, task/document routing, condition/slot scan validation, sequential camera callbacks, quantity constraints, exact request bodies, durable recovery, first rejection and uncertain replay. Updated one old auth test mock for the push-registration import introduced by dev; auth implementation untouched. No BE/web changes, database writes, migration, dependency addition, deployment, commit or push. Camera/audio/haptics/keyboard and authenticated inventory/task completion require native acceptance with assigned tasks. This is implementer self-review.
+
+## Return workflow review fixes — 2026-11-01
+
+Fixed the three review findings: subscribe to RHF isDirty with useFormState for first-exit/reload protection; discover a scoped pending return command by task ID before requiring current assignment, so lost Return acknowledgements can still reach immutable replay; display acknowledged supplier quantities and customer condition/location immediately on success, even if no fresh read is available. Recovery lookup is restricted by API, account, warehouse, feature and supplier flag; it grants no new execution capability and the original command still undergoes schema/fingerprint/session checks and BE authorization. Completed success suppresses obsolete read errors.
+
+Validation: 275/275 tests pass, including secure-storage recovery isolation and immutable acknowledged-result regressions; TypeScript passes. No BE/web edit, database action, commit or push. Native acceptance pending.

@@ -324,6 +324,7 @@ test('offline logout still clears credentials, cached queries and pending 2FA', 
     '@/lib/token-storage': { tokenStorage: { clear: async () => events.push('tokens') } },
     '@/lib/form-draft-storage': { formDraftStorage: { clear: async () => events.push('drafts') } },
     '@/providers/query-provider': { clearSessionQueries: async () => events.push('queries') },
+    '@/features/notifications/push-registration': { unregisterPush: async () => { throw new Error('offline'); } },
     './auth.api': {
       authApi: {
         logout: async () => {

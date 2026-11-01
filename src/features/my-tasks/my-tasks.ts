@@ -10,6 +10,7 @@ export const TASK_LABELS = {
   Receiving: 'Nhận hàng', Picking: 'Lấy hàng xuất kho', PutAway: 'Cất hàng', CycleCount: 'Kiểm kê',
   DamagedStock: 'Hàng hỏng', Relocation: 'Điều chuyển vị trí', TransferPick: 'Lấy hàng điều chuyển',
   TransferReceive: 'Nhận hàng điều chuyển', TransferPutAway: 'Cất hàng điều chuyển',
+  CustomerReturnReceive: 'Nhận hàng khách trả', SupplierReturnDispatch: 'Giao trả nhà cung cấp',
 } as const;
 export const EXECUTION_LABELS = {
   Queued: 'Chờ bắt đầu', InProgress: 'Đang làm', Paused: 'Tạm dừng', Completed: 'Hoàn tất', Cancelled: 'Đã hủy',
@@ -46,7 +47,7 @@ export function assertTaskListScope(data: WarehouseTaskList, warehouseId: string
 }
 
 export function availableTaskActions(task: WarehouseTask, canManage: boolean, history = false): TaskActionInput['action'][] {
-  if (!canManage || history || task.taskType === 'Picking' || task.taskType === 'DamagedStock') return [];
+  if (!canManage || history || task.taskType === 'Picking' || task.taskType === 'DamagedStock' || task.taskType === 'CustomerReturnReceive' || task.taskType === 'SupplierReturnDispatch') return [];
   if (task.executionStatus === 'Queued' || task.executionStatus === 'Paused') return ['Start', 'Return'];
   if (task.executionStatus === 'InProgress') return ['Pause'];
   return [];

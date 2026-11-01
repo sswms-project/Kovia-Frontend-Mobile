@@ -35,6 +35,8 @@ export const TASK_TYPE_ICON: Record<WarehouseTaskType, LucideIcon> = {
   TransferReceive: PackageOpen,
   TransferPutAway: PackagePlus,
   Picking: PackageSearch,
+  CustomerReturnReceive: PackageOpen,
+  SupplierReturnDispatch: Truck,
 };
 
 interface TaskCardProps {
