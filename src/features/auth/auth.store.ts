@@ -5,6 +5,8 @@ import { tokenStorage } from '@/lib/token-storage';
 import { formDraftStorage } from '@/lib/form-draft-storage';
 import { clearSessionQueries } from '@/providers/query-provider';
 
+import { unregisterPush } from '@/features/notifications/push-registration';
+
 import { authApi, type SignInResponse } from './auth.api';
 
 type AuthState = {
@@ -55,6 +57,7 @@ export const useAuth = create<AuthState>((set) => ({
     set({ signedIn: true, twoFactor: null, notice: null });
   },
   signOut: async () => {
+    await unregisterPush().catch(() => undefined);
     try {
       await authApi.logout();
     } catch {

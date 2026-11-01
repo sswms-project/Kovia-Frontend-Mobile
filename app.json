@@ -36,6 +36,7 @@
         }
       ],
       "expo-secure-store",
+      ["expo-notifications", { "defaultChannel": "tasks" }],
       "expo-sqlite",
       ["expo-image-picker", { "photosPermission": "Cho phép Kovia chọn ảnh bằng chứng nghiệp vụ tại kho.", "cameraPermission": "Cho phép Kovia dùng camera để quét mã và chụp ảnh bằng chứng tại kho.", "microphonePermission": false }],
       ["expo-camera", { "cameraPermission": "Cho phép Kovia dùng camera để quét mã và chụp ảnh bằng chứng tại kho.", "recordAudioAndroid": false, "barcodeScannerEnabled": true }],
