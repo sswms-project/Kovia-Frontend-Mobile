@@ -4,9 +4,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { getTaskTypeLabel } from '@/features/warehouse-task/warehouse-task.labels';
 
 import { ACTION_LABELS, availableTaskActions, DEADLINE_LABELS, EXECUTION_LABELS,
-  TASK_LABELS, taskDate } from '../../my-tasks';
+  taskDate } from '../../my-tasks';
 import type { TaskActionInput, WarehouseTask } from '../../my-tasks.schema';
 
 interface TaskCardProps {
@@ -23,11 +24,12 @@ export const TaskCard = memo(function TaskCard({ task, history, canManage, busy,
   const [expanded, setExpanded] = useState(false);
   const actions = availableTaskActions(task, canManage, history);
   const urgent = task.priority === 'Urgent' || task.deadlineStatus === 'Overdue';
-  const canOpen = !!onOpenDocument && (task.taskType === 'Relocation' || task.taskType.startsWith('Transfer') || task.taskType === 'CycleCount' || task.taskType === 'Picking' || task.taskType === 'PutAway' || (task.taskType === 'Receiving' && !history));
+  const isReturn = task.taskType === 'CustomerReturnReceive' || task.taskType === 'SupplierReturnDispatch';
+  const canOpen = !!onOpenDocument && (isReturn || task.taskType === 'Relocation' || task.taskType.startsWith('Transfer') || task.taskType === 'CycleCount' || task.taskType === 'Picking' || task.taskType === 'PutAway' || (task.taskType === 'Receiving' && !history));
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: urgent ? theme.error : theme.border }]}>
       <View style={styles.heading}>
-        <Text style={[styles.kind, { color: theme.primary }]}>{TASK_LABELS[task.taskType]}</Text>
+        <Text style={[styles.kind, { color: theme.primary }]}>{getTaskTypeLabel(task)}</Text>
         {task.priority === 'Urgent' && <Text style={[styles.badge, { color: theme.error }]}>Khẩn</Text>}
       </View>
       <Text style={[styles.reference, { color: theme.text }]}>{task.referenceCode}</Text>
@@ -66,7 +68,7 @@ export const TaskCard = memo(function TaskCard({ task, history, canManage, busy,
         </Text>}
       </View>}
       {canOpen && <Button
-        label={task.taskType === 'Relocation' ? 'Mở chuyển vị trí trong kho' : task.taskType === 'TransferReceive' ? 'Xem phiếu nhận điều chuyển' : task.taskType === 'TransferPutAway' ? 'Xem phiếu cất điều chuyển' : task.taskType === 'TransferPick' ? 'Mở lấy hàng điều chuyển' : task.taskType === 'CycleCount' ? 'Mở phiếu kiểm kê' : task.taskType === 'Picking' ? 'Mở lấy hàng và xuất kho' : task.taskType === 'Receiving' ? 'Mở nhận hàng được giao' : 'Mở phiếu cất hàng'}
+        label={isReturn ? 'Mở phiếu trả hàng' : task.taskType === 'Relocation' ? 'Mở chuyển vị trí trong kho' : task.taskType === 'TransferReceive' ? 'Xem phiếu nhận điều chuyển' : task.taskType === 'TransferPutAway' ? 'Xem phiếu cất điều chuyển' : task.taskType === 'TransferPick' ? 'Mở lấy hàng điều chuyển' : task.taskType === 'CycleCount' ? 'Mở phiếu kiểm kê' : task.taskType === 'Picking' ? 'Mở lấy hàng và xuất kho' : task.taskType === 'Receiving' ? 'Mở nhận hàng được giao' : 'Mở phiếu cất hàng'}
         variant="outline" disabled={busy} onPress={() => onOpenDocument?.(task)} />}
       {actions.filter((action) => action === 'Start' || expanded).map((action) => <Button key={action}
         label={action === 'Start' && task.executionStatus === 'Paused' ? 'Tiếp tục' : ACTION_LABELS[action]}

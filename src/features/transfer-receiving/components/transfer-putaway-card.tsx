@@ -12,7 +12,7 @@ export const TransferPutAwayCard = memo(function TransferPutAwayCard({ row }: { 
   return <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
     <Text style={[styles.heading, { color: theme.text }]}>{row.sku} · {row.productName}</Text>
     <Text style={[styles.text, { color: theme.textSecondary }]}>Lô: {row.lotNumber ?? 'Không có'}</Text>
-    <Text style={[styles.text, { color: theme.text }]}>Thực nhận tốt {row.actualQuantity} · Đã cất {row.putAwayQuantity} · Còn chờ cất {row.remainingQuantity} {row.baseUnitName}</Text>
+    <Text style={[styles.text, { color: theme.text }]}>SL thực nhận {row.actualQuantity} · Đã cất {row.putAwayQuantity} · Còn chờ cất {row.remainingQuantity} {row.baseUnitName}</Text>
     {row.keptAtReceivingQuantity > 0 && <Text style={[styles.text, { color: theme.textSecondary }]}>Giữ tại vị trí nhận: {row.keptAtReceivingQuantity} {row.baseUnitName}. Phần này chưa cất vào kệ.</Text>}
     {row.planMode === 'Planned' && <Text style={[styles.text, { color: theme.textSecondary }]}>Ngân sách vị trí dùng chung cho các lô cùng dòng hàng; không cộng lặp giữa các lô.</Text>}
     {row.planBudgets.length ? row.planBudgets.map(budget => <Text key={budget.slotId} style={[styles.text, { color: theme.text }]}>

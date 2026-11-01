@@ -1,5 +1,21 @@
 import type { TransferDestinationScope, TransferReceivingMode, TransferReceiptSheet } from './transfer-receiving.schema';
 import type { TransferExecutionTarget } from './transfer-execution.schema';
+import { P } from '@/config/permission-codes';
+
+export function canContinueTransferPutaway(document: TransferDestinationScope, receipt: TransferReceiptSheet,
+  userId: string | undefined, warehouseId: string | null, permissions: readonly string[]) {
+  const shipment = document.shipments?.find(value => value.id === receipt.shipmentId);
+  const execution = receipt.execution;
+  return !!userId && document.id === receipt.transferId && !document.isLegacyWorkflow && document.status === 'InProgress' &&
+    document.destinationWarehouseId === warehouseId && receipt.status === 'AwaitingPutAway' && !receipt.keptAtReceiving &&
+    [1, 2].includes(receipt.receiptFlowVersion) && !!receipt.version && !!receipt.receiptSubmittedAt &&
+    !!shipment?.putAwayTaskId && shipment.version === receipt.version && shipment.status === receipt.status &&
+    ['Queued', 'InProgress'].includes(shipment.putAwayTaskStatus ?? '') &&
+    (execution ? execution.destinationWarehouseId === warehouseId && execution.receiveAssigneeId === userId && execution.putAwayAssigneeId === userId
+      : shipment.receiveAssigneeId === userId && shipment.putAwayAssigneeId === userId) &&
+    shipment.receiveAssigneeId === userId && shipment.putAwayAssigneeId === userId &&
+    permissions.includes(P.TRANSFERS_VIEW) && permissions.includes(P.TRANSFERS_RECEIVE);
+}
 
 export class TransferDestinationScopeError extends Error {}
 

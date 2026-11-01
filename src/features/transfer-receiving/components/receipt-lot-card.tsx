@@ -14,9 +14,9 @@ export const ReceiptLotCard = memo(function ReceiptLotCard({ line, lot, submitte
     <Text style={[styles.text, { color: theme.textSecondary }]}>Lô: {lot.lotNumber ?? 'Không có'}{lot.expiryDate ? ` · HSD ${lot.expiryDate}` : ''}</Text>
     <Text style={[styles.text, { color: theme.text }]}>Đã xuất từ kho nguồn: {lot.dispatchedQuantity} {line.baseUnitName}</Text>
     {submitted ? <>
-      <Text style={[styles.text, { color: theme.text }]}>Kiểm lần đầu: tốt {lot.initialGoodQuantity} · hỏng {lot.initialDamagedQuantity} · thiếu {lot.initialMissingQuantity} {line.baseUnitName}</Text>
+      <Text style={[styles.text, { color: theme.text }]}>Kiểm lần đầu: thực nhận {lot.initialGoodQuantity} · hỏng {lot.initialDamagedQuantity} · thiếu {lot.initialMissingQuantity} {line.baseUnitName}</Text>
       <Text style={[styles.text, { color: theme.textSecondary }]}>Nhận bổ sung: {lot.lateReceivedQuantity} {line.baseUnitName}</Text>
-      <Text style={[styles.text, { color: theme.text }]}>Tổng tốt đã ghi nhận: {lot.actualGoodQuantity} {line.baseUnitName}</Text>
+      <Text style={[styles.text, { color: theme.text }]}>Tổng thực nhận đã ghi nhận: {lot.actualGoodQuantity} {line.baseUnitName}</Text>
     </> : <Text style={[styles.text, { color: theme.textSecondary }]}>Chưa có kết quả kiểm hàng đã gửi cho lô này.</Text>}
   </View>;
 });

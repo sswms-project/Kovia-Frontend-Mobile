@@ -1,4 +1,16 @@
 import type { CountForm, CountItem, CycleCount } from './cycle-count.schema';
+import { matchesWarehouseLocation } from '@/features/scanner/warehouse-scan';
+import { formatInventoryLocation } from '@/features/inventory/inventory.labels';
+
+export function formatCountLocation(item: CountItem): string {
+  const label = (name: string | null | undefined, code: string | null | undefined, prefix: RegExp) => {
+    const title = name?.trim().replace(prefix, '').trim();
+    return title ? `${title}${code && code !== title ? ` (${code})` : ''}` : code;
+  };
+  return formatInventoryLocation({ ...item,
+    zoneCode: label(item.zoneName, item.zoneCode, /^khu\s+vực\s+/iu),
+    rackCode: label(item.rackName, item.rackCode, /^kệ\s+/iu) });
+}
 
 export type CountScanKind = 'Product' | 'Location';
 export function findCountLines(document: CycleCount, kind: CountScanKind, rawCode: string): readonly CountItem[] {
@@ -6,7 +18,7 @@ export function findCountLines(document: CycleCount, kind: CountScanKind, rawCod
   if (!code || rawCode.trim().length > (kind === 'Product' ? 100 : 512) || /\p{Cc}/u.test(rawCode)) return [];
   return document.items.filter((item) => canRecordCountItem(document, item) && (kind === 'Product'
     ? code === item.productSku.trim().toLowerCase() || code === item.productBarcode?.trim().toLowerCase()
-    : code === item.slotCode.trim().toLowerCase() || code === item.slotBarcode?.trim().toLowerCase()));
+    : code !== '__system_default__' && matchesWarehouseLocation(rawCode, item)));
 }
 
 export function assertCountScope(document: CycleCount, warehouseId: string, userId: string) {

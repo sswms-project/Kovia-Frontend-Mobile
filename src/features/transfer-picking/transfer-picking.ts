@@ -1,5 +1,14 @@
-import type { TransferPickForm, TransferPickSheet, TransferScope } from './transfer-picking.schema';
+import type { TransferPickForm, TransferPickLine, TransferPickSheet, TransferScope } from './transfer-picking.schema';
 import { matchesWarehouseLocation } from '@/features/scanner/warehouse-scan';
+
+export function nextTransferPick(lines: readonly TransferPickLine[]) {
+  for (const line of lines) {
+    if (line.remainingQuantity <= 0 || line.status === 'PendingManager') continue;
+    const source = line.suggestions.find(value => value.suggestedQuantity > 0 && value.reservedQuantity > 0);
+    if (source) return { line, source };
+  }
+  return null;
+}
 
 export function assertTransferPickScope(document: TransferScope, sheet: TransferPickSheet,
   transferId: string, shipmentId: string, warehouseId: string, userId: string) {

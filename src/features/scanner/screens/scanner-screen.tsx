@@ -1,10 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCameraPermissions } from 'expo-camera';
 import { useIsFocused } from 'expo-router';
-import { CameraOff, X } from 'lucide-react-native';
+import { CameraOff, Volume2, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
+  Alert,
   KeyboardAvoidingView,
   Linking,
   Pressable,
@@ -20,6 +21,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useScanFeedback } from '@/providers/scan-feedback-provider';
 
 import { ManualCodeEntry } from '../components/manual-code-entry';
 import { ScanStatus } from '../components/scan-status';
@@ -37,13 +39,15 @@ interface ScannerScreenProps {
   readonly onCameraFailure?: () => void;
   /** Live progress line for continuous scanning, e.g. a running count. */
   readonly status?: string;
+  readonly showScannedCode?: boolean;
   /** Primary action that finishes a continuous scan session, e.g. applying the counted quantity. */
   readonly confirm?: { readonly label: string; readonly disabled?: boolean; readonly onPress: () => void };
 }
 
 /** Shared scanner for inbound, outbound and stocktake flows. The owning feature supplies `onScan`. */
-export function ScannerScreen({ title, onScan, onClose, repeatGuardMs, onCameraFailure, status, confirm }: ScannerScreenProps) {
+export function ScannerScreen({ title, onScan, onClose, repeatGuardMs, onCameraFailure, status, showScannedCode = true, confirm }: ScannerScreenProps) {
   const theme = useTheme();
+  const playFeedback = useScanFeedback();
   const isFocused = useIsFocused();
   const [permission, requestPermission] = useCameraPermissions();
   const [isTorchOn, setIsTorchOn] = useState(false);
@@ -103,6 +107,14 @@ export function ScannerScreen({ title, onScan, onClose, repeatGuardMs, onCameraF
           <Text accessibilityRole="header" numberOfLines={1} style={[styles.title, { color: theme.text }]}>
             {title}
           </Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Thử âm báo quét mã" style={styles.close}
+            onPress={() => Alert.alert('Thử âm báo', 'Phát riêng âm thanh, không rung và không ghi nhận quét mã.', [
+              { text: 'Âm đúng', onPress: () => playFeedback(true, true) },
+              { text: 'Âm sai', onPress: () => playFeedback(false, true) },
+              { text: 'Đóng', style: 'cancel' },
+            ])}>
+            <Volume2 size={22} color={theme.text} />
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Đóng màn quét"
@@ -120,7 +132,7 @@ export function ScannerScreen({ title, onScan, onClose, repeatGuardMs, onCameraF
           contentContainerStyle={styles.panelContent}
           keyboardShouldPersistTaps="handled">
           {status ? <Text accessibilityLiveRegion="polite" style={[styles.status, { color: theme.text }]}>{status}</Text> : null}
-          <ScanStatus isProcessing={isProcessing} lastScan={lastScan} />
+          <ScanStatus isProcessing={isProcessing} lastScan={lastScan} showCode={showScannedCode} />
           {confirm ? <Button label={confirm.label} disabled={confirm.disabled || isProcessing} onPress={confirm.onPress} /> : null}
           {isManualVisible ? (
             <ManualCodeEntry

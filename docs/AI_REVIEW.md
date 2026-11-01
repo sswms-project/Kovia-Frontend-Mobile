@@ -391,3 +391,199 @@ Release status remains conditional: no Android device is connected and the machi
 User clarified that Security's header Back works; the freeze occurs only after pressing the in-content Profile link. The earlier mocked test accepted a queued replacement without modelling root-stack replacement. A new test executes the installed Expo StackRouter and shows that replacing `(account)` with `(app)` while an app route already exists creates two app shells. This explains an unsafe route construction, but does not independently certify the exact native freeze mechanism.
 
 An initial Profile-reset implementation passed190tests, but the user subsequently chose to remove the redundant in-content Profile link and use the existing header Back/Home. The final Security form therefore supplies neither backLabel nor onBack in loading or loaded state; its exit-protection registration remains. The unused Profile-tab exit API/state-transform extension and its temporary tests were removed. Regression tests execute the Security component and shared boundary to check header Back, cancellation/discard of dirty content and busy-write blocking. Final full suite **188/188 pass**, navigation **31/31 pass**; TypeScript/lint pass. Evidence: `../outputs/mobile-security-header-only-{full,typescript,lint}-20261028.log`. Home/Tasks state transforms and header behavior remain unchanged. Native retest is pending; no emulator, server, BE/web or DB changes. The user authorized committing this final change together with the pending auth/access fixes on `fix/mobile-release-readiness`.
+
+## Staff stock-issue system-default location labels — 2026-10-29
+
+After updating to dev f4e536c, the staff stock-issue cards still rendered raw slotCode in source selection/actions/history; dispatch rows rendered raw stagingSlotCode and the picking editor/confirmation received a raw source slotCode. Rack-level stock therefore exposed the internal __SYSTEM_DEFAULT__ sentinel. Read-only comparison with web stock-issue-location and BE StockIssueRequestResponse confirmed the existing rack/zone/default-slot metadata is sufficient; the picking destination endpoint already formats its Path for rack-level locations.
+
+Reuse the existing formatInventoryLocation for source labels, with a shared staging adapter mapping staging metadata. The editor/confirmation now receives sourcePath for display. No API payload, stored location/stock ID, quantity, permission, barcode matching or scan validation was changed. Missing rack metadata displays the existing unknown-rack fallback; ordinary slots retain their real codes. Regression renders the actual staff item card and dispatch rows for sentinel-only/default-flag/normal-slot/missing-rack cases and checks the pick action still passes the same inventoryStockId. Full suite **198/198 pass**; TypeScript and Expo lint pass. Evidence: `../outputs/mobile-stock-issue-location-{full,typescript,lint}-20261029.log`. Native/device visual acceptance remains pending. No BE/web edits, DB writes, migrations, app startup, commit, push or deploy in this round.
+
+## Staff picking design from deployed responsive web — 2026-10-29
+
+User requested browsing the real staff web before redesign. Opened Edge with Playwright390×844; the user performed login. Inspected XK000007 overview and Quét & lấy hàng, verified wrong source rejection, A04 source acceptance and wrong product rejection in the form only, then closed the dialog. No business submit/dispatch/API write was performed by the agent. Screenshot reference: ../outputs/playwright/sswms-picking-responsive-390.png. Read web RecordStockPickingDialog/StockIssuePickEntry/useStockIssuePickScan and BE command/validator/handler.
+
+Added a prominent main-page scan action, deterministic source route order without changing reservations, unit-labelled quantity summaries, and a sequential picking editor. One continuous camera session captures source→product; manual/hardware input shares the same checks. Source/product prerequisites gate quantity and review; each-unit mode counts entered packages and normalizes binary noise only at a representable BE storage scale. Editing source resets product/quantity; mode changes require product re-scan; read-only/busy guards prevent updates. Focus moves to the next input for hardware use and stays off inputs behind an open camera. Scans only update the form: the existing review/confirmation/idempotency/draft pipeline still owns writes. Unlike web auto-advance, a saved pick returns to the refreshed document list and the user can select the next source.
+
+Known location codes/SLOT QR are matched locally. Existing structured RACK QR capture is retained even though the DTO omits rackId, with neutral pending-verification text rather than a false success claim; the original BE TransferScanRules check remains authoritative. Sentinel default-slot inference now also supports legacy responses whose boolean flag is absent. No unsupported inventory permission or additional network lookup was introduced.
+
+Full suite **205/205 pass**, TypeScript/lint pass, diff check passes. New regression exercises actual hook/editor: step ordering, barcode priority/SKU fallback, wrong scans, package conversion/partial quantities/budgets, hardware accumulation, fractional factors, busy state, source-identity-preserving route order, deferred rack QR and absence of a submit during scan. Evidence: ../outputs/mobile-picking-redesign-{full,typescript,lint}-20261029.log. Rendered actual mobile components through RN Web with fixture data and viewed390px initial/ready layouts using Playwright; scanner content and exit context were stubbed, so this is layout evidence only. No native camera or business API acceptance claim. No dependency/lockfile/BE/web/DB change, commit, push or deploy. Updates extend the preceding uncommitted system-default label fix on fix/mobile-release-readiness.
+
+## Picking scan completion and quantity adjustment — 2026-10-29
+
+Rechecked web StockIssuePickEntry (pause normal-mode camera when ready and focus quantity) and BE RecordStockPicking validator/handler (barcode still required/checked and quantity limited by reservations/storage scale). Per user's mobile preference, a normal picking camera session now closes automatically after accepted source+product; wrong codes/source-only do not close it, and each-unit mode retains explicit completion. Shared scanner additions are opt-in: completion predicate reads live form state after acceptance, scanner close notification follows its closed state, and code visibility defaults unchanged for other consumers. Picking feedback hides the raw code visually and from accessibility labels without removing it from the command payload.
+
+Quantity receives focus and scrolling targets the measured quantity-row offset. Added accessible48px −/+ controls for one entered unit, bounded above by the reserved budget and below by a positive representable quantity. Buttons read live form values to reject stale rapid over-increments, and preserve unit conversion; no scan/quantity button submits a warehouse command. Reopening normal scan is explicitly labelled Quét lại and clears old scan confirmations. The earlier pending per-card WorkDetails collapse is retained.
+
+Full suite **208/208 pass**, TypeScript/lint pass, diff check passes. Tests cover actual shared scanner auto-completion without a rerender, rejected-code handling, existing continuous/single-code behavior, hidden raw code/accessibility, editor source-only/product close predicates, focus/scroll, each-unit keep-open, payload code retention and quantity bounds. Evidence: ../outputs/mobile-picking-scan-finish-{full,focused,typescript,lint}-20261029.log. Native camera/modal animation/keyboard acceptance remains pending; no browser submits, BE/web edits, DB commands, migration, app startup, commit or push in this round. GitNexus could not resolve ScanCodeButton; direct caller search and scanner regression tests covered shared consumers.
+
+
+## Whole-order dispatch aligned with web — 2026-10-29
+
+Compared web detail actions, workflow hook/dialog and BE ConfirmStockDispatch command/validator/handler, execution actions and AuthorizeStockDispatch handler. Web requires AuthorizedForDispatch after manager authorization; BE still supports earlier partial dispatch for ordinary issues. Mobile now deliberately follows the web's stricter UI sequence while retaining BE allowed-actions, permission, scope, version and durable command protections. No server policy was changed.
+
+Removed the per-pick selection state and extra review step. The confirmation lists all outstanding details with staging locations and entered-unit quantities. Dispatch omits the optional pickDetailIds field, selecting all outstanding details in BE; expectedVersion and commandId remain mandatory in mobile. The optional subset schema still rejects empty/duplicate/overlarge lists when supplied. Picked shows manager-wait guidance; refresh retrieves authorization. This supersedes earlier mobile per-part dispatch acceptance instructions.
+
+Validation: **209/209 tests pass**, TypeScript and Expo lint pass. Added an actual-hook regression for pre-authorization blocking (even when BE advertises Dispatch), whole-order body, status/version changes and revoked permission; schema validates omitted versus explicit IDs. Logs: ../outputs/mobile-dispatch-{full,focused,typescript,lint}-20261029.log. Native/device and deployed API acceptance remain pending. No BE/web changes, DB commands, migration, app startup, commit or push.
+
+
+## Realtime stock-issue authorization — 2026-10-29
+
+BE AuthorizeStockDispatch already persists notifications for the assigned picker and pickers before publishing NotificationCreated. Its SignalR payload supplies camelCase referenceType/referenceId; no BE/web change is needed. Extended the existing notification hook with an optional refresh callback. On the focused stock-issue screen, valid matching references invalidate only that warehouse/document detail+actions prefix; events never supply authoritative status or dispatch permission. The callback checks the selected task scope, and the connection retains the existing live identity/signature/notifications permission guard.
+
+Initial connection, reconnect, screen reopening and foreground resume refresh the document to cover missed events. Failed initial starts and exhausted SignalR reconnects retry with 5–30 second backoff; existing cleanup cancels retries, unregisters listeners and closes the connection. Background/blur disables this screen's subscription. The original notifications consumer remains compatible. No new dependency, endpoint or database operation.
+
+Validation: **212/212 tests pass**, TypeScript and Expo lint pass. New actual-hook tests cover matching/wrong/malformed references, API-authoritative status, focused subscription, connection lifecycle, revoked access/token guards, foreground resync, late events, failed starts, exhausted reconnect and timer cancellation. Evidence: ../outputs/mobile-dispatch-realtime-{full,focused,typescript,lint}-20261029.log. Deployed SignalR delivery and native device acceptance remain unverified. No commit or push.
+
+
+## Realtime receipt approval and putaway handoff — 2026-10-29
+
+Confirmed ApproveGoodsReceipt publishes NotificationCreated after its transaction commits, referencing GoodsReceipt/receipt ID (notification type can be TaskAssigned or GoodsReceiptUpdate). Recipients depend on the approval outcome: putaway assignee for normal continuation, receipt creator for KeepAtReceiving/all-refused, or manager when unassigned. No BE/web change is required.
+
+useReceiptContext now uses the existing foreground/focused notification connection. GoodsReceipt references match the current receipt in both receiving and putaway modes; InboundRequest references match the receiving task only. The callback checks the live selected scope, validates the reference and invalidates the existing warehouse receiving query prefix. It never trusts status/assignment in a notification. Startup/reconnect/foreground resync is inherited from the shared connection.
+
+useReceiptHandoff observes receipt version changes to immediately rerun its guarded detail/actions check after an event, requiring a nonempty version. Existing 5-second fallback is retained because some approval outcomes notify a different user. Assignment, permissions, matching action version, stock posting, KeepAtReceiving, cancelled/reconciliation state and Home/exit leases remain authoritative. Putaway-mode events refresh data without navigating again.
+
+Validation: **215/215 tests pass**, TypeScript and Expo lint pass. Added real context-to-handoff regression proving event-triggered navigation without a timer tick, both receiving/putaway event matching, malformed/other-document filtering, stale selected warehouse, and no handoff for kept goods/other assignee/stale actions. Existing background/reconnect and Home-race regressions remain passing. Logs: ../outputs/mobile-receipt-realtime-{full,focused,typescript,lint}-20261029.log. No live business operation, native acceptance, DB command, BE/web edit, commit or push.
+
+
+## Audible scanner feedback — 2026-10-29
+
+Root cause: useScanGuard only emitted expo-haptics vibrations; no audio implementation existed. Compared web src/lib/scan-feedback.ts and Expo SDK 57 audio docs/source. Added SDK-compatible expo-audio ~57.0.5 via pnpm exec expo install and bundled two generated, offline PCM WAVs: success 1760 Hz / 90 ms, error two 330 Hz / 140 ms tones with a 60 ms gap (short silent tails, exponential decay, normalized phone peak amplitude 0.2).
+
+ScanFeedbackProvider owns two useAudioPlayer instances at app-root scope so camera auto-close does not release the last beep mid-playback. Players are automatically released on provider unmount; backgrounding pauses both and invalidates in-flight seek/play work. Newer feedback supersedes older pending playback. Audio uses media/speaker routing, silent-mode playback and mixWithOthers; recording and background audio permissions/services are explicitly disabled in app config. Playback setup/seek failures only warn and can be retried on the next scan. useScanGuard emits the sound only for true/false verdicts or a rejected handler; repeats, blanks and neutral verdicts stay silent. Haptic promise failures now have a catch and cannot invalidate an accepted scan.
+
+The shared path covers receiving counts/location checks/putaway and outbound picking, plus other existing scanner consumers without feature-specific duplication. Camera manual-entry fallback uses the same guard; direct form typing outside the scanner is unchanged. No warehouse/API/BE/web flow was modified.
+
+Validation: **218/218 tests pass**, TypeScript and Expo lint pass. Tests exercise actual provider/guard with mocked native players: distinct verdicts, replay seek, first audio setup failure/retry, haptic failure, repeats/manual entry, neutral/empty/throw outcomes, superseded seeks, background/unmount suppression and camera-close lifetime. WAV header/rate/frequencies/error gap are checked. Logs: ../outputs/mobile-scan-audio-{install,focused,full,typescript,lint}-20261029.log. No adb executable/device was available through PATH; native speaker/camera/volume acceptance is pending. No Metro/emulator startup, database operation, commit or push.
+
+
+## Success beep audibility adjustment — 2026-10-29
+
+User heard error feedback but not success on a physical phone. Source inspection confirms both boolean verdicts reach the same root-owned playback path; the hardware-specific cause is not proven. Measured the previous success WAV: 110 ms total with a 90 ms exponentially decaying tone, only ~16 ms above 5% full scale. The error asset has two longer tones and ~51 ms above that threshold. This makes the success envelope a plausible audibility issue rather than evidence of a volume setting failure.
+
+Changed only the generated success asset: retain 1760 Hz and 0.2 peak, use 25 ms leading silence, a 200 ms tone with 8 ms attack / 25 ms release and a short tail (245 ms total). This gives a sustained confirmation without increasing peak loudness. Error sound and scanning/close/validation logic are unchanged. Regression requires at least 160 ms above 5% full scale, verifies the frequency and bounds the peak. This supersedes the earlier success-tone duration in the initial audio entry.
+
+Validation: **218/218 tests pass**, TypeScript/lint pass. Logs: ../outputs/mobile-scan-success-audibility-{full,typescript,lint}-20261029.log. Physical playback on the reported phone remains unverified; full Expo Go reload is needed to retest the bundled asset. No BE/web/database changes, commit or push.
+
+
+## Replace raw scan samples with actual web synthesis — 2026-10-29
+
+User reported rough/buzzy playback and asked whether mobile used the actual web sound. Earlier mobile assets were approximate raw square samples, not a Web Audio render; success had subsequently been extended/amplified. Compared again with web scan-feedback.ts: both tones use square oscillators with 0.08-to-0.0001 exponential gain, success 1760 Hz/90 ms, error 330 Hz/140 ms at 0 and 200 ms. Prior raw-sample peak was 0.2; sharp unfiltered waveform transitions and different gain/envelope are plausible contributors. Physical distortion versus vibration/speaker behavior is not proven.
+
+Used Playwright with a separate blank Edge browser to render the actual TONES and playTones oscillator/gain code in OfflineAudioContext (only type annotation/live resume checks removed). Exported 48 kHz mono PCM16 WAV, with 20 ms tail. Success SHA256 6b1778d392deac85554cf85c4cf6026b3fcd7cd018cee61eb42827c2cb82de38; error SHA256 2cfb3866f535a3da9e2a1589d60c6ec51e1652cb198dbeede3e51fcafcf3a105. Synthesis evidence/script is in ../outputs/playwright/render-web-scan-audio.js and web-scan-audio.json. Separate browser closed; no web login, business API or database action occurred.
+
+This replaces BOTH raw samples and supersedes the previous sustained 200 ms success adjustment. Added asset provenance README. Regression now checks 48 kHz PCM, web frequencies, original gain bound/exponential envelope/error gap, rather than enforcing the superseded sustained envelope. **218/218 tests pass**, TypeScript/lint pass; logs ../outputs/mobile-web-scan-audio-{full,typescript,lint}-20261029.log. Device playback remains unverified; no BE/web edits, commit or push.
+
+
+## Native scan playback readiness and isolated diagnosis — 2026-10-29
+
+User reports only vibration after replacing assets with exact web renders. Do not treat sample tests as proof of native audibility: the device cause is still unverified. Inspected installed SDK native player and asset-resolution code. Prior provider did not wait for isLoaded, observed no asynchronous native load errors and streamed the asset URI directly. Native AudioModule.play also silently returns if audioEnabled is false. These are confirmed gaps, not proof of the reported device cause.
+
+Players now download/cache assets first and keep their audio session available. Each latest feedback waits up to 3 seconds for native loaded/error status, explicitly enables audio before seeking/playing and retains foreground/sequence checks. AbortController cancels and removes pending load subscriptions/timers on background, provider disposal or replacement by newer feedback. Playback failures log only verdict/loading/duration metadata, never scan codes or source URLs. Exact web sound assets remain unchanged.
+
+Added an accessible speaker button to ScannerScreen: manually test success/error without haptics, scan validation or warehouse writes. Only this explicit diagnostic request surfaces a native Alert for load timeout/decoder/setup failure; normal scan failure remains nonblocking and logs metadata. This separates sound from haptic buzz and camera auto-close. Native SDK adb exists outside PATH but devices list was empty; no emulator was started.
+
+Validation: **220/220 tests pass**, TypeScript and Expo lint pass. Added actual-provider regressions for delayed loading, audio reactivation, superseded/background cancellation, listener cleanup, explicit decoder failure and bounded timeout alerts. Existing true/false/neutral/repeat/camera-close guard checks pass. Logs: ../outputs/mobile-scan-playback-readiness-{full,typescript,lint}-20261029.log. Physical reproduction/diagnosis requires the user's phone; no claim that audibility is fixed, no BE/web/database edits, commit or push.
+
+
+## Fix Android finished-clip replay deadlock — 2026-10-29
+
+User supplied warning loaded=false with known 0.11-second duration. Found a concrete native SDK mismatch: AudioModule.kt isLoaded getter checks STATE_READY only; AudioPlayer.kt currentStatus reports isLoaded=true for STATE_ENDED as well. After finishing, a cached clip can therefore have known duration and false getter. Our previous waitForSound-before-seek ordering deadlocked replay: it awaited READY without issuing the seek that moves ENDED back to READY. This is a confirmed code defect consistent with the warning; physical playback still needs retest.
+
+Moved readiness wait after audio activation, pause and seekTo(0). Cancellation/foreground/sequence checks and timeout cleanup remain intact. No sound asset or volume change. Failure metadata now includes the controlled failure reason to distinguish decoding/loading timeout from seek/setup errors.
+
+Added actual-provider regression simulating both Android clips at ENDED with known duration, isLoaded=false and no subsequent status event until seek; both replay twice without timeout. **221/221 tests pass**, TypeScript/lint pass. Logs ../outputs/mobile-scan-ended-replay-{full,typescript,lint}-20261029.log. Device verification pending; no BE/web edits, database operation, commit or push.
+
+
+## Avoid duplicate LogBox for draft restoration gate — 2026-10-29
+
+The expected local beforeSubmit gate (draft restoration not yet ready) threw a generic Error. Mutation onError correctly preserved inline presentation but logApiError treated it as unexpected and called console.error, opening a red developer LogBox. Added WorkflowBlockedError and used it only for that specific readiness gate. logApiError skips this explicitly typed expected gate; getApiErrorMessage, mutation rejection, draft restoration and prevention of API submission are unchanged. No string-message matching, global LogBox suppression or suppression of storage/system errors.
+
+Validation: **222/222 tests pass**, TypeScript/lint pass. Actual draft hook regression rejects an immediate submit before restoration with the same inline text, logger regression skips the typed gate while preserving unexpected error logging and existing 409 warnings. Logs ../outputs/mobile-draft-gate-logging-{full,typescript,lint}-20261029.log. Device verification pending; no BE/web/database edits, commit or push.
+
+
+## Commit checkpoint and unresolved native audio — 2026-10-29
+
+User requested a local commit of today's changes followed by code review. All current task changes (picking UI/scanner completion, whole-order dispatch, receiving/outbound realtime, typed draft readiness gate, audio assets/player diagnostics and regressions) are included in this checkpoint. Native audio is NOT accepted: source/audio-file inspection and mocked player tests do not establish playback on the reported phone. Android ended/readiness ordering is a confirmed code issue, but the final device cause remains unknown. Do not describe this checkpoint as production-ready or resolved audio. Current WAV files pass FFmpeg decode as mono 48 kHz PCM16. No Android device is connected through adb.
+
+Pre-commit checks: **222/222 tests**, TypeScript and Expo lint pass; diff check passes. Logs ../outputs/mobile-day-review-{full,typescript,lint}-20261029.log. No new application logic in this checkpoint note; no BE/web/database changes or push. Review findings are reported after the commit without silently applying additional fixes.
+
+
+## Keep outbound editors mounted during realtime refresh — 2026-10-29
+
+Fixed P2 from review of a57ecdd. Previously editor/confirmation visibility depended on allowed(), which becomes false during detail/actions refetch and on query errors. SignalR invalidation therefore unmounted PickingEditor and its camera/local state even when document version and effective actions were unchanged.
+
+Separated hasAction (cached matching version/action/current access) from allowed (that snapshot plus successful/non-fetching queries). Existing editors/targets use hasAction; command guards and entry points still require allowed. Permission removal, new document version, action revocation and invalid dispatch status hide the obsolete work. Transient query errors preserve the form and are surfaced inside it. Dedicated submitDisabled/confirmDisabled props block only review/confirmation during refetch/error without marking the camera busy or unmounting it. Existing mutation busy/exit guards remain unchanged.
+
+Validation: **223/223 tests pass**, TypeScript and Expo lint pass; regression runs actual hook editor and dispatch target through detail/actions fetching, failure, recovery, version and permission changes. Object identity is preserved throughout transient refresh; attempted commands stay blocked and send no API request. Logs ../outputs/mobile-refetch-editor-fix-{full,typescript,lint}-20261029.log. Native camera persistence still requires device acceptance. No audio changes, BE/web edits, DB action, commit or push in this fix.
+
+## 2026-10-29 — Mobile location guide from existing warehouse scene
+
+State READY_FOR_CODEX_REVIEW; Codex implementation/self-review, not independent approval. Branch `feat/mobile-fast-product-finder` from freshly fetched dev f4e536c; separate clean worktree preserves the original mobile branch and unrelated BE/FE work. Scope is a read-only map locator, not an optimized picking route or full-module completion.
+
+Inventory detail and the chosen allocated source on a stock issue now open the existing BE warehouse scene. The guide resolves stable slot IDs (including rack default slots), highlights the correct rack using FE-compatible centre rotation, retains textual Khu/Kệ/Ô, and has focus/overview/close/refresh controls. Missing/inactive/ambiguous/unplaced locations are explicit; no slot coordinates, current-user position, alternative allocation, physical distance or time savings are invented. Existing picking/scanning/dispatch commands are untouched.
+
+`warehouses:view` and current warehouse access are required. Query/cache/display are scoped to identity, permissions, warehouse revision and source version; map is hidden while source or layout revalidates, on errors, or when scope changes. Foreign-warehouse responses fail closed. Unsupported layout data shows a Vietnamese error rather than schema internals. No BE permission relaxation or new API endpoint.
+
+45 focused tests pass (14 map + 31 existing inventory/operations/staff cases); TypeScript and Expo lint pass, followed by scoped API lint after friendly-error repair. Initial sandbox pnpm registry-link failure and the three initial UI-fixture theme/CSS failures are retained in logs; fixtures repaired without altering production theme. Existing dependency reused through a worktree junction with pnpm auto-install disabled; no manifest/lockfile/dependency changes.
+
+No connected Android device (adb devices list empty). Native phone/gesture and authenticated live API acceptance remain pending in MOBILE_MAP_PICKING_ACCEPTANCE.md. No full suite, BE/web build, DB writes, migration, app-server startup, commit/push or deployment. Evidence/dossier in workspace outputs/workflow/tasks/mobile-map-locator, logs in outputs/mobile-smart-picking-2026-10-28. This is source/test readiness, not proof of measured warehouse time savings.
+
+### 2026-10-29 — Pre-push self-review
+
+User authorized checking, committing and pushing the mobile and web feature branches. Source hashes matched the saved implementation checkpoint before this review. Cross-stack review found and repaired a mobile contract error: the existing controller route is `/warehouses/{id}/layout/scene`, not `/layout-scene`. Updated the API call, exact-path regression assertion and native acceptance document together. Rechecked 45 focused tests, TypeScript and Expo lint successfully. No dependency, BE or database change. Native/device and authenticated live-backend coverage remain pending; prior mock evidence does not establish them. This is implementer self-review, not independent approval. Delivery evidence is in the workspace task dossier outputs/workflow/tasks/mobile-map-locator.
+
+## Merge origin/dev into release-readiness — 2026-10-29
+
+Preserved pending editor/refetch fix as d5d85c4, then merged origin/dev 959542c (PR #36 warehouse map) into fix/mobile-release-readiness. Both stock-issue UI files merged with local collapsible cards, formatted location labels, scan editor, authorization sequence, realtime subscriptions and refetch submission guards retained. Added upstream map action/view and inventory map integration. Only AI_REVIEW.md conflicted; retained both review histories. No dependency changes came from upstream and no pnpm install was needed.
+
+Post-merge validation: **237/237 tests pass**, TypeScript/Expo lint pass and conflict-marker/diff checks pass. Logs ../outputs/mobile-merge-dev-{full,typescript,lint}-20261029.log. Native/device and audio acceptance remain pending. No BE/web/database edit, deployment or push.
+
+
+## Staff transfer native UI aligned with web — 2026-10-29
+
+See MOBILE_TRANSFER_RESPONSIVE_ALIGNMENT.md for design, BE contracts, limitations and device checklist. Reworked picking into sequential source/product/quantity with one camera, base-unit counting and hardware fields; formatted system-default locations and collapsed source/actions. Receiving counts now use an in-page workspace with three quantity columns and per-lot checked totals. Putaway groups allocations with Plan/Execution views and supports BE/web optional product codes plus explicit unreadable-location evidence/reasons. Existing command IDs, draft protection, version/precision/budget checks and task assignment guards are retained.
+
+Extended existing SignalR transport with optional transfer group join/events. Transfer screens show pending-change hints without refetching over unsent edits; command entry/confirmation is blocked until an explicit fresh reload. Newer events cannot be cleared by an earlier reload. Foreground/reconnect rejoins; stale cached detail is refetched on mount. No transfer-group messages grant permissions or supply authoritative quantities/status.
+
+Validation: **245/245 automated tests pass**, TypeScript/Expo lint pass, diff check passes. Actual RN Web component fixture previews at 390 px inspected for picking/putaway; camera, selectors/confirmations and business requests are stubbed in previews. No live write or native acceptance performed. New Edge session remains at login; earlier responsive web screenshots and current FE/BE source were used. No BE/web edits, migration, DB action, dependency update, commit or push. Native audio remains unresolved from the earlier task and was not changed here.
+
+## Combined transfer receiving/putaway handoff — 2026-10-30
+
+Implemented mobile staff alignment with BE feat/huytv 6fc9b4e9 and web screen/huytv 60f23412. See MOBILE_COMBINED_TRANSFER_RECEIPT.md. Optional combined flag is preserved without local task merging; effective task IDs/types remain authoritative. Post-submit fresh reads drive guarded same-assignee navigation, task feed refresh and no-repeat submission after failed reload. Notification type validation accepts the opposite destination phase only for BE-marked combined workflows. Manager assignment remains on web; mobile has no assignment form.
+
+This is implementer self-review. No BE/web edits, DB operations, migration or deployment. Native/deployed API acceptance pending. Earlier uncommitted scanning/UI changes are preserved and remain separate in scope.
+Validation: 256/256 automated tests pass; TypeScript, Expo lint and git diff --check pass. Logs: ../outputs/mobile-combined-transfer-tests-20261030.log. Device/deployed API acceptance not run.
+
+## Transfer review findings repaired — 2026-10-30
+
+P2 pick confirmation now derives its location/unit from the immutable target lineId/inventoryStockId against the current sheet, and disables confirmation when that source is missing. Source switching by QR no longer leaves the original source in the confirmation text.
+
+P2 local allocation edits preserve completed evidence for unaffected rows. Appending keeps existing proofs; selecting the same destination preserves proof; changing destination/unreadable state invalidates only that row and its pending scan request. Removing a row remaps evidence/text indices and cancels pending requests against obsolete indices. Full plan/suggestion replacement still invalidates all evidence as designed.
+
+Verification: 258/258 tests, TypeScript, Expo lint and diff check pass. New regressions render the actual confirmation and exercise allocation add/change/remove plus late responses. No BE/web changes, DB actions, device acceptance, commit or push.
+
+## Putaway success refresh flash — 2026-10-30
+
+Confirmed source race: a successful putaway refreshed receipt/plan versions while the allocation snapshot remained open until mutateAsync finished all cache refreshes. This briefly displayed the destructive stale-plan banner for the user's own successful write. The execution hook now calls an optional post-commit callback after durable operation cleanup and session validation, before invalidation/refetch. Allocation closes and clears only on confirmed PutAway success; rejection/unknown outcome keeps its form/evidence. External stale-plan guards remain unchanged. Regression checks cover callback order and allocation closure before version update. 259/259 tests, TypeScript and Expo lint pass. Mobile only, no live API/device acceptance or commit.
+
+## Staff cycle count workspace redesign — 2026-10-30
+
+Implemented only on feat/huytv in mobile after BE/web source comparison. See MOBILE_CYCLE_COUNT_WORKSPACE.md. Shared physical-location matching now accepts rack/slot QR and rejects the system-default sentinel; position metadata matches BE response with older API tolerance. Position-first product/lot selection retains the selected position across saves, with ambiguous lots explicit. Editor has quantity step controls and optional scan increments; damage reason/evidence is conditional and new evidence can be removed locally. Existing explicit command confirmation, scope/version/draft guards, blind-count and recount rules remain.
+
+Actual RN Web editor SSR fixtures inspected via Edge/Playwright at 390 and 320 px. No real camera, keyboard or authenticated API acceptance; no BE/web edit, DB operation, dependency change, commit or push. Prior GitNexus keyword query returned no flows with missing FTS-index warning; source inspection used for comparison.
+Validation: 262/262 automated tests pass; TypeScript, Expo lint and git diff --check pass. Log: ../outputs/mobile-cycle-redesign-full-20261030.log. Native/device acceptance pending.
+
+## Staff customer and supplier returns — 2026-11-01
+
+Mobile-only implementation on feat/huytv. See MOBILE_RETURN_WORKFLOWS.md for contracts, workflow, recovery and device checklist. Added both return task types to feeds/filters/navigation/notification resolution, excluded generic unversioned commands, and built compact expandable staff workspaces with condition-specific customer placement and sequential source/product supplier scanning. Quantities and confirmation remain explicit; full original versioned requests are securely persisted for uncertain replay. Removed the obsolete unversioned customer-receiving hook/API path; catalog detail opens the assigned task. Failed background assignment reads retain unsent form values while blocking confirmation.
+
+Read .rules and the requested taste skill (native-mobile exclusion respected). Authenticated Edge web-responsive inspection found both task filters but no assigned return tasks; approved customer/supplier details were inspected read-only. Actual mobile RN Web SSR fixtures inspected at 320/390 px with API/camera mocked. A narrow quantity input overflow found during inspection was fixed using minWidth: 0 on the shared TextField. No production icon replacement.
+
+Validation: 273/273 tests, TypeScript, Expo lint and diff check pass. New tests cover permissions, task/document routing, condition/slot scan validation, sequential camera callbacks, quantity constraints, exact request bodies, durable recovery, first rejection and uncertain replay. Updated one old auth test mock for the push-registration import introduced by dev; auth implementation untouched. No BE/web changes, database writes, migration, dependency addition, deployment, commit or push. Camera/audio/haptics/keyboard and authenticated inventory/task completion require native acceptance with assigned tasks. This is implementer self-review.
+
+## Return workflow review fixes — 2026-11-01
+
+Fixed the three review findings: subscribe to RHF isDirty with useFormState for first-exit/reload protection; discover a scoped pending return command by task ID before requiring current assignment, so lost Return acknowledgements can still reach immutable replay; display acknowledged supplier quantities and customer condition/location immediately on success, even if no fresh read is available. Recovery lookup is restricted by API, account, warehouse, feature and supplier flag; it grants no new execution capability and the original command still undergoes schema/fingerprint/session checks and BE authorization. Completed success suppresses obsolete read errors.
+
+Validation: 275/275 tests pass, including secure-storage recovery isolation and immutable acknowledged-result regressions; TypeScript passes. No BE/web edit, database action, commit or push. Native acceptance pending.

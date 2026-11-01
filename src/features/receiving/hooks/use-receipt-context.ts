@@ -1,5 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { useIsFocused } from 'expo-router/react-navigation';
+
+import { useNotificationRealtime } from '@/features/notifications/hooks/use-notification-realtime';
+import { notificationSchema } from '@/features/notifications/notifications.schema';
 
 import { P, type PermissionCode } from '@/config/permission-codes';
 import { useAuth } from '@/features/auth/auth.store';
@@ -30,6 +34,19 @@ export function useReceiptContext(mode: 'receiving' | 'putaway', documentId: str
     queryFn: ({ signal }) => receivingApi.task(scope!.warehouseId, userId, documentId, signal),
   });
   const receiptId = mode === 'putaway' ? documentId : saved?.key === contextKey ? saved.id : task.data?.activeGoodsReceiptId ?? null;
+  const focused = useIsFocused();
+  const refreshFromNotification = useCallback((event?: unknown) => {
+    if (!canView || !identity || !warehouseId || !signature ||
+      !taskScopeMatches({ identity, warehouseId, revision, signature }, useWarehouseSelection.getState())) return;
+    if (event !== undefined) {
+      const reference = notificationSchema.pick({ referenceType: true, referenceId: true }).safeParse(event);
+      if (!reference.success || !(reference.data.referenceType === 'GoodsReceipt' && reference.data.referenceId === receiptId ||
+        mode === 'receiving' && reference.data.referenceType === 'InboundRequest' && reference.data.referenceId === documentId)) return;
+    }
+    void client.invalidateQueries({ queryKey: ['warehouse', identity, warehouseId, revision, 'receiving'] });
+  }, [canView, client, documentId, identity, warehouseId, revision, signature, mode, receiptId]);
+  useNotificationRealtime(focused && canView && !!access.profile.data?.permissions.includes(P.NOTIFICATIONS_VIEW),
+    identity, signature, refreshFromNotification);
   const evidenceKey = saved?.key === contextKey ? saved.evidenceKey : `${contextKey}:${receiptId ?? 'new'}`;
   const receipt = useQuery({
     queryKey: [...prefix, 'receipt', receiptId], enabled: !!scope && !!receiptId, retry: false,

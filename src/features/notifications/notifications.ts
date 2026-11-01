@@ -5,6 +5,7 @@ import { warehouseSnapshot } from '@/features/warehouse-access/warehouse-access'
 
 import type { AppNotification } from './notifications.types';
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
+import { hasReturnPermissions } from '@/features/return-work/return-work';
 
 export function assertNotificationContext(identity: string | null, signature: string | null, profile: UserProfile | undefined, signedIn: boolean) {
   const snapshot = profile ? warehouseSnapshot(profile) : null;
@@ -24,7 +25,7 @@ export function notificationDestination(notification: AppNotification, profile: 
 
   if (notification.referenceType === 'CycleCount' && profile.permissions.includes(P.CYCLE_COUNTS_VIEW))
     return { pathname: '/(account)/cycle-count/[id]' as const, params: { id: notification.referenceId } };
-  if (notification.referenceType === 'GoodsReturnRequest' && profile.permissions.includes(P.GOODS_RETURN_REQUESTS_VIEW))
+  if (notification.referenceType === 'GoodsReturnRequest' && profile.permissions.includes(P.GOODS_RETURN_REQUESTS_VIEW) && !hasReturnPermissions(false, profile))
     return { pathname: '/catalog/goods-returns/[returnId]' as const, params: { returnId: notification.referenceId } };
   if (notification.referenceType === 'StockAdjustmentVoucher' && profile.permissions.includes(P.STOCK_ADJUSTMENTS_VIEW))
     return { pathname: '/catalog/stock-adjustments/[adjustmentId]' as const, params: { adjustmentId: notification.referenceId } };
@@ -40,7 +41,7 @@ export function notificationDestination(notification: AppNotification, profile: 
 }
 
 export function notificationNeedsTask(notification: AppNotification) {
-  return ['WarehouseTask', 'StockTransfer', 'StockTransferShipment'].includes(notification.referenceType ?? '');
+  return ['WarehouseTask', 'StockTransfer', 'StockTransferShipment', 'GoodsReturnRequest', 'SupplierReturnRequest'].includes(notification.referenceType ?? '');
 }
 
 export function canOpenNotification(notification: AppNotification, profile: UserProfile | undefined) {

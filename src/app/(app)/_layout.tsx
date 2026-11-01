@@ -8,6 +8,8 @@ import { getRoleLabel } from '@/config/roles';
 import { getAllowedTabs, isMobileSupportedRole } from '@/features/auth/auth.permissions';
 import { useAuth } from '@/features/auth/auth.store';
 import { useMe } from '@/features/auth/hooks/use-me';
+import { usePushRegistration } from '@/features/notifications/use-push-registration';
+import { useNewTaskAnnouncer } from '@/features/warehouse-task/hooks/use-new-task-announcer';
 
 export default function AppLayout() {
   const me = useMe();
@@ -43,5 +45,16 @@ export default function AppLayout() {
     );
   }
 
-  return <AppTabs allowedTabNames={getAllowedTabs(me.data).map((tab) => tab.name)} />;
+  return (
+    <>
+      <NewTaskAnnouncer />
+      <AppTabs allowedTabNames={getAllowedTabs(me.data).map((tab) => tab.name)} />
+    </>
+  );
+}
+
+function NewTaskAnnouncer() {
+  useNewTaskAnnouncer();
+  usePushRegistration();
+  return null;
 }

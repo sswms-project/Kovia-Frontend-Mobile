@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { useCallback, useRef, useState } from 'react';
 
 import { logger } from '@/lib/logger';
+import { useScanFeedback } from '@/providers/scan-feedback-provider';
 
 import type { LastScan, ScanResult } from '../scanner.types';
 
@@ -14,6 +15,7 @@ interface HandleCodeOptions {
 }
 
 export function useScanGuard(onScan: (code: string) => ScanResult, repeatGuardMs = REPEAT_GUARD_MS) {
+  const playFeedback = useScanFeedback();
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastScan, setLastScan] = useState<LastScan | null>(null);
   // Refs, not state: the camera fires faster than React re-renders and must see the lock synchronously.
@@ -39,21 +41,24 @@ export function useScanGuard(onScan: (code: string) => ScanResult, repeatGuardMs
         const isValid = typeof verdict === 'boolean' ? verdict : null;
         setLastScan({ code, isValid });
         if (isValid !== null) {
+          playFeedback(isValid);
           void Haptics.notificationAsync(
             isValid ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error,
-          );
+          ).catch(() => { logger.warn('Không thể rung phản hồi quét mã.'); });
         }
       } catch (error) {
         logger.error('Scan handler failed', error);
         setLastScan({ code, isValid: false });
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        playFeedback(false);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+          .catch(() => { logger.warn('Không thể rung phản hồi quét mã.'); });
       } finally {
         lastSeenRef.current = { code, at: Date.now() };
         isLockedRef.current = false;
         setIsProcessing(false);
       }
     },
-    [onScan, repeatGuardMs],
+    [onScan, repeatGuardMs, playFeedback],
   );
 
   return { handleCode, isProcessing, lastScan };

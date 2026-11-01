@@ -40,7 +40,7 @@ export const reportPickIssueSchema = z.object({ stockIssueRequestItemId: id,
   reason: text.trim().min(1, 'Vui lòng mô tả sự cố.').max(500, 'Mô tả tối đa 500 ký tự.') });
 export const pickingCommandSchema = z.object({ ...command, items: z.array(pickFormSchema).min(1).max(500) });
 export const dispatchCommandSchema = z.object({ ...command, pickDetailIds: z.array(id).min(1).max(500)
-  .refine(values => new Set(values).size === values.length, 'Chi tiết xuất bị trùng.') });
+  .refine(values => new Set(values).size === values.length, 'Chi tiết xuất bị trùng.').optional() });
 export type StockIssue = z.infer<typeof stockIssueSchema>;
 export type StockIssueItem = z.infer<typeof stockIssueItemSchema>;
 export type PickForm = z.infer<typeof pickFormSchema>;

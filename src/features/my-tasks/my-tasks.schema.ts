@@ -5,6 +5,7 @@ import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
 export const taskTypeSchema = z.enum([
   'Receiving', 'Picking', 'PutAway', 'CycleCount', 'DamagedStock', 'Relocation',
   'TransferPick', 'TransferReceive', 'TransferPutAway',
+  'CustomerReturnReceive', 'SupplierReturnDispatch',
 ]);
 export const executionStatusSchema = z.enum(['Queued', 'InProgress', 'Paused', 'Completed', 'Cancelled']);
 export const deadlineStatusSchema = z.enum([
@@ -41,6 +42,9 @@ export const warehouseTaskSchema = z.object({
   pauseReason: z.string().nullable(), assignedTo: z.string().nullable(), assignedToName: z.string().nullable(),
   assignedAt: z.string().nullable(), updatedAt: z.string(), transferId: z.string().nullable(),
   transferShipmentId: z.string().nullable(),
+  isCombinedTransferReceipt: z.boolean().optional(),
+  sourceDocumentId: nonEmptyDotNetGuidSchema('Mã phiếu nguồn không hợp lệ').nullable().optional(),
+  taskVersion: z.string().nullable().optional(), documentVersion: z.string().nullable().optional(),
 });
 
 export const warehouseTaskListSchema = z.object({

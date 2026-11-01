@@ -48,6 +48,25 @@ const profile = (overrides = {}) => ({ id: userId, tenantId: 'tenant', status: '
   assignedWarehouses: [{ id: warehouseId, warehouseCode: 'A', warehouseName: 'Kho A', status: 'Active' }], ...overrides });
 const scope = () => { const snapshot = warehouseSnapshot(profile()); return { identity: snapshot.identity,
   signature: snapshot.signature, warehouseId, revision: 1 }; };
+
+test('combined destination task flag preserves BE counts and routes using the effective task type', () => {
+  const labels = load('src/features/warehouse-task/warehouse-task.labels.ts');
+  const navigation = load('src/features/my-tasks/my-tasks.navigation.ts');
+  const transferId = '44444444-4444-4444-4444-444444444444', transferShipmentId = '55555555-5555-5555-5555-555555555555';
+  for (const taskType of ['TransferReceive', 'TransferPutAway']) {
+    const value = task({ taskType, isCombinedTransferReceipt: true, transferId, transferShipmentId });
+    const parsed = schemas.warehouseTaskListSchema.parse(list([value]));
+    assert.equal(parsed.items.length, 1); assert.equal(parsed.totalCount, 1);
+    assert.equal(labels.getTaskTypeLabel(parsed.items[0]), 'Nhận và cất hàng điều chuyển');
+    assert.equal(labels.matchesTaskType(value, 'TransferReceive'), true);
+    assert.equal(labels.matchesTaskType(value, 'TransferPutAway'), true);
+    assert.equal(labels.matchesTaskType(value, 'TransferPick'), false);
+    assert.equal(navigation.getTaskDestination(value, profile({ permissions: [P.TRANSFERS_VIEW] }), warehouseId).pathname,
+      taskType === 'TransferReceive' ? '/(account)/transfer-receipt/[id]' : '/(account)/transfer-putaway/[id]');
+  }
+  assert.equal(labels.matchesTaskType(task({ taskType: 'TransferPutAway' }), 'TransferReceive'), false);
+  assert.equal(labels.getTaskTypeLabel(schemas.warehouseTaskSchema.parse(task({ taskType: 'TransferReceive' }))), 'Nhận hàng điều chuyển');
+});
 function apiFixture() {
   const calls = [];
   let response = list();

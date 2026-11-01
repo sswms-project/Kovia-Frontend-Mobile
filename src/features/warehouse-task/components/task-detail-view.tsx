@@ -12,7 +12,7 @@ import {
   DEADLINE_STATUS_TONE,
   EXECUTION_STATUS_LABEL,
   EXECUTION_STATUS_TONE,
-  TASK_TYPE_LABEL,
+  getTaskTypeLabel,
 } from '../warehouse-task.labels';
 import type { MyWarehouseTask, WarehouseTaskAction } from '../warehouse-task.types';
 
@@ -52,7 +52,7 @@ export function TaskDetailView({ task, availableActions, isPending, onAction, on
       refreshControl={onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined}>
       <View style={styles.heading}>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>
-          {TASK_TYPE_LABEL[task.taskType] ?? task.taskType}
+          {getTaskTypeLabel(task)}
         </Text>
         <View style={styles.pills}>
           <StatusPill

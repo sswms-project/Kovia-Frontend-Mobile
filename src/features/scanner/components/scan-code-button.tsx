@@ -18,22 +18,26 @@ interface Props {
   readonly compact?: boolean;
   /** Keep the scanner open after an accepted code, e.g. counting items one scan at a time. */
   readonly continuous?: boolean;
+  /** Complete a multi-step scan session after the owning form has accepted all required codes. */
+  readonly closeAfterScan?: () => boolean;
+  readonly showScannedCode?: boolean;
   readonly status?: string;
   readonly onScan: (code: string) => ScanResult;
   readonly onOpen?: () => void;
+  readonly onClose?: () => void;
   /** Finishes a continuous session; the scanner closes after it runs. */
   readonly confirm?: { readonly label: string; readonly disabled?: boolean; readonly onPress: () => void };
   /** Return false to keep the scanner open, e.g. after the user declines to discard unconfirmed scans. */
   readonly onBeforeClose?: () => boolean | Promise<boolean>;
 }
 
-export function ScanCodeButton({ label, title, disabled = false, renderIcon, compact = false, continuous = false, status, onScan, onOpen, confirm, onBeforeClose }: Props) {
+export function ScanCodeButton({ label, title, disabled = false, renderIcon, compact = false, continuous = false, closeAfterScan, showScannedCode = true, status, onScan, onOpen, onClose, confirm, onBeforeClose }: Props) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
   const session = useRef(0);
   useEffect(() => () => { session.current += 1; }, []);
   function start() { session.current += 1; onOpen?.(); setOpen(true); }
-  function close() { session.current += 1; setOpen(false); }
+  function close() { session.current += 1; setOpen(false); onClose?.(); }
   async function requestClose() { if (!onBeforeClose || await onBeforeClose()) close(); }
   return <>
     {compact
@@ -45,12 +49,16 @@ export function ScanCodeButton({ label, title, disabled = false, renderIcon, com
       : <Button label={label} variant="outline" disabled={disabled} renderIcon={renderIcon} onPress={start} />}
     <Modal visible={open && !disabled} animationType="slide" onRequestClose={() => { void requestClose(); }}>
       <View style={styles.root}>{open && !disabled && <ScannerScreen title={title} status={status} repeatGuardMs={continuous ? 1000 : undefined}
+        showScannedCode={showScannedCode}
         onClose={() => { void requestClose(); }}
         confirm={confirm && { ...confirm, onPress: () => { confirm.onPress(); close(); } }}
         onScan={async (code) => {
           const attempt = session.current;
           const accepted = await onScan(code);
-          if (!continuous && attempt === session.current && accepted === true) close();
+          if (attempt === session.current && accepted === true) {
+            if (!continuous) close();
+            else if (closeAfterScan?.()) await requestClose();
+          }
           return accepted;
         }} />}</View>
     </Modal>

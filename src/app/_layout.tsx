@@ -13,6 +13,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { FontFamily } from '@/constants/theme';
 import { useAppearance } from '@/stores/appearance.store';
+import { useSpeechPreference } from '@/stores/speech.store';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Toaster } from 'sonner-native';
 
@@ -20,6 +21,7 @@ import { useAuth } from '@/features/auth/auth.store';
 import { OfflineBanner } from '@/components/ui/offline-banner';
 import { WarehouseSessionProvider } from '@/features/warehouse-access/components/warehouse-session-provider';
 import { QueryProvider } from '@/providers/query-provider';
+import { ScanFeedbackProvider } from '@/providers/scan-feedback-provider';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,6 +30,7 @@ export default function RootLayout() {
   const colors = useTheme();
   const reduceMotion = useReducedMotion();
   const hydrateAppearance = useAppearance(state => state.hydrate);
+  const hydrateSpeech = useSpeechPreference(state => state.hydrate);
   const baseTheme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
   const navigationTheme = { ...baseTheme, colors: { ...baseTheme.colors, primary: colors.primary, background: colors.background,
     card: colors.card, text: colors.text, border: colors.border, notification: colors.error }, fonts: { ...baseTheme.fonts,
@@ -51,6 +54,7 @@ export default function RootLayout() {
     restore();
   }, [restore]);
   useEffect(() => { void hydrateAppearance(); }, [hydrateAppearance]);
+  useEffect(() => { void hydrateSpeech(); }, [hydrateSpeech]);
 
   useEffect(() => {
     if (ready && fontsSettled) SplashScreen.hideAsync();
@@ -64,23 +68,25 @@ export default function RootLayout() {
         <ThemeProvider value={navigationTheme}>
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
           <BottomSheetModalProvider>
-            <WarehouseSessionProvider signedIn={signedIn}>
-              <View style={styles.root}>
-                <OfflineBanner />
-                <Stack screenOptions={{ headerShown: false, animation: reduceMotion ? 'none' : 'default' }}>
-                  <Stack.Protected guard={signedIn}>
-                    <Stack.Screen name="(app)" />
-                    <Stack.Screen name="(account)" />
-                    <Stack.Screen name="notifications" options={{ presentation: 'transparentModal', animation: reduceMotion ? 'none' : 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }} />
-                    <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
-                  </Stack.Protected>
-                  <Stack.Protected guard={!signedIn}>
-                    <Stack.Screen name="(auth)" />
-                  </Stack.Protected>
-                  <Stack.Screen name="auth" />
-                </Stack>
-              </View>
-            </WarehouseSessionProvider>
+            <ScanFeedbackProvider>
+              <WarehouseSessionProvider signedIn={signedIn}>
+                <View style={styles.root}>
+                  <OfflineBanner />
+                  <Stack screenOptions={{ headerShown: false, animation: reduceMotion ? 'none' : 'default' }}>
+                    <Stack.Protected guard={signedIn}>
+                      <Stack.Screen name="(app)" />
+                      <Stack.Screen name="(account)" />
+                      <Stack.Screen name="notifications" options={{ presentation: 'transparentModal', animation: reduceMotion ? 'none' : 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }} />
+                      <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
+                    </Stack.Protected>
+                    <Stack.Protected guard={!signedIn}>
+                      <Stack.Screen name="(auth)" />
+                    </Stack.Protected>
+                    <Stack.Screen name="auth" />
+                  </Stack>
+                </View>
+              </WarehouseSessionProvider>
+            </ScanFeedbackProvider>
           </BottomSheetModalProvider>
           <Toaster />
         </ThemeProvider>

@@ -33,6 +33,8 @@ export async function findNotificationTasks(search: NotificationTaskSearch, noti
     search.totalCount = page.totalCount;
     for (const task of page.items) {
       const reference = notification.referenceType === 'WarehouseTask' ? task.id
+        : notification.referenceType === 'GoodsReturnRequest' ? task.taskType === 'CustomerReturnReceive' ? task.sourceDocumentId : null
+        : notification.referenceType === 'SupplierReturnRequest' ? task.taskType === 'SupplierReturnDispatch' ? task.sourceDocumentId : null
         : notification.referenceType === 'StockTransferShipment' ? task.transferShipmentId : task.transferId;
       if (reference?.toLowerCase() === notification.referenceId?.toLowerCase() &&
         !search.matches.some(choice => choice.task.id.toLowerCase() === task.id.toLowerCase() && choice.task.taskType === task.taskType))

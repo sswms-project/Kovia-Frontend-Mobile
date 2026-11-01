@@ -8,6 +8,8 @@ export const WAREHOUSE_TASK_TYPES = [
   'TransferReceive',
   'TransferPutAway',
   'Picking',
+  'CustomerReturnReceive',
+  'SupplierReturnDispatch',
 ] as const;
 
 export type WarehouseTaskType = (typeof WAREHOUSE_TASK_TYPES)[number];
@@ -60,6 +62,10 @@ export interface MyWarehouseTask {
   /** Only set for transfer pick/receive tasks. */
   transferId: string | null;
   transferShipmentId: string | null;
+  isCombinedTransferReceipt?: boolean;
+  sourceDocumentId?: string | null;
+  taskVersion?: string | null;
+  documentVersion?: string | null;
 }
 
 export interface MyWarehouseTaskQuery {

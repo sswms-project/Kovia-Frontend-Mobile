@@ -37,6 +37,18 @@ async function readKey(key: string): Promise<Draft | null> {
 }
 
 export const formDraftStorage = {
+  pendingReturnTask: (context: readonly [string, string, string], taskId: string, supplier: boolean) => serial(async () => {
+    for (const key of await index()) {
+      const draft = await readKey(key);
+      if (!draft?.pending) continue;
+      const parts = z.array(z.unknown()).parse(JSON.parse(draft.scope));
+      if (context.some((value, position) => value !== parts[position]) || parts[3] !== 'return-work' || draft.values.supplier !== supplier) continue;
+      const command = z.object({ body: z.object({ taskId: z.string() }) }).safeParse(draft.values.command);
+      if (command.success && command.data.body.taskId.toLowerCase() === taskId.toLowerCase() && draft.operation?.documentId === parts[4])
+        return { documentId: z.string().parse(parts[4]) };
+    }
+    return null;
+  }),
   read: (scope: string) => serial(async (): Promise<Draft | null> => {
     const key = await digest(scope);
     const draft = await readKey(key);
