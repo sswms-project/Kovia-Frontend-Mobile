@@ -1,29 +1,34 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { api } from '@/lib/api';
+import { logger } from '@/lib/logger';
 
 const ANDROID_CHANNEL = 'tasks';
 
 let registeredToken: string | null = null;
 
-// App đang mở thì AI đã đọc to công việc mới; chỉ hiện banner, không phát thêm tiếng.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+let notificationsModule: Promise<typeof import('expo-notifications') | null> | undefined;
+export async function getPushNotifications() {
+  // Never evaluate this native module in Expo Go or on web, including during auth/layout imports.
+  if (Platform.OS === 'web' || Constants.executionEnvironment === 'storeClient') return null;
+  notificationsModule ??= import('expo-notifications').then(notifications => {
+    notifications.setNotificationHandler({ handleNotification: async () => ({
+      shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false,
+    }) });
+    return notifications;
+  }).catch(() => { logger.warn('Push chưa khả dụng trong bản app này.'); return null; });
+  return notificationsModule;
+}
 
 /** Xin quyền, lấy Expo push token và đăng ký với BE. Trả về null nếu thiếu điều kiện (emulator, chưa cấp quyền, chưa có EAS projectId). */
 export async function registerForPush(): Promise<string | null> {
   if (Platform.OS === 'web' || !Device.isDevice) return null;
   const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
   if (!projectId) return null;
+  const Notifications = await getPushNotifications();
+  if (!Notifications) return null;
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL, {

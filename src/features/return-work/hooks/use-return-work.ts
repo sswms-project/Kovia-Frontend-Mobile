@@ -101,8 +101,7 @@ export function useReturnWork(supplier: boolean, taskId: string, documentId: str
       const versions = proof();
       const request: ReturnCommand = { kind: 'Manage', body: { taskId: versions.taskId, taskVersion: versions.taskVersion,
         documentVersion: versions.expectedVersion, commandId: versions.commandId, action, reason: reason?.trim() || null } };
-      if (action === 'Start') setConfirmation(request);
-      else void execute(request);
+      void execute(request);
     } catch (failure) { setNotice(getApiErrorMessage(failure)); }
   }
   async function review() {
