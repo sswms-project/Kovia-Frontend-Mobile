@@ -1,6 +1,10 @@
 import { Pause, Play, Undo2 } from 'lucide-react-native';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { WorkActionBar } from '@/components/work-action-bar';
+import { WorkDetails } from '@/components/ui/work-details';
+
 import { Button } from '@/components/ui/button';
 import { StatusPill } from '@/components/ui/status-pill';
 import { FontFamily, Radius } from '@/constants/theme';
@@ -32,23 +36,16 @@ const formatTime = (value: string | null) => (value ? formatDisplayDateTime(new 
 
 export function TaskDetailView({ task, availableActions, isPending, onAction, onOpenDocument, openingDocument, documentLabel = 'Mở chứng từ và thực hiện', isRefreshing = false, onRefresh }: TaskDetailViewProps) {
   const theme = useTheme();
-  const rows: readonly { label: string; value: string }[] = [
-    { label: 'Mã tham chiếu', value: task.referenceCode },
-    { label: 'Kho', value: task.warehouseName },
-    { label: 'Nội dung', value: task.workSummary },
-    {
-      label: 'Số lượng',
-      value: `${task.completedQuantity.toLocaleString('vi-VN')}/${task.totalQuantity.toLocaleString('vi-VN')}`,
-    },
-    { label: 'Số dòng', value: `${task.completedItemCount}/${task.itemCount}` },
-    { label: 'Hạn hoàn thành', value: formatTime(task.dueAt) },
+  const rows = [
+    { label: 'Giao lúc', value: formatTime(task.assignedAt) },
     { label: 'Bắt đầu lúc', value: formatTime(task.startedAt) },
     { label: 'Cập nhật', value: formatTime(task.updatedAt) },
   ];
   const isResume = task.executionStatus === 'Paused';
 
   return (
-    <ScrollView contentContainerStyle={styles.content}
+    <SafeAreaView edges={['bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
+    <ScrollView style={styles.root} contentContainerStyle={styles.content}
       refreshControl={onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined}>
       <View style={styles.heading}>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>
@@ -67,58 +64,52 @@ export function TaskDetailView({ task, availableActions, isPending, onAction, on
         </View>
       </View>
 
+      <Text selectable style={[styles.reference, { color: theme.textSecondary }]}>{task.referenceCode}</Text>
+      <Text style={[styles.value, { color: theme.textSecondary }]}>{task.warehouseName}</Text>
+      <Text style={[styles.summary, { color: theme.text }]}>{task.workSummary}</Text>
       <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <View style={styles.metrics}>
+          <View style={styles.metric}><Text style={[styles.label, { color: theme.textSecondary }]}>Số lượng đã xử lý</Text>
+            <Text style={[styles.quantity, { color: theme.primary }]}>{task.completedQuantity.toLocaleString('vi-VN')} / {task.totalQuantity.toLocaleString('vi-VN')}</Text></View>
+          <View style={styles.metric}><Text style={[styles.label, { color: theme.textSecondary }]}>Dòng hoàn tất</Text>
+            <Text style={[styles.quantity, { color: theme.text }]}>{task.completedItemCount} / {task.itemCount}</Text></View>
+        </View>
+        <Text style={[styles.label, { color: theme.textSecondary }]}>Hạn hoàn thành: {formatTime(task.dueAt)}</Text>
+        {task.pauseReason && isResume && <Text style={[styles.value, { color: theme.warning }]}>Lý do tạm dừng: {task.pauseReason}</Text>}
+        <WorkDetails title="Thông tin phân công và thời gian">
+
         {rows.map((row) => (
           <View key={row.label} accessible style={styles.row}>
             <Text style={[styles.label, { color: theme.textSecondary }]}>{row.label}</Text>
             <Text style={[styles.value, { color: theme.text }]}>{row.value}</Text>
           </View>
         ))}
-        {task.pauseReason && isResume ? (
-          <View accessible style={styles.row}>
-            <Text style={[styles.label, { color: theme.textSecondary }]}>Lý do tạm dừng</Text>
-            <Text style={[styles.value, { color: theme.text }]}>{task.pauseReason}</Text>
-          </View>
-        ) : null}
+        </WorkDetails>
       </View>
-
-      {onOpenDocument && <Button label={documentLabel} onPress={onOpenDocument}
-        loading={openingDocument} disabled={isPending} />}
-      {availableActions.length > 0 ? (
-        <View style={styles.actions}>
-          {availableActions.includes('Start') ? (
-            <Button
-              label={isResume ? 'Tiếp tục' : 'Bắt đầu'}
-              loading={isPending}
-              renderIcon={(color) => <Play size={16} color={color} />}
-              onPress={() => onAction('Start')}
-            />
-          ) : null}
-          {availableActions.includes('Pause') ? (
-            <Button
-              variant="outline"
-              label="Tạm dừng"
-              disabled={isPending}
-              renderIcon={(color) => <Pause size={16} color={color} />}
-              onPress={() => onAction('Pause')}
-            />
-          ) : null}
-          {availableActions.includes('Return') ? (
-            <Button
-              variant="ghost"
-              label="Trả lại"
-              disabled={isPending}
-              renderIcon={(color) => <Undo2 size={16} color={color} />}
-              onPress={() => onAction('Return')}
-            />
-          ) : null}
-        </View>
-      ) : null}
     </ScrollView>
+    {(onOpenDocument || availableActions.length > 0) && <WorkActionBar>
+      {availableActions.includes('Start') && <Button label={isResume ? 'Tiếp tục' : 'Bắt đầu'} loading={isPending}
+        renderIcon={color => <Play size={16} color={color} />} onPress={() => onAction('Start')} />}
+      {onOpenDocument && <Button label={documentLabel} onPress={onOpenDocument}
+        variant={availableActions.includes('Start') ? 'outline' : 'primary'} loading={openingDocument} disabled={isPending} />}
+      {(availableActions.includes('Pause') || availableActions.includes('Return')) && <View style={styles.secondaryActions}>
+        {availableActions.includes('Pause') && <View style={styles.secondaryAction}><Button variant="outline" label="Tạm dừng" disabled={isPending}
+          renderIcon={color => <Pause size={16} color={color} />} onPress={() => onAction('Pause')} /></View>}
+        {availableActions.includes('Return') && <View style={styles.secondaryAction}><Button variant="ghost" label="Trả lại công việc" disabled={isPending}
+          renderIcon={color => <Undo2 size={16} color={color} />} onPress={() => onAction('Return')} /></View>}
+      </View>}
+    </WorkActionBar>}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
+  reference: { fontFamily: FontFamily.mono, fontSize: 13, lineHeight: 21 },
+  summary: { fontFamily: FontFamily.medium, fontSize: 16, lineHeight: 24 },
+  metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  metric: { flexBasis: 130, flexGrow: 1, gap: 4 },
+  quantity: { fontFamily: FontFamily.semibold, fontSize: 24, lineHeight: 34 },
   content: { width: '100%', maxWidth: 440, alignSelf: 'center', gap: 16, padding: 20 },
   heading: { gap: 8 },
   title: { fontFamily: FontFamily.semibold, fontSize: 22, lineHeight: 30 },
@@ -131,5 +122,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   value: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 22 },
-  actions: { gap: 10 },
+  secondaryActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  secondaryAction: { flexBasis: 132, flexGrow: 1, minWidth: 0 },
 });

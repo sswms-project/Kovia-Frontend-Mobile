@@ -2,6 +2,7 @@ import {
   ArrowLeftRight,
   ClipboardCheck,
   ClipboardList,
+  ChevronRight,
   PackageOpen,
   PackagePlus,
   PackageSearch,
@@ -75,13 +76,12 @@ export function TaskCard({ task, onPress, showAssignee = false }: TaskCardProps)
         <View style={styles.identity}>
           <Text style={[styles.title, { color: theme.text }]}>
             {typeLabel}
-            <Text style={[styles.summary, { color: theme.textSecondary }]}> · {task.workSummary}</Text>
           </Text>
-          <Text style={[styles.reference, { color: theme.textSecondary }]}>
-            <Text style={{ color: theme.text }}>{task.referenceCode}</Text> · {task.warehouseName}
-          </Text>
+          <Text selectable style={[styles.reference, { color: theme.textSecondary }]}>{task.referenceCode}</Text>
         </View>
+        {onPress && <ChevronRight size={20} color={theme.textSecondary} />}
       </View>
+      <Text style={[styles.summary, { color: theme.text }]}>{task.workSummary}</Text>
 
       <View style={styles.pills}>
         {showAssignee && <Text style={[styles.meta, { color: theme.textSecondary }]}>Nhân viên: {task.assignedToName ?? 'Chưa phân công'}</Text>}
@@ -94,20 +94,22 @@ export function TaskCard({ task, onPress, showAssignee = false }: TaskCardProps)
       </View>
 
       {task.pauseReason && task.executionStatus === 'Paused' ? (
-        <Text style={[styles.pauseReason, { color: theme.textSecondary, borderColor: theme.warning }]} numberOfLines={2}>
+        <Text style={[styles.pauseReason, { color: theme.textSecondary, borderColor: theme.warning }]}>
           Lý do tạm dừng: {task.pauseReason}
         </Text>
       ) : null}
 
       <View style={styles.progressRow}>
         <Text style={[styles.meta, { color: theme.textSecondary }]}>
-          {task.completedItemCount}/{task.itemCount} dòng
+          Đã xử lý {task.completedItemCount}/{task.itemCount} dòng
         </Text>
         <Text style={[styles.meta, { color: theme.text }]}>{progress}%</Text>
       </View>
-      <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
+      <View accessibilityRole="progressbar" accessibilityLabel="Tiến độ công việc"
+        accessibilityValue={{ min: 0, max: 100, now: progress }} style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
         <View style={[styles.fill, { backgroundColor: theme.primary, width: `${progress}%` }]} />
       </View>
+      <Text style={[styles.meta, { color: theme.textSecondary }]}>{task.warehouseName}</Text>
 
       {task.dueAt ? (
         <Text style={[styles.meta, { color: theme.textSecondary }]}>
@@ -125,16 +127,15 @@ const styles = StyleSheet.create({
   iconBox: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.lg },
   identity: { flex: 1, minWidth: 0, gap: 6 },
   title: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 23 },
-  summary: { fontFamily: FontFamily.regular },
+  summary: { fontFamily: FontFamily.medium, fontSize: 15, lineHeight: 23 },
   reference: { fontFamily: FontFamily.mono, fontSize: 13, lineHeight: 20 },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   pauseReason: {
     paddingLeft: 8,
     borderLeftWidth: 2,
     fontFamily: FontFamily.regular,
-    fontSize: 12,
-    lineHeight: 17,
-    fontStyle: 'italic',
+    fontSize: 14,
+    lineHeight: 21,
   },
   progressRow: { flexDirection: 'row', justifyContent: 'space-between' },
   meta: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 20 },

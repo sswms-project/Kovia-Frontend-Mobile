@@ -40,7 +40,7 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
         accessibilityLabel={`${expanded ? 'Thu gọn' : 'Mở chi tiết'} nhận ${sku}`}
         accessibilityState={{ expanded }} onPress={() => setExpanded(value => !value)}>
         <Text style={[styles.sku, { color: theme.textSecondary }]}>{sku}</Text>
-        <Text style={[styles.name, { color: theme.text }]} numberOfLines={2}>{item.productName}</Text>
+        <Text style={[styles.name, { color: theme.text }]}>{item.productName}</Text>
         <Text style={[styles.text, { color: theme.primary }]}>{expanded ? 'Thu gọn ▴' : 'Mở chi tiết ▾'}</Text>
       </Pressable>
       {expanded && !correction && <ScanCodeButton compact continuous label={baseQty > 0 ? `Quét đếm · ${baseQty}` : 'Quét đếm'}
@@ -64,8 +64,8 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
     {expanded && <>
     {units.length > 1 && <Controller control={form.control} name={`lines.${index}.enteredUnitId`} render={({ field }) =>
       <View accessibilityRole="radiogroup" accessibilityLabel={`Đơn vị nhận ${sku}`} style={[styles.segment, { borderColor: theme.border }]}>
-        {units.map(unit => { const active = field.value === unit.id; return <Pressable key={unit.id} accessibilityRole="radio"
-          accessibilityState={{ selected: active, disabled: busy || correction }} disabled={busy || correction}
+        {units.map(unit => { const active = field.value === unit.id; return <Pressable key={unit.id} accessibilityRole="radio" aria-checked={active}
+          accessibilityState={{ disabled: busy || correction }} disabled={busy || correction}
           onPress={() => { if (active) return; field.onChange(unit.id); form.setValue(`lines.${index}.receivedQty`, Number.NaN); form.setValue(`lines.${index}.damagedQty`, 0); }}
           style={[styles.segmentItem, active && { backgroundColor: theme.primary }, (busy || correction) && styles.inactive]}>
           <Text style={[styles.segmentLabel, { color: active ? theme.onPrimary : theme.text }]}>{unit.name}</Text>
@@ -115,13 +115,13 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
 });
 const styles = StyleSheet.create({
   card: { padding: 16, borderWidth: 1, borderRadius: Radius.lg, gap: 12 },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  headerText: { flex: 1, gap: 2, minHeight: 44 },
+  header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 },
+  headerText: { flexBasis: 160, flexGrow: 1, minWidth: 0, gap: 2, minHeight: 48 },
   sku: { fontFamily: FontFamily.semibold, fontSize: 12, lineHeight: 16, letterSpacing: 0.5 },
   name: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 22 },
   text: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 18 },
   segment: { flexDirection: 'row', borderWidth: 1, borderRadius: Radius.md, padding: 3, gap: 3 },
-  segmentItem: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.base },
+  segmentItem: { flex: 1, minHeight: 48, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.base },
   segmentLabel: { fontFamily: FontFamily.semibold, fontSize: 14, lineHeight: 20 },
   inactive: { opacity: 0.5 },
   row: { flexDirection: 'row', gap: 12 },
