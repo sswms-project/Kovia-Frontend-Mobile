@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -21,11 +21,11 @@ export function TaskStatsBar({ stats }: TaskStatsBarProps) {
   ];
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll} contentContainerStyle={styles.row}>
+    <View style={styles.row}>
       {metrics.map((metric) => (
         <Metric key={metric.label} {...metric} />
       ))}
-    </ScrollView>
+    </View>
   );
 }
 
@@ -54,9 +54,8 @@ function Metric({ label, value, tone }: { label: string; value: number; tone: Me
 }
 
 const styles = StyleSheet.create({
-  scroll: { flexGrow: 0, flexShrink: 0 },
-  row: { gap: 8, paddingHorizontal: 20, alignItems: 'flex-start' },
-  metric: { minWidth: 92, gap: 2, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderRadius: Radius.lg },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 20 },
+  metric: { flexBasis: 84, flexGrow: 1, gap: 2, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderRadius: Radius.lg },
   value: { fontFamily: FontFamily.mono, fontSize: 20, lineHeight: 26 },
   label: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 20 },
 });

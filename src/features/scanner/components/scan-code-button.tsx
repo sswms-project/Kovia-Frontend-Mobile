@@ -44,7 +44,7 @@ export function ScanCodeButton({ label, title, disabled = false, renderIcon, com
       ? <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled} hitSlop={6} onPress={start}
         style={({ pressed }) => [styles.chip, { borderColor: theme.border, backgroundColor: theme.card }, disabled && styles.inactive, pressed && styles.pressed]}>
         <ScanLine size={16} color={theme.primary} />
-        <Text style={[styles.chipLabel, { color: theme.primary }]} numberOfLines={1}>{label}</Text>
+        <Text style={[styles.chipLabel, { color: theme.primary }]}>{label}</Text>
       </Pressable>
       : <Button label={label} variant="outline" disabled={disabled} renderIcon={renderIcon} onPress={start} />}
     <Modal visible={open && !disabled} animationType="slide" onRequestClose={() => { void requestClose(); }}>
@@ -66,8 +66,8 @@ export function ScanCodeButton({ label, title, disabled = false, renderIcon, com
 }
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32, paddingHorizontal: 10, borderWidth: 1, borderRadius: Radius.xl },
-  chipLabel: { fontFamily: FontFamily.semibold, fontSize: 13, lineHeight: 18 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 48, flexShrink: 1, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderRadius: Radius.xl },
+  chipLabel: { flexShrink: 1, fontFamily: FontFamily.semibold, fontSize: 13, lineHeight: 18 },
   inactive: { opacity: 0.5 },
   pressed: { opacity: 0.85 },
 });
