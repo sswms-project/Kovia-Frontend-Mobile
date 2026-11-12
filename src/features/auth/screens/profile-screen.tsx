@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Clock,
   LogOut,
+  Laptop,
   Mail,
   Pencil,
   Phone,
@@ -99,6 +100,7 @@ export function ProfileScreen() {
   const setAutoReadAlerts = useSpeechPreference(state => state.setAutoReadAlerts);
   const queryClient = useQueryClient();
   const signOut = useAuth((state) => state.signOut);
+  const loginSessionId = useAuth((state) => state.loginSessionId);
   const [editing, setEditing] = useState(false);
   const profile = useQuery({
     queryKey: ['auth', 'profile'],
@@ -251,6 +253,7 @@ export function ProfileScreen() {
       </View>
       <View style={[styles.card, styles.menu, card]}>
         <MenuRow icon={Shield} label="Bảo mật và xác thực hai bước" disabled={busy} onPress={() => router.push('/security')} />
+        {loginSessionId && <MenuRow icon={Laptop} label="Thiết bị đăng nhập" disabled={busy} onPress={() => router.push('/login-sessions')} />}
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
         <MenuRow icon={Warehouse} label="Danh mục và tra cứu" disabled={busy} onPress={() => router.push('/catalog')} />
       </View>

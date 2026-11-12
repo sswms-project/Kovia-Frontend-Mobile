@@ -6,7 +6,7 @@ import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -18,6 +18,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Toaster } from 'sonner-native';
 
 import { useAuth } from '@/features/auth/auth.store';
+import { authApi } from '@/features/auth/auth.api';
 import { OfflineBanner } from '@/components/ui/offline-banner';
 import { WarehouseSessionProvider } from '@/features/warehouse-access/components/warehouse-session-provider';
 import { QueryProvider } from '@/providers/query-provider';
@@ -38,6 +39,7 @@ export default function RootLayout() {
     bold: { ...baseTheme.fonts.bold, fontFamily: FontFamily.bold }, heavy: { ...baseTheme.fonts.heavy, fontFamily: FontFamily.bold } } };
   const ready = useAuth((state) => state.ready);
   const signedIn = useAuth((state) => state.signedIn);
+  const loginSessionId = useAuth((state) => state.loginSessionId);
   const restore = useAuth((state) => state.restore);
   const [fontsLoaded, fontError] = useFonts({
     Baloo2_700Bold,
@@ -55,6 +57,36 @@ export default function RootLayout() {
   }, [restore]);
   useEffect(() => { void hydrateAppearance(); }, [hydrateAppearance]);
   useEffect(() => { void hydrateSpeech(); }, [hydrateSpeech]);
+
+  useEffect(() => {
+    if (!signedIn || !loginSessionId) return;
+    const sessionId = loginSessionId;
+    const controller = new AbortController();
+    let checking = false;
+    async function checkSession() {
+      if (checking || controller.signal.aborted || AppState.currentState !== 'active') return;
+      checking = true;
+      try {
+        const sessions = await authApi.listSessions(controller.signal);
+        if (!controller.signal.aborted && !sessions.some(session => session.id === sessionId && session.isCurrent))
+          await useAuth.getState().endLoginSession(sessionId);
+      } catch {
+        // The API interceptor handles definitive 401 responses. Offline checks can be retried.
+      } finally {
+        checking = false;
+      }
+    }
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') void checkSession();
+    });
+    const interval = setInterval(checkSession, 60_000);
+    void checkSession();
+    return () => {
+      controller.abort();
+      subscription.remove();
+      clearInterval(interval);
+    };
+  }, [signedIn, loginSessionId]);
 
   useEffect(() => {
     if (ready && fontsSettled) SplashScreen.hideAsync();
