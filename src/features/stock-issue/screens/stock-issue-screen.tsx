@@ -61,7 +61,7 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
       onRefresh={() => { void state.refresh(); }} ItemSeparatorComponent={Separator}
       ListHeaderComponent={<View style={styles.header}>
         <WorkCompletionActions visible={!busy && !state.detail.isFetching && !state.detail.isError && state.detail.data?.status === 'Dispatched'} message={'Đã hoàn tất xuất hàng.'} />
-        <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{state.canView ? state.detail.data?.stockIssueRequestCode ?? 'Phiếu xuất được giao' : 'Chưa thể mở phiếu xuất'}</Text>
+        <Text selectable style={[styles.reference, { color: theme.text }]}>{state.canView ? state.detail.data?.stockIssueRequestCode ?? 'Phiếu xuất được giao' : 'Chưa thể mở phiếu xuất'}</Text>
         {!state.canView ? <AlertBanner title={state.validId ? 'Chọn kho được giao và kiểm tra quyền xem phiếu xuất.' : 'Mã phiếu xuất không hợp lệ.'} /> : <>
           {state.detail.isPending && <AlertBanner title="Đang tải phiếu xuất…" />}
           {error && <AlertBanner variant="destructive" title="Chưa thể tải dữ liệu mới" description={getApiErrorMessage(error)} />}
@@ -110,5 +110,5 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
 }
 function Separator() { return <View style={styles.separator} />; }
 const styles = StyleSheet.create({ root: { flex: 1 }, content: { padding: 20, width: '100%', maxWidth: 760, alignSelf: 'center' },
-  header: { gap: 16, paddingBottom: 16 }, separator: { height: 16 }, title: { fontFamily: FontFamily.bold, fontSize: 26, lineHeight: 34 },
+  header: { gap: 16, paddingBottom: 16 }, separator: { height: 16 }, reference: { fontFamily: FontFamily.mono, fontSize: 13, lineHeight: 21 }, title: { fontFamily: FontFamily.bold, fontSize: 26, lineHeight: 34 },
   text: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 23 } });

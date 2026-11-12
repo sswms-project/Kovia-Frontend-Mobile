@@ -1,7 +1,8 @@
-import axios, { create as createAxios } from 'axios';
+import axios, { create as createAxios, isAxiosError, isCancel } from 'axios';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 import { tokenStorage } from './token-storage';
+import { decodeJwtPayload } from './jwt';
 
 const raw = (process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:7070').replace(/\/+$/, '');
 export const API_BASE_URL = raw.endsWith('/api') ? raw : `${raw}/api`;
@@ -32,13 +33,20 @@ export const setSessionExpiredHandler = (fn: () => void) => {
   onSessionExpired = fn;
 };
 
-api.interceptors.request.use(async (config) => {
-  if (
-    config.url?.startsWith('/auth/') &&
-    !['/auth/me', '/auth/logout', '/auth/change-password'].includes(config.url)
-  )
-    return config;
+type RetryConfig = InternalAxiosRequestConfig & { retryAccessToken?: string };
+
+function isPublicAuth(url: string) {
+  if (!url.startsWith('/auth/')) return false;
+  if (url === '/auth/sessions/complete') return true;
+  return !['/auth/me', '/auth/logout', '/auth/change-password', '/auth/sessions'].includes(url) &&
+    !url.startsWith('/auth/sessions/');
+}
+
+api.interceptors.request.use(async (config: RetryConfig) => {
+  if (isPublicAuth(config.url ?? '')) return config;
   const tokens = await tokenStorage.get();
+  if (config.retryAccessToken && config.retryAccessToken !== tokens?.accessToken)
+    throw new ApiError('Phiên làm việc đã thay đổi. Vui lòng thử lại.', 409);
   // SecureStore may yield while the account or warehouse changes.
   if ('assertCurrentContext' in config && typeof config.assertCurrentContext === 'function') {
     try {
@@ -52,17 +60,33 @@ api.interceptors.request.use(async (config) => {
 });
 
 // Gộp các request 401 đồng thời vào một lần refresh
-let refreshing: Promise<string | null> | null = null;
+const refreshes = new Map<string, Promise<string | null>>();
 
-const refreshAccessToken = async (): Promise<string | null> => {
+const refreshAccessToken = async (failedToken: string): Promise<string | null> => {
   const tokens = await tokenStorage.get();
   if (!tokens) return null;
+  if (tokens.accessToken !== failedToken) {
+    const previous = decodeJwtPayload(failedToken);
+    const current = decodeJwtPayload(tokens.accessToken);
+    return previous?.sid && previous.sid === current?.sid && previous.user_id === current?.user_id &&
+      previous.tenant_id === current?.tenant_id ? tokens.accessToken : null;
+  }
   try {
-    const res = await axios.post<ApiResponse<Tokens>>(`${API_BASE_URL}/auth/refresh`, tokens);
+    const send = () => axios.post<ApiResponse<Tokens>>(`${API_BASE_URL}/auth/refresh`, tokens, { timeout: 30_000 });
+    const res = await send().catch(async (error: unknown) => {
+      if (isAxiosError(error) && !isCancel(error) &&
+        (!error.response || [502, 503, 504].includes(error.response.status)) &&
+        decodeJwtPayload(tokens.accessToken)?.sid &&
+        (await tokenStorage.get())?.refreshToken === tokens.refreshToken) return send();
+      throw error;
+    });
     // Logout can finish while refresh is in flight; never restore that old session.
     if (!(await tokenStorage.replaceIfCurrent(tokens.refreshToken, res.data.data))) return null;
     return res.data.data.accessToken;
-  } catch {
+  } catch (error) {
+    const status = isAxiosError(error) ? error.response?.status ?? 0 : 0;
+    if (status !== 401)
+      throw new ApiError('Chưa thể làm mới phiên. Vui lòng kiểm tra kết nối và thử lại.', status);
     await tokenStorage.clearIfCurrent(tokens.refreshToken);
     return null;
   }
@@ -76,29 +100,30 @@ api.interceptors.response.use(
     error: AxiosError<{ message?: string; statusCode?: number; errors?: Record<string, string[]> }>,
   ) => {
     if (error instanceof ApiError) return Promise.reject(error);
-    const original = error.config as
-      | (InternalAxiosRequestConfig & { _retry?: boolean })
-      | undefined;
-    // These endpoints use 401 for wrong CAPTCHA/OTP, not just expired JWTs.
-    const isAuthCall =
-      (original?.url?.startsWith('/auth/') && original.url !== '/auth/me') ||
-      original?.url?.startsWith('/settings/2fa');
+    const original = error.config as RetryConfig | undefined;
+    const url = original?.url ?? '';
+    const authorization = original?.headers.Authorization;
+    const failedToken = typeof authorization === 'string' && authorization.startsWith('Bearer ')
+      ? authorization.slice(7) : null;
 
     if (error.response?.status === 403 && original &&
       !original.url?.startsWith('/auth/') && !original.url?.startsWith('/settings/'))
       accessDeniedListeners.forEach((listener) => listener());
 
-    if (error.response?.status === 401 && original && !original._retry && !isAuthCall) {
-      const requestAuthorization = original.headers.Authorization;
-      original._retry = true;
-      refreshing ??= refreshAccessToken().finally(() => (refreshing = null));
-      const token = await refreshing;
+    if (error.response?.status === 401 && original && failedToken && !original.retryAccessToken &&
+      !isPublicAuth(url) && !url.startsWith('/settings/2fa')) {
+      let refresh = refreshes.get(failedToken);
+      if (!refresh) {
+        refresh = refreshAccessToken(failedToken).finally(() => refreshes.delete(failedToken));
+        refreshes.set(failedToken, refresh);
+      }
+      const token = await refresh;
       if (token) {
-        original.headers.Authorization = `Bearer ${token}`;
+        original.retryAccessToken = token;
         return api(original);
       }
       const currentTokens = await tokenStorage.get();
-      if (!currentTokens || requestAuthorization === `Bearer ${currentTokens.accessToken}`)
+      if (!currentTokens || currentTokens.accessToken === failedToken)
         onSessionExpired?.();
     }
 

@@ -13,6 +13,7 @@ import { assertNotificationContext } from '../notifications';
 
 export function useNotificationRealtime(enabled: boolean, identity: string | null, signature: string | null, onRefresh?: (event?: unknown) => void, transfer?: { readonly id: string; readonly onChange: (event?: unknown) => void }) {
   const client = useQueryClient();
+  const loginSessionId = useAuth((state) => state.loginSessionId);
   const transferSession = useRef<string | null>(null);
   const [active, setActive] = useState(AppState.currentState === 'active');
   const [connectionState, setConnectionState] = useState<{ signature: string | null; connected: boolean } | null>(null);
@@ -76,6 +77,10 @@ export function useNotificationRealtime(enabled: boolean, identity: string | nul
       });
     }
     connection.on('NotificationCreated', refresh);
+    connection.on('LoginSessionEnded', (endedSessionId: unknown) => {
+      if (!disposed && loginSessionId && endedSessionId === loginSessionId)
+        void useAuth.getState().endLoginSession(loginSessionId).catch(() => undefined);
+    });
     if (transfer) connection.on('TransferChanged', transferChanged);
     connection.onreconnecting(() => { if (!disposed) setConnectionState({ signature, connected: false }); });
     connection.onreconnected(() => {
@@ -93,6 +98,6 @@ export function useNotificationRealtime(enabled: boolean, identity: string | nul
       if (transfer) connection.off('TransferChanged', transferChanged);
       void connection.stop().catch(() => undefined);
     };
-  }, [client, enabled, identity, signature, active, onRefresh, transfer]);
+  }, [client, enabled, identity, signature, active, loginSessionId, onRefresh, transfer]);
   return enabled && active && connectionState?.signature === signature && connectionState.connected;
 }
