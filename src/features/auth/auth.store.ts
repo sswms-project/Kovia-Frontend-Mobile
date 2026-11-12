@@ -73,15 +73,21 @@ export const useAuth = create<AuthState>((set) => ({
     await current.clearSession();
   },
   signOut: async () => {
+    const sessionId = useAuth.getState().loginSessionId;
+    const isCurrent = () => {
+      const current = useAuth.getState();
+      return current.signedIn && current.loginSessionId === sessionId;
+    };
     await unregisterPush().catch(() => undefined);
+    if (!isCurrent()) return;
     try {
       await authApi.logout();
     } catch {
-      set({
+      if (isCurrent()) set({
         notice: 'Đã đăng xuất khỏi thiết bị. Không kết nối được máy chủ để thu hồi phiên từ xa.',
       });
     } finally {
-      await useAuth.getState().clearSession();
+      if (isCurrent()) await useAuth.getState().clearSession();
     }
   },
 }));

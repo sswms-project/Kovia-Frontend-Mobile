@@ -1,4 +1,4 @@
-import axios, { create as createAxios, isAxiosError } from 'axios';
+import axios, { create as createAxios, isAxiosError, isCancel } from 'axios';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 import { tokenStorage } from './token-storage';
@@ -72,7 +72,14 @@ const refreshAccessToken = async (failedToken: string): Promise<string | null> =
       previous.tenant_id === current?.tenant_id ? tokens.accessToken : null;
   }
   try {
-    const res = await axios.post<ApiResponse<Tokens>>(`${API_BASE_URL}/auth/refresh`, tokens, { timeout: 30_000 });
+    const send = () => axios.post<ApiResponse<Tokens>>(`${API_BASE_URL}/auth/refresh`, tokens, { timeout: 30_000 });
+    const res = await send().catch(async (error: unknown) => {
+      if (isAxiosError(error) && !isCancel(error) &&
+        (!error.response || [502, 503, 504].includes(error.response.status)) &&
+        decodeJwtPayload(tokens.accessToken)?.sid &&
+        (await tokenStorage.get())?.refreshToken === tokens.refreshToken) return send();
+      throw error;
+    });
     // Logout can finish while refresh is in flight; never restore that old session.
     if (!(await tokenStorage.replaceIfCurrent(tokens.refreshToken, res.data.data))) return null;
     return res.data.data.accessToken;
@@ -104,7 +111,7 @@ api.interceptors.response.use(
       accessDeniedListeners.forEach((listener) => listener());
 
     if (error.response?.status === 401 && original && failedToken && !original.retryAccessToken &&
-      !isPublicAuth(url) && url !== '/auth/logout' && !url.startsWith('/settings/2fa')) {
+      !isPublicAuth(url) && !url.startsWith('/settings/2fa')) {
       let refresh = refreshes.get(failedToken);
       if (!refresh) {
         refresh = refreshAccessToken(failedToken).finally(() => refreshes.delete(failedToken));
