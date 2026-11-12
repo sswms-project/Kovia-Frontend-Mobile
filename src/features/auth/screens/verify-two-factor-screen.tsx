@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { Platform } from 'react-native';
 import { toast } from 'sonner-native';
 
 import { isApiErrorResponse } from '@/lib/api-error';
@@ -11,6 +12,8 @@ import {
   type VerifyTwoFactorFormValues,
 } from '../auth.schema';
 import { useAuth } from '../auth.store';
+import type { LoginResponseDto } from '../auth.types';
+import { LoginSessionSelection } from '../components/login-session-selection';
 import {
   classifyVerify2FAError,
   isAccountInactiveError,
@@ -28,6 +31,7 @@ export function VerifyTwoFactorScreen() {
   const verifyMutation = useVerify2FAMutation();
   const [step, setStep] = useState<VerifyStep>({ status: 'form' });
   const [apiErrorKind, setApiErrorKind] = useState<Verify2FAErrorKind | null>(null);
+  const [selection, setSelection] = useState<LoginResponseDto | null>(null);
   // Bumped on exit so a response that lands after the user left cannot sign them in.
   const flowIdRef = useRef(0);
 
@@ -64,9 +68,16 @@ export function VerifyTwoFactorScreen() {
     const flowId = flowIdRef.current;
 
     try {
-      const result = await verifyMutation.mutateAsync({ tempToken, otp: values.otp });
+      const result = await verifyMutation.mutateAsync({ tempToken, otp: values.otp,
+        clientLabel: Platform.OS === 'web' ? 'Kovia Web' : `Kovia ${Platform.OS === 'ios' ? 'iOS' : 'Android'}` });
       if (flowId !== flowIdRef.current || Date.now() >= twoFactor.expiresAt) return;
 
+      if (result.sessionSelectionTicket) {
+        cancelTwoFactor();
+        form.reset();
+        setSelection(result);
+        return;
+      }
       if (result.requires2FA || !result.accessToken || !result.refreshToken) {
         toast.error('Phản hồi xác thực hai yếu tố không hợp lệ. Vui lòng thử lại.');
         return;
@@ -97,6 +108,8 @@ export function VerifyTwoFactorScreen() {
       setApiErrorKind(kind);
     }
   }
+
+  if (selection) return <LoginSessionSelection initial={selection} onBack={handleBackToLogin} />;
 
   return (
     <VerifyTwoFactorForm

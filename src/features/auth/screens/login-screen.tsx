@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { Platform } from 'react-native';
 import { toast } from 'sonner-native';
 
 import { getApiErrorMessage, isApiErrorResponse } from '@/lib/api-error';
@@ -9,7 +10,8 @@ import { logger } from '@/lib/logger';
 
 import { loginSchema, type LoginFormValues } from '../auth.schema';
 import { useAuth } from '../auth.store';
-import type { CaptchaChallengeResponse } from '../auth.types';
+import type { CaptchaChallengeResponse, LoginResponseDto } from '../auth.types';
+import { LoginSessionSelection } from '../components/login-session-selection';
 import { getTemporaryLockSeconds } from '../auth.utils';
 import { LoginForm } from '../components/login-page';
 import {
@@ -32,6 +34,7 @@ export function LoginScreen() {
   const [requiresVerification, setRequiresVerification] = useState(false);
   const [lastEmail, setLastEmail] = useState('');
   const [lockSeconds, setLockSeconds] = useState(0);
+  const [selection, setSelection] = useState<LoginResponseDto | null>(null);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -76,6 +79,7 @@ export function LoginScreen() {
       const data = await loginMutation.mutateAsync({
         email: values.email,
         password: values.password,
+        clientLabel: Platform.OS === 'web' ? 'Kovia Web' : `Kovia ${Platform.OS === 'ios' ? 'iOS' : 'Android'}`,
         ...(values.captchaId ? { captchaId: values.captchaId } : {}),
         ...(values.captchaAnswer ? { captchaAnswer: values.captchaAnswer } : {}),
       });
@@ -91,7 +95,13 @@ export function LoginScreen() {
         return;
       }
 
-      // The auth gate in the root layout swaps to the app stack once the tokens are stored.
+      if (data.sessionSelectionTicket) {
+        form.reset({ email: values.email, password: '', captchaAnswer: '' });
+        setCaptcha(null);
+        setSelection(data);
+        return;
+      }
+
       await applySignIn(data);
     } catch (error) {
       if (!isApiErrorResponse(error)) {
@@ -119,6 +129,8 @@ export function LoginScreen() {
       if (!isInlineError) toast.error(error.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
     }
   }
+
+  if (selection) return <LoginSessionSelection initial={selection} onBack={() => setSelection(null)} />;
 
   return (
     <LoginForm

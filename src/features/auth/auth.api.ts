@@ -9,6 +9,7 @@ import type {
   ForgotPasswordRequestDto,
   LoginRequestDto,
   LoginResponseDto,
+  LoginSessionSummary,
   ResendVerificationRequestDto,
   ResetPasswordRequestDto,
   Verify2FARequestDto,
@@ -35,6 +36,12 @@ const getProfile = async (signal?: AbortSignal): Promise<UserProfile> => {
 export const authApi = {
   login: (body: LoginRequestDto) =>
     api.post<ApiResponse<LoginResponseDto>>('/auth/login', body).then(unwrap),
+  completeSession: (ticket: string, replaceSessionId: string | null) =>
+    api.post<ApiResponse<LoginResponseDto>>('/auth/sessions/complete', { ticket, replaceSessionId }).then(unwrap),
+  listSessions: (signal?: AbortSignal) =>
+    api.get<ApiResponse<LoginSessionSummary[]>>('/auth/sessions', { signal }).then(unwrap),
+  revokeSession: (id: string | null) =>
+    api.delete(id ? `/auth/sessions/${encodeURIComponent(id)}` : '/auth/sessions'),
   createCaptcha: () =>
     api.post<ApiResponse<CaptchaChallengeResponse>>('/auth/captcha/challenge').then(unwrap),
   verify2FA: (body: Verify2FARequestDto) =>

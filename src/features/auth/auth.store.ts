@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import { setSessionExpiredHandler } from '@/lib/api';
 import { tokenStorage } from '@/lib/token-storage';
+import { decodeJwtPayload } from '@/lib/jwt';
 import { formDraftStorage } from '@/lib/form-draft-storage';
 import { clearSessionQueries } from '@/providers/query-provider';
 
@@ -12,6 +13,7 @@ import { authApi, type SignInResponse } from './auth.api';
 type AuthState = {
   ready: boolean;
   signedIn: boolean;
+  loginSessionId: string | null;
   notice: string | null;
   twoFactor: { tempToken: string; expiresAt: number } | null;
   beginTwoFactor: (tempToken: string) => void;
@@ -20,11 +22,18 @@ type AuthState = {
   restore: () => Promise<void>;
   applySignIn: (res: SignInResponse) => Promise<void>;
   signOut: () => Promise<void>;
+  endLoginSession: (sessionId: string) => Promise<void>;
 };
+
+function sessionIdFromToken(token: string) {
+  const sid = decodeJwtPayload(token)?.sid;
+  return typeof sid === 'string' ? sid : null;
+}
 
 export const useAuth = create<AuthState>((set) => ({
   ready: false,
   signedIn: false,
+  loginSessionId: null,
   notice: null,
   twoFactor: null,
   beginTwoFactor: (tempToken) =>
@@ -36,12 +45,13 @@ export const useAuth = create<AuthState>((set) => ({
     } finally {
       await formDraftStorage.clear().catch(() => set({ notice: 'Không xóa hết bản nháp trên thiết bị. Vui lòng mở lại app để thử đăng xuất lại.' }));
       await clearSessionQueries();
-      set({ signedIn: false, twoFactor: null });
+      set({ signedIn: false, loginSessionId: null, twoFactor: null });
     }
   },
   restore: async () => {
     try {
-      set({ signedIn: !!(await tokenStorage.get()) });
+      const tokens = await tokenStorage.get();
+      set({ signedIn: !!tokens, loginSessionId: tokens ? sessionIdFromToken(tokens.accessToken) : null });
     } catch {
       set({ signedIn: false, notice: 'Không đọc được phiên đã lưu. Vui lòng đăng nhập lại.' });
     } finally {
@@ -54,7 +64,13 @@ export const useAuth = create<AuthState>((set) => ({
     await formDraftStorage.clear();
     await tokenStorage.set({ accessToken: res.accessToken, refreshToken: res.refreshToken });
     await clearSessionQueries();
-    set({ signedIn: true, twoFactor: null, notice: null });
+    set({ signedIn: true, loginSessionId: sessionIdFromToken(res.accessToken), twoFactor: null, notice: null });
+  },
+  endLoginSession: async (sessionId) => {
+    const current = useAuth.getState();
+    if (!current.signedIn || current.loginSessionId !== sessionId) return;
+    set({ signedIn: false, loginSessionId: null, notice: 'Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.' });
+    await current.clearSession();
   },
   signOut: async () => {
     await unregisterPush().catch(() => undefined);

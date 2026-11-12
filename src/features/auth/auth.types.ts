@@ -3,6 +3,7 @@ export interface LoginRequestDto {
   password: string;
   captchaId?: string;
   captchaAnswer?: string;
+  clientLabel?: string;
 }
 
 export interface LoginResponseDto {
@@ -11,6 +12,15 @@ export interface LoginResponseDto {
   expiresIn: number;
   requires2FA: boolean;
   tempToken?: string | null;
+  sessionSelectionTicket?: string | null;
+  activeSessions?: LoginSessionSummary[] | null;
+}
+
+export interface LoginSessionSummary {
+  id: string;
+  clientLabel: string;
+  lastSeenAt: string;
+  isCurrent: boolean;
 }
 
 export interface CaptchaChallengeResponse {
@@ -22,6 +32,7 @@ export interface CaptchaChallengeResponse {
 export interface Verify2FARequestDto {
   tempToken: string;
   otp: string;
+  clientLabel?: string;
 }
 
 export interface ResendVerificationRequestDto {
