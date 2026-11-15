@@ -36,11 +36,42 @@
         }
       ],
       "expo-secure-store",
-      ["expo-notifications", { "defaultChannel": "tasks" }],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "tasks"
+        }
+      ],
       "expo-sqlite",
-      ["expo-image-picker", { "photosPermission": "Cho phép Kovia chọn ảnh bằng chứng nghiệp vụ tại kho.", "cameraPermission": "Cho phép Kovia dùng camera để quét mã và chụp ảnh bằng chứng tại kho.", "microphonePermission": false }],
-      ["expo-camera", { "cameraPermission": "Cho phép Kovia dùng camera để quét mã và chụp ảnh bằng chứng tại kho.", "recordAudioAndroid": false, "barcodeScannerEnabled": true }],
-      ["expo-audio", { "microphonePermission": false, "recordAudioAndroid": false, "enableBackgroundPlayback": false, "enableBackgroundRecording": false }]
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cho phép Kovia chọn ảnh bằng chứng nghiệp vụ tại kho.",
+          "cameraPermission": "Cho phép Kovia dùng camera để quét mã và chụp ảnh bằng chứng tại kho.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Cho phép Kovia dùng camera để quét mã và chụp ảnh bằng chứng tại kho.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

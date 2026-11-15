@@ -34,7 +34,7 @@ export function ManualCodeEntry({ form, onSubmit, isBusy }: ManualCodeEntryProps
             autoComplete="off"
             returnKeyType="done"
             editable={!isBusy}
-            onSubmitEditing={submit}
+            onSubmitEditing={() => void submit()}
           />
         )}
       />

@@ -103,7 +103,7 @@ export function PutawayAllocationModal({ state, locations, receipt, suggestions,
                 editable={!locked} multiline maxLength={500} error={fieldState.error?.message}
                 hint={state.values.overrideReasonCode && state.values.overrideReasonCode !== 'Other'
                   ? 'Mô tả bổ sung không bắt buộc, tối đa 500 ký tự.' : 'Ít nhất 5 ký tự khi chưa chọn nhóm hoặc chọn Lý do khác.'} />} />
-            </View> : null} />
+            </View> : undefined} />
         <View style={[styles.footer, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <Text accessibilityLiveRegion="polite" style={[styles.text, { color: theme.textSecondary }]}>Phân bổ {allocation?.fullyAllocated ?? 0}/{items.length} sản phẩm · Quét mã {allocation?.confirmedCount ?? 0}/{allocation?.requiredCount ?? 0}</Text>
           {allocation?.needsReason && !allocation.reasonValid && <Button label="Bổ sung lý do để tiếp tục" variant="outline" disabled={locked} onPress={showReason} />}

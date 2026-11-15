@@ -1,7 +1,7 @@
 import { Camera, ImagePlus, ScanLine } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Controller, useWatch, type UseFormReturn } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, View, type TextInput } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, View, type TextInputInstance } from 'react-native';
 import { WorkScreenHeader } from '@/components/work-screen-header';
 import { WorkActionBar } from '@/components/work-action-bar';
 import { useModalExit } from '@/hooks/use-screen-exit';
@@ -22,7 +22,7 @@ interface Props { readonly item: CountItem; readonly form: UseFormReturn<CountFo
 export function CountEditor({ item, form, busy, canScan, submitDisabled, notice, files, onPhoto, onRemovePhoto, onReview, onClose }: Props) {
   const theme = useTheme(), close = useModalExit(onClose);
   const [eachUnit, setEachUnit] = useState(false), [cameraOpen, setCameraOpen] = useState(false);
-  const quantityRef = useRef<TextInput>(null);
+  const quantityRef = useRef<TextInputInstance>(null);
   const values = useWatch({ control: form.control });
   const photoCount = files.length + (item.damageEvidence?.length ?? 0);
   const quantity = values.countedQuantity ?? Number.NaN;

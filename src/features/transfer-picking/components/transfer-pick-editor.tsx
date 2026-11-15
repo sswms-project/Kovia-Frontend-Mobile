@@ -4,7 +4,7 @@ import { WorkActionBar } from '@/components/work-action-bar';
 import { useModalExit } from '@/hooks/use-screen-exit';
 import { useEffect, useRef, useState } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View, type TextInput } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View, type ScrollViewInstance, type TextInputInstance } from 'react-native';
 
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
@@ -24,8 +24,8 @@ export function TransferPickEditor({ line, slotCode, form, busy, submitDisabled 
   const close = useModalExit(onClose);
   const scan = useTransferPickScan(line, form, busy || submitDisabled);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const scrollRef = useRef<ScrollView>(null), quantityOffset = useRef(0);
-  const sourceRef = useRef<TextInput>(null), productRef = useRef<TextInput>(null), quantityRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null), quantityOffset = useRef(0);
+  const sourceRef = useRef<TextInputInstance>(null), productRef = useRef<TextInputInstance>(null), quantityRef = useRef<TextInputInstance>(null);
   useEffect(() => {
     if (busy || cameraOpen) return;
     if (!scan.sourceReady) { if (scan.hardware) sourceRef.current?.focus(); }
