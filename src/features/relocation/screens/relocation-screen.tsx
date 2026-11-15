@@ -12,6 +12,8 @@ import { EXECUTION_LABELS, taskDate } from '@/features/my-tasks/my-tasks';
 import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
 
+import { TaskReasonDialog } from '@/features/warehouse-task/components/task-reason-dialog';
+
 import { RelocationEditor } from '../components/relocation-editor';
 import { RelocationLineCard } from '../components/relocation-line-card';
 import { useRelocation } from '../hooks/use-relocation';
@@ -49,7 +51,8 @@ export function RelocationScreen({ taskId }: { readonly taskId: string }) {
           <AlertBanner title="Chuyển vị trí giữ nguyên tổng tồn kho" description="Ghi nhận từng phần đã chuyển. Công việc tự hoàn tất khi tất cả dòng đủ số lượng; không có bước duyệt bổ sung." />
           {state.detail.isError && <AlertBanner title="Đang xem dữ liệu cũ — đã khóa ghi" description={`Lần tải thành công: ${taskDate(new Date(state.detail.dataUpdatedAt).toISOString())}`} />}
           {state.canStart && <Button label={state.task.executionStatus === 'Paused' ? 'Tiếp tục chuyển vị trí' : 'Bắt đầu chuyển vị trí'} disabled={busy} onPress={state.start} />}
-          {state.canManage && !state.canReadSource && <AlertBanner title="Chưa đủ quyền xác minh tồn nguồn" description="Cần quyền xem tồn kho, sản phẩm và đơn vị để kiểm tra đúng lô và số lượng trước khi chuyển. Bạn vẫn có thể xem công việc; liên hệ quản lý để kiểm tra phân quyền." />}
+          {state.canCancel && <Button label="Hủy công việc" variant="outline" disabled={busy || state.cancelMutation.isPending} onPress={state.openCancel} />}
+          {state.canManage && !state.canReadSource &&<AlertBanner title="Chưa đủ quyền xác minh tồn nguồn" description="Cần quyền xem tồn kho, sản phẩm và đơn vị để kiểm tra đúng lô và số lượng trước khi chuyển. Bạn vẫn có thể xem công việc; liên hệ quản lý để kiểm tra phân quyền." />}
           {state.task.executionStatus === 'InProgress' && state.canExecute && <Text style={[styles.text, { color: theme.textSecondary }]}>Mở từng dòng để xem lô nguồn, chọn vị trí và nhập số thực chuyển. Lịch sử các lần chuyển nằm dưới các dòng hàng.</Text>}
           {!state.task.lines.length && <AlertBanner title="Công việc chưa có dòng hàng." />}
         </>}
@@ -68,6 +71,9 @@ export function RelocationScreen({ taskId }: { readonly taskId: string }) {
     </Modal>
     <ConfirmationModal visible={state.target?.action === 'Start'} title="Bắt đầu công việc chuyển vị trí?" description="Bước này chỉ cập nhật trạng thái công việc; chưa thay đổi tồn kho."
       busy={busy} error={state.mutation.error} onConfirm={() => { void state.confirm(); }} onCancel={state.cancelConfirmation} />
+    <TaskReasonDialog visible={state.cancelOpen} title="Hủy công việc chuyển vị trí?"
+      description={state.cancelMutation.error ? getApiErrorMessage(state.cancelMutation.error) : 'Công việc sẽ bị hủy, vị trí đang giữ được giải phóng và người được giao sẽ nhận thông báo. Tồn kho không thay đổi.'}
+      form={state.cancelForm} isPending={state.cancelMutation.isPending} onSubmit={state.submitCancel} onCancel={state.closeCancel} />
   </SafeAreaView>;
 }
 function Separator() { return <View style={styles.separator} />; }

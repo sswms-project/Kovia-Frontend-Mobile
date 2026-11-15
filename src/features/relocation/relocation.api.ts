@@ -43,6 +43,10 @@ export const relocationApi = {
     }
     throw new Error('Chưa tìm thấy đúng tồn nguồn được giao. Không thể xác nhận chuyển; hãy tải lại hoặc liên hệ quản lý.');
   },
+  cancel: async (taskId: string, body: { reason: string; expectedVersion: string }) => {
+    id.parse(taskId);
+    return unwrap(await api.post<ApiResponse<unknown>>(`/warehouse-tasks/${taskId}/cancel`, body));
+  },
   execute: async (taskId: string, body: RelocationCommand, assertCurrentContext: () => void) => {
     id.parse(taskId); const parsed = relocationCommandSchema.parse(body); assertCurrentContext();
     const config: AxiosRequestConfig & { assertCurrentContext: () => void } = { assertCurrentContext };

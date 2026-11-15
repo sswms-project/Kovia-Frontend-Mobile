@@ -15,6 +15,7 @@ import { useWarehouseSelection } from '@/features/warehouse-access/warehouse-acc
 import { getApiErrorKind, logApiError } from '@/lib/api-error';
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema';
 import { warehouseCommand, type WarehouseCommandMemory } from '@/lib/warehouse-command';
+import { taskActionReasonSchema, type TaskActionReasonFormValues } from '@/features/warehouse-task/warehouse-task.schema';
 
 import { assertRelocation, assertRelocationScope, relocationDestinations } from '../relocation';
 import { relocationApi } from '../relocation.api';
@@ -43,6 +44,16 @@ export function useRelocation(taskId: string) {
   const fresh = !!task && detail.isSuccess && !detail.isFetching && !detail.isError && !!task.rowVersion;
   const canStart = canManage && fresh && (task.executionStatus === 'Queued' || task.executionStatus === 'Paused');
   const canExecute = canReadSource && fresh && task.executionStatus === 'InProgress';
+  const canCancel = canAssign && fresh && (task.executionStatus === 'Queued' || task.executionStatus === 'Paused');
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const cancelForm = useForm<TaskActionReasonFormValues>({ resolver: zodResolver(taskActionReasonSchema), defaultValues: { reason: '' } });
+  const cancelMutation = useMutation<unknown, Error, TaskActionReasonFormValues & { version: string }>({ retry: false,
+    mutationFn: ({ reason, version }) => relocationApi.cancel(taskId, { reason, expectedVersion: version }),
+    onError: logApiError, onSuccess: async () => {
+      setCancelOpen(false); cancelForm.reset({ reason: '' });
+      setNotice({ key: contextKey, message: 'Đã hủy công việc chuyển vị trí.' });
+      await client.invalidateQueries({ queryKey: ['warehouse', identity, warehouseId, revision] });
+    } });
   const [editor, setEditor] = useState<{ key: string; version: string; line: RelocationLine } | null>(null);
   const [target, setTarget] = useState<Target | null>(null);
   const [notice, setNotice] = useState<{ key: string; message: string } | null>(null);
@@ -144,6 +155,13 @@ export function useRelocation(taskId: string) {
     notice: notice?.key === contextKey ? notice.message : null, openLine, discard: discard && !!activeEditor,
     start: () => { if (canStart && task?.rowVersion && !lock.current) { mutation.reset(); setTarget({ key: contextKey, version: task.rowVersion, action: 'Start' }); } },
     cancelConfirmation: () => { if (!lock.current) setTarget(null); },
+    canCancel, cancelOpen: cancelOpen && canCancel, cancelForm, cancelMutation,
+    openCancel: () => { if (canCancel && !lock.current) { cancelMutation.reset(); cancelForm.reset({ reason: '' }); setNotice(null); setCancelOpen(true); } },
+    closeCancel: () => { if (!cancelMutation.isPending) setCancelOpen(false); },
+    submitCancel: (values: TaskActionReasonFormValues) => {
+      if (!canCancel || !task?.rowVersion || cancelMutation.isPending) return;
+      cancelMutation.mutate({ reason: values.reason.trim(), version: task.rowVersion });
+    },
     closeEditor: () => { if (!lock.current) { setEditor(null); setTarget(null); } },
     discardChanges: () => { if (!lock.current) { void draft.discardAndClose(() => { setEditor(null); setTarget(null); setDiscard(false); form.reset(); }); } },
     cancelDiscard: () => setDiscard(false),
