@@ -90,7 +90,7 @@ export function VerifyEmailView({
                 autoComplete="email"
                 textContentType="emailAddress"
                 returnKeyType="send"
-                onSubmitEditing={submitResend}
+                onSubmitEditing={() => void submitResend()}
               />
             )}
           />

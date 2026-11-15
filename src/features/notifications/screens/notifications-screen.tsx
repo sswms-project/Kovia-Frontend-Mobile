@@ -95,9 +95,9 @@ export function NotificationsScreen() {
         </>}
       </View>}
       ListEmptyComponent={state.canView && state.list.isSuccess ? <AlertBanner title={state.filters.search ? 'Không có thông báo phù hợp.'
-        : state.filters.unreadOnly ? 'Bạn không có thông báo mới.' : 'Bạn chưa có thông báo nào.'} /> : null}
+        : state.filters.unreadOnly ? 'Bạn không có thông báo mới.' : 'Bạn chưa có thông báo nào.'} /> : undefined}
       onEndReached={state.loadMore} onEndReachedThreshold={0.4}
-      ListFooterComponent={state.loadingMore ? <ActivityIndicator style={styles.footer} color={theme.primary} /> : null} />
+      ListFooterComponent={state.loadingMore ? <ActivityIndicator style={styles.footer} color={theme.primary} /> : undefined} />
     <ConfirmationModal visible={confirmAll === identityKey && state.canView} title="Đánh dấu tất cả thông báo đã đọc?"
       description="Thao tác áp dụng cho tất cả thông báo chưa đọc của tài khoản trong doanh nghiệp này, kể cả các trang và thông báo ngoài bộ lọc hiện tại."
       busy={busy} error={state.mutation.error} onConfirm={() => { void state.markRead(null).then(success => { if (success) setConfirmAll(null); }); }}

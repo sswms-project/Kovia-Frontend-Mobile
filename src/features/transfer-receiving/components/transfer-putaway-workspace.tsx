@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CircleCheck, ScanLine } from 'lucide-react-native';
 import { Controller } from 'react-hook-form';
-import { FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, View, type TextInput } from 'react-native';
+import { FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, View, type TextInputInstance, type ViewInstance } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { WorkScreenHeader } from '@/components/work-screen-header';
 import { WorkActionBar } from '@/components/work-action-bar';
@@ -21,9 +21,9 @@ import type { useTransferPutawayAllocation } from '../hooks/use-transfer-putaway
 import { TransferLocationSelector } from './transfer-location-selector';
 
 type State = ReturnType<typeof useTransferPutawayAllocation>;
-function AllocationCard({ state, index, onQuantityFocus }: { readonly state: State; readonly index: number; readonly onQuantityFocus: (input: TextInput) => void }) {
+function AllocationCard({ state, index, onQuantityFocus }: { readonly state: State; readonly index: number; readonly onQuantityFocus: (input: TextInputInstance) => void }) {
   const theme = useTheme(), line = state.values[index];
-  const quantityRef = useRef<TextInput>(null);
+  const quantityRef = useRef<TextInputInstance>(null);
   const pendingFocus = useRef(false);
   const cameraSession = useRef(0);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -103,12 +103,12 @@ export function TransferPutawayWorkspace({ state, warehouseId, code }: { readonl
   const theme = useTheme();
   const [tab, setTab] = useState<'plan' | 'execution'>('execution');
   const listRef = useRef<FlatList<{ key: string; indices: number[] }>>(null);
-  const viewportRef = useRef<View>(null);
+  const viewportRef = useRef<ViewInstance>(null);
   const scrollOffset = useRef(0);
-  const focusQuantity = useCallback((input: TextInput) => {
+  const focusQuantity = useCallback((input: TextInputInstance) => {
     const list = listRef.current;
-    input.measureInWindow((_x, inputY) => {
-      viewportRef.current?.measureInWindow((_left, listY) => {
+    input.measureInWindow((_x: number, inputY: number) => {
+      viewportRef.current?.measureInWindow((_left: number, listY: number) => {
         if (list && listRef.current === list && input.isFocused())
           list.scrollToOffset({ offset: Math.max(0, scrollOffset.current + inputY - listY - 48), animated: true });
       });

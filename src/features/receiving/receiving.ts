@@ -43,7 +43,9 @@ export function assertReceiptQuantities(values: ReceiptForm, task: ReceivingTask
       !precisionMatches(line.receivedQty * factor, 2) || !precisionMatches(line.damagedQty * factor, 2))
       throw new Error('Đơn vị hoặc quy đổi đóng gói chưa hợp lệ. Vui lòng kiểm tra số lượng theo đơn vị cơ sở.');
     if (line.receivedQty * factor > original.remainingQuantity) throw new Error('Số lượng nhận vượt phần còn được nhận. Vui lòng tải lại yêu cầu.');
-    if (original.isLotTracked && !line.lotNumber) throw new Error(`Vui lòng nhập số lô cho ${original.productSKU}.`);
+    if (original.isLotTracked && !line.lotNumber) throw new Error('Vui lòng nhập số lô cho sản phẩm quản lý theo lô.');
+    if (!original.isLotTracked && (line.lotNumber || line.manufacturedDate || line.expiryDate))
+      throw new Error('Sản phẩm quản lý theo số lượng không nhận thông tin lô.');
   }
 }
 export function assertReceiptCorrection(values: ReceiptForm, receipt: Receipt) {

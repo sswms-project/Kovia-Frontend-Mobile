@@ -64,7 +64,7 @@ export function ForgotPasswordForm({
                 autoComplete="email"
                 textContentType="emailAddress"
                 returnKeyType="send"
-                onSubmitEditing={submit}
+                onSubmitEditing={() => void submit()}
               />
             )}
           />

@@ -175,6 +175,8 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
           <Text style={[styles.text, { color: theme.textSecondary }]}>{task.sourceName ?? task.supplierName ?? 'Nguồn nhận theo yêu cầu'} · Còn {task.remainingQuantity} theo đơn vị cơ sở của từng sản phẩm</Text>
           <AlertBanner title="Kiểm trước nhận: chỉ lượng chấp nhận được ghi tồn chờ duyệt/cất. Phần từ chối vẫn có biên bản, không tăng tồn và không tự đóng lượng còn phải nhận." />
           {context.permission(P.GOODS_RECEIPTS_CREATE) && <Button label="Lập phiếu thực nhận" disabled={busy || fetching || task.remainingQuantity <= 0} onPress={editor.begin} />}
+            {context.permission(P.GOODS_RECEIPTS_CREATE) && <Button label="Quét phiếu giao hàng bằng AI" variant="outline" disabled={busy || fetching || task.remainingQuantity <= 0}
+              onPress={() => router.push({ pathname: '/(account)/receiving-ocr/[id]', params: { id: documentId } })} />}
         </>}
         {!loading && !error && !receipt && !task && <AlertBanner title="Không tìm thấy công việc nhận còn hiệu lực trong kho được giao. Công việc có thể đã hoàn tất hoặc được giao lại." />}
         {execution.notice && <AlertBanner title={execution.notice} />}
