@@ -44,7 +44,7 @@ export function TaskDetailView({ task, availableActions, isPending, onAction, on
   const isResume = task.executionStatus === 'Paused';
 
   return (
-    <SafeAreaView edges={['bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
+    <SafeAreaView edges={['left', 'right']} style={[styles.root, { backgroundColor: theme.background }]}>
     <ScrollView style={styles.root} contentContainerStyle={styles.content}
       refreshControl={onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined}>
       <View style={styles.heading}>

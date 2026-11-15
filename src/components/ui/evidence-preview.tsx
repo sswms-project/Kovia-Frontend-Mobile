@@ -9,6 +9,7 @@ import { useTheme } from '@/hooks/use-theme';
 import type { EvidenceFile, useEvidencePreview } from '@/hooks/use-evidence-preview';
 
 export function EvidenceLinks({ files, onOpen }: { readonly files: readonly EvidenceFile[]; readonly onOpen: (file: EvidenceFile) => void }) {
+  if (files.length === 0) return null;
   return <View style={styles.links}>{files.map(file => <Button key={file.id} label={`Xem ảnh: ${file.fileName}`} variant="outline" onPress={() => onOpen(file)} />)}</View>;
 }
 export function EvidencePreview({ state }: { readonly state: ReturnType<typeof useEvidencePreview> }) {
