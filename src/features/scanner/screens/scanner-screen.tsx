@@ -32,6 +32,7 @@ import type { ScanResult } from '../scanner.types';
 
 interface ScannerScreenProps {
   readonly title: string;
+  readonly locationHint?: string;
   /** Called once per accepted code. Return true/false so the scanner can give success/error feedback. */
   readonly onScan: (code: string) => ScanResult;
   readonly onClose: () => void;
@@ -45,7 +46,7 @@ interface ScannerScreenProps {
 }
 
 /** Shared scanner for inbound, outbound and stocktake flows. The owning feature supplies `onScan`. */
-export function ScannerScreen({ title, onScan, onClose, repeatGuardMs, onCameraFailure, status, showScannedCode = true, confirm }: ScannerScreenProps) {
+export function ScannerScreen({ title, locationHint, onScan, onClose, repeatGuardMs, onCameraFailure, status, showScannedCode = true, confirm }: ScannerScreenProps) {
   const theme = useTheme();
   const playFeedback = useScanFeedback();
   const isFocused = useIsFocused();
@@ -125,6 +126,11 @@ export function ScannerScreen({ title, onScan, onClose, repeatGuardMs, onCameraF
           </Pressable>
         </View>
 
+        {locationHint ? (
+          <Text accessibilityLiveRegion="polite" style={[styles.locationHint, { color: theme.textSecondary }]}>
+            {locationHint}
+          </Text>
+        ) : null}
         <View style={styles.body}>{renderBody()}</View>
 
         <ScrollView
@@ -159,6 +165,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   title: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 20 },
+  locationHint: { fontFamily: FontFamily.semibold, fontSize: 13, lineHeight: 19, marginHorizontal: 20, marginBottom: 8 },
   close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   pressed: { opacity: 0.6 },
   body: { flex: 1, marginHorizontal: 20 },

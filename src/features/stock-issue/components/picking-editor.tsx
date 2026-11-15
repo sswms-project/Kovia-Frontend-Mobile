@@ -1,6 +1,6 @@
 import { Minus, Plus, ScanLine } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View, type TextInput } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View, type ScrollViewInstance, type TextInputInstance } from 'react-native';
 import type { UseFormReturn } from 'react-hook-form';
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
@@ -23,10 +23,10 @@ export function PickingEditor({ item, sourcePath, destinationPath, form, busy, s
   const theme = useTheme();
   const close = useModalExit(onClose);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const sourceInputRef = useRef<TextInput>(null);
-  const productInputRef = useRef<TextInput>(null);
-  const quantityInputRef = useRef<TextInput>(null);
-  const scrollRef = useRef<ScrollView>(null);
+  const sourceInputRef = useRef<TextInputInstance>(null);
+  const productInputRef = useRef<TextInputInstance>(null);
+  const quantityInputRef = useRef<TextInputInstance>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const quantityOffset = useRef(0);
   const scan = usePickingScan(item, form, busy);
   useEffect(() => {

@@ -36,6 +36,7 @@ export function PutawayAllocationModal({ state, locations, receipt, suggestions,
   const allocation = state.allocation;
   const scanLocationCount = state.values.lines.filter(line => line.destination).length;
   const scannedLocationCount = allocation?.rows.filter(row => row.confirmed).length ?? 0;
+  const nextLocation = state.values.lines.find((line, index) => line.destination && !allocation?.rows[index]?.confirmed)?.destination;
   const items = receipt?.items.filter(item => item.remainingPutAwayQuantity > 0) ?? [];
   const hasPlan = items.some(item => item.putAwayPlan.length > 0);
   const offPlan = allocation?.rows.some(row => row.offPlan);
@@ -64,6 +65,7 @@ export function PutawayAllocationModal({ state, locations, receipt, suggestions,
               <Text style={[styles.name, { color: theme.text }]}>Xác nhận vị trí thực tế</Text>
               <Text style={[styles.text, { color: theme.textSecondary }]}>Cất xong vị trí nào, quét nhãn vị trí đó. Mã đã xác nhận được dùng làm bằng chứng cất đúng chỗ.</Text>
               <ScanCodeButton label="Quét mã vị trí" title="Quét vị trí vừa cất hàng" disabled={locked || !state.canViewLayout}
+                locationHint={nextLocation ? `Vị trí chưa quét: ${nextLocation.displayPath}` : undefined}
                 continuous status={`${state.notice ? `${state.notice}\n` : ''}Đã ghi nhận mã ${scannedLocationCount}/${scanLocationCount} dòng vị trí. Tiếp tục quét hoặc bấm Xong để quay lại phân bổ.`}
                 confirm={{ label: 'Xong', onPress: () => { /* ScanCodeButton closes the camera; placement is confirmed separately. */ } }}
                 renderIcon={color => <ScanLine size={18} color={color} />} onScan={code => state.scan(code)} />
@@ -101,7 +103,7 @@ export function PutawayAllocationModal({ state, locations, receipt, suggestions,
                 editable={!locked} multiline maxLength={500} error={fieldState.error?.message}
                 hint={state.values.overrideReasonCode && state.values.overrideReasonCode !== 'Other'
                   ? 'Mô tả bổ sung không bắt buộc, tối đa 500 ký tự.' : 'Ít nhất 5 ký tự khi chưa chọn nhóm hoặc chọn Lý do khác.'} />} />
-            </View> : null} />
+            </View> : undefined} />
         <View style={[styles.footer, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <Text accessibilityLiveRegion="polite" style={[styles.text, { color: theme.textSecondary }]}>Phân bổ {allocation?.fullyAllocated ?? 0}/{items.length} sản phẩm · Quét mã {allocation?.confirmedCount ?? 0}/{allocation?.requiredCount ?? 0}</Text>
           {allocation?.needsReason && !allocation.reasonValid && <Button label="Bổ sung lý do để tiếp tục" variant="outline" disabled={locked} onPress={showReason} />}

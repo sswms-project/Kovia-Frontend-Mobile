@@ -8,20 +8,22 @@ import { FontFamily, Radius } from '@/constants/theme';
 import { ScanCodeButton } from '@/features/scanner/components/scan-code-button';
 import { useTheme } from '@/hooks/use-theme';
 
-import type { ReceiptForm } from '../../receiving.schema';
+import { getFullReceiptQuantity } from '../../receiving';
+import type { ReceiptForm, ReceivingTask } from '../../receiving.schema';
 
 export interface ReceiptEditorLine {
   inboundRequestItemId: string; productSKU: string; productName: string;
   baseUnitId: string; baseUnitName: string; enteredUnitId: string; enteredUnitName: string;
-  isLotTracked: boolean; remainingQuantity: number;
+  isLotTracked: boolean; remainingQuantity: number; conversionFactorSnapshot?: number;
 }
 interface ReceiptLineFieldsProps {
   readonly form: UseFormReturn<ReceiptForm>; readonly index: number; readonly item: ReceiptEditorLine;
+  readonly taskLine?: ReceivingTask['lines'][number];
   readonly correction: boolean; readonly legacy: boolean; readonly busy: boolean; readonly onRemove: () => void;
 }
 export function parseQuantity(value: string) { return value.trim() ? Number(value.replace(',', '.')) : Number.NaN; }
 export function quantityInput(value: number) { return Number.isFinite(value) ? String(value) : ''; }
-export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, item, correction, legacy, busy, onRemove }: ReceiptLineFieldsProps) {
+export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, item, taskLine, correction, legacy, busy, onRemove }: ReceiptLineFieldsProps) {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(true);
   const sku = item.productSKU;
@@ -33,7 +35,16 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
   function setScanCount(value: number) { scanCount.current = value; setScanned(value); }
   const units = item.enteredUnitId === item.baseUnitId ? [{ id: item.baseUnitId, name: item.baseUnitName }]
     : [{ id: item.baseUnitId, name: item.baseUnitName }, { id: item.enteredUnitId, name: item.enteredUnitName }];
-  const unitName = useWatch({ control: form.control, name: `lines.${index}.enteredUnitId` }) === item.enteredUnitId ? item.enteredUnitName : item.baseUnitName;
+  const enteredUnitId = useWatch({ control: form.control, name: `lines.${index}.enteredUnitId` });
+  const isBase = enteredUnitId === item.baseUnitId;
+  const unitName = enteredUnitId === item.enteredUnitId ? item.enteredUnitName : item.baseUnitName;
+  const factor = isBase ? 1 : item.conversionFactorSnapshot ?? 1;
+  const rejectedWatch = useWatch({ control: form.control, name: `lines.${index}.rejectedQty` });
+  const damagedWatch = useWatch({ control: form.control, name: `lines.${index}.damagedQty` });
+  const rejectedQty = Number.isFinite(rejectedWatch) ? rejectedWatch : 0;
+  const damagedQty = Number.isFinite(damagedWatch) ? damagedWatch : 0;
+  const round = (value: number) => Math.round(value * 1e6) / 1e6;
+  const fullQuantity = taskLine && !correction ? getFullReceiptQuantity(taskLine, enteredUnitId) : null;
   return <View style={[styles.card, { borderColor: theme.border, backgroundColor: theme.card }]}>
     <View style={styles.header}>
       <Pressable style={styles.headerText} accessibilityRole="button"
@@ -72,9 +83,14 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
         </Pressable>; })}
       </View>} />}
     <View style={styles.quantityGroup}>
-    <View style={styles.row}>
-      <Text style={[styles.quantityLabel, { color: theme.text }]}>{`Số lượng thực nhận (${unitName})`}</Text>
-      <Text style={[styles.quantityLabel, { color: theme.text }]}>{`${correction || legacy ? 'Hỏng' : 'Từ chối'} (${unitName})`}</Text>
+    <View style={[styles.row, styles.quantityHeadings]}>
+      <View style={styles.receiveHeading}>
+        <Text style={[styles.quantityLabel, styles.receiveLabel, { color: theme.text }]}>{`${correction ? 'SL thực nhận đã ghi' : 'SL thực nhận'} (${unitName})`}</Text>
+        {fullQuantity !== null && <Button label="Nhận đủ" variant="outline" accessibilityLabel={`Nhận đủ ${sku}`}
+          disabled={busy || rejectedQty > 0 || receivedQty === fullQuantity}
+          onPress={() => form.setValue(`lines.${index}.receivedQty`, fullQuantity, { shouldDirty: true, shouldValidate: true })} />}
+      </View>
+      <Text style={[styles.quantityLabel, { color: theme.text }]}>{`${correction || legacy ? 'Hỏng sau khi đã nhận' : 'SL từ chối nhận'} (${unitName})`}</Text>
     </View>
     <View style={styles.row}>
       <View style={styles.cell}><Controller control={form.control} name={`lines.${index}.receivedQty`} render={({ field, fieldState }) => <TextField
@@ -89,6 +105,7 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
         onChangeText={value => field.onChange(parseQuantity(value))} onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy} keyboardType="decimal-pad" />} /></View>}
     </View>
     </View>
+    <Text style={[styles.text, { color: theme.text }]}>{`Hàng đạt: ${round(Math.max(baseQty - damagedQty, 0))} · Từ chối: ${rejectedQty}${isBase ? '' : ` · Quy đổi: ${round(baseQty * factor)} ${item.baseUnitName}`}`}</Text>
     <Text style={[styles.hint, { color: theme.textSecondary }]}>{correction ? 'Hàng đã nhận được giữ nguyên; chỉ sửa phân loại.'
       : legacy ? 'Nhập số đã kiểm đếm thực tế theo đơn vị đang chọn.' : 'Từ chối: phần bên giao mang về, không vào tồn kho. Từ chối toàn bộ thì nhập 0 ở Số lượng thực nhận.'}</Text>
     {item.isLotTracked && <>
@@ -107,7 +124,7 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
       </View>
     </>}
     <Controller control={form.control} name={`lines.${index}.exceptionReason`} render={({ field, fieldState }) => <TextField
-      label="Tình trạng hàng" accessibilityLabel={`Tình trạng hàng ${sku}`} placeholder="Móp, rách bao bì, sai quy cách… (nếu có)"
+      label={correction || legacy ? 'Tình trạng hàng hỏng' : 'Lý do từ chối nhận'} accessibilityLabel={`Tình trạng hàng ${sku}`} placeholder="Móp, rách bao bì, sai quy cách… (nếu có)"
       value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy} multiline maxLength={501} />} />
     {!correction && <Button label="Bỏ dòng này" accessibilityLabel={`Bỏ nhận ${sku} lần này`} variant="ghost" disabled={busy} onPress={onRemove} />}
     </>}
@@ -126,6 +143,9 @@ const styles = StyleSheet.create({
   inactive: { opacity: 0.5 },
   row: { flexDirection: 'row', gap: 12 },
   quantityGroup: { gap: 6 },
+  quantityHeadings: { alignItems: 'flex-end' },
+  receiveHeading: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  receiveLabel: { flexBasis: 96 },
   quantityLabel: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 13, lineHeight: 19 },
   cell: { flex: 1 },
   hint: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 17, marginTop: -4 },

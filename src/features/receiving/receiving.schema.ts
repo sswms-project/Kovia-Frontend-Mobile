@@ -73,16 +73,17 @@ export const receiptLineInputSchema = z.object({
   damagedQty: z.number({ error: 'Vui lòng nhập số lượng hỏng hợp lệ.' }).finite().min(0, 'Số lượng hỏng không được âm.'), exceptionReason: text.trim().max(500, 'Ghi chú tối đa 500 ký tự.'),
   lotNumber: text.trim().max(100, 'Số lô tối đa 100 ký tự.'), manufacturedDate: dateInput, expiryDate: dateInput,
 }).superRefine((value, context) => {
-  if (value.damagedQty > value.receivedQty) context.addIssue({ code: 'custom', path: ['damagedQty'], message: 'Số hỏng không được vượt số thực nhận.' });
+  if (value.damagedQty > value.receivedQty) context.addIssue({ code: 'custom', path: ['damagedQty'], message: 'Số lượng hỏng không được lớn hơn số lượng nhận.' });
   if (value.receivedQty === 0 && value.rejectedQty === 0) context.addIssue({ code: 'custom', path: ['receivedQty'], message: 'Nhập lượng chấp nhận hoặc từ chối lớn hơn 0.' });
-  if ((value.damagedQty > 0 || value.rejectedQty > 0) && !value.exceptionReason) context.addIssue({ code: 'custom', path: ['exceptionReason'], message: 'Vui lòng nhập lý do hàng hỏng hoặc từ chối.' });
+  if ((value.damagedQty > 0 || value.rejectedQty > 0) && !value.exceptionReason) context.addIssue({ code: 'custom', path: ['exceptionReason'], message: 'Vui lòng ghi rõ tình trạng hàng hỏng.' });
   if (value.manufacturedDate && value.expiryDate && value.expiryDate < value.manufacturedDate)
     context.addIssue({ code: 'custom', path: ['expiryDate'], message: 'Hạn sử dụng phải bằng hoặc sau ngày sản xuất.' });
 });
-const receiptLines = z.array(receiptLineInputSchema).min(1, 'Chọn ít nhất một dòng hàng.').refine(
+const receiptLines = z.array(receiptLineInputSchema).min(1, 'Phiếu nhận hàng phải có ít nhất một sản phẩm.').refine(
   lines => new Set(lines.map(line => line.inboundRequestItemId)).size === lines.length, 'Không chọn trùng dòng hàng.');
-export const createReceiptFormSchema = z.object({ receiptCode: text.trim().min(1, 'Vui lòng nhập mã phiếu nhận.').max(100, 'Mã phiếu nhận tối đa 100 ký tự.'), lines: receiptLines });
-export const updateReceiptFormSchema = z.object({ receiptCode: text.trim().min(1, 'Vui lòng nhập mã phiếu nhận.').max(100, 'Mã phiếu nhận tối đa 100 ký tự.'), lines: receiptLines });
+const receiptCode = text.trim().min(1, 'Vui lòng nhập mã phiếu nhận.').max(100, 'Mã phiếu nhận không được vượt quá 100 ký tự.').transform(value => value.toUpperCase());
+export const createReceiptFormSchema = z.object({ receiptCode, lines: receiptLines });
+export const updateReceiptFormSchema = z.object({ receiptCode, lines: receiptLines });
 export const createReceiptCommandSchema = createReceiptFormSchema.extend({ inboundRequestId: id, expectedInboundVersion: version, commandId: id });
 export const updateReceiptCommandSchema = updateReceiptFormSchema.extend({ expectedVersion: version, commandId: id });
 export const submitReceiptCommandSchema = z.object({ expectedVersion: version, commandId: id, receivingSlotId: id.nullable(),

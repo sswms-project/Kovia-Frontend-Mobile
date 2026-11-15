@@ -72,7 +72,7 @@ export function TransferPickingScreen({ transferId, shipmentId }: { readonly tra
         {state.realtime.changed && <AlertBanner title="Phiếu điều chuyển có cập nhật" description="Giữ nguyên dữ liệu đang nhập. Đóng biểu mẫu và tải lại trước khi xác nhận." />}
         {state.notice && <AlertBanner title={state.notice} />}
         <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
-      </View>} ListEmptyComponent={lines.length > 0 ? <Text style={[styles.text, { color: theme.textSecondary }]}>Không có dòng phù hợp với bộ lọc.</Text> : null} />
+      </View>} ListEmptyComponent={lines.length > 0 ? <Text style={[styles.text, { color: theme.textSecondary }]}>Không có dòng phù hợp với bộ lọc.</Text> : undefined} />
     {state.canPick && <WorkActionBar hint={nextPick ? `Tiếp theo: ${nextPick.line.sku} · ${nextPick.line.productName}. Quét vị trí nguồn → mã hàng → số lượng thực lấy.` : blocked ? `${blocked} dòng còn thiếu hàng, cần trả hoặc chờ quản lý. Hoàn tất các dòng trước khi chuyển chờ xuất.` : 'Đã đủ điều kiện hoàn tất lấy hàng. Tổng tồn chưa giảm.'}>
       {nextPick && <Button label="Quét & lấy hàng" disabled={busy} renderIcon={color => <ScanLine size={22} color={color} />}
         onPress={() => state.beginPick(nextPick.line, nextPick.source.inventoryStockId)} />}

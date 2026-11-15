@@ -75,6 +75,7 @@ export function PutawayAllocationItem({ item, state, suggestions, suggesting, on
           <Text style={[styles.text, { color: row?.confirmed ? theme.primary : theme.textSecondary }]}>{row?.confirmed
             ? `Đã ghi nhận mã: ${state.scans[putawayScanKey(line)]}${row.serverCheck ? ' · BE sẽ đối chiếu khi xác nhận cất hàng' : ''}` : 'Chưa quét mã vị trí'}</Text>
           <ScanCodeButton label="Quét mã vị trí này" title={`Xác nhận vị trí · ${item.productSKU}`} disabled={locked}
+            locationHint={`Vị trí cần quét: ${line.destination.displayPath}`}
             status={state.notice ?? undefined} onScan={code => state.scan(code, index)} />
           {row?.confirmed && <Button label="Bỏ xác nhận mã" variant="ghost" disabled={locked} onPress={() => state.clearScan(index)} />}
         </>}

@@ -1,7 +1,7 @@
 import { CircleCheck, Minus, Plus, ScanLine } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Controller, useWatch, type UseFormReturn } from 'react-hook-form';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View, type TextInputInstance } from 'react-native';
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
@@ -17,7 +17,7 @@ import type { ReturnForm, SupplierReturn } from '../return-work.schema';
 interface Props { readonly line: SupplierReturn['items'][number]; readonly index: number; readonly form: UseFormReturn<ReturnForm>; readonly disabled: boolean; readonly editable: boolean }
 export function SupplierReturnLine({ line, index, form, disabled, editable }: Props) {
   const theme = useTheme(); const [input, setInput] = useState(''); const [error, setError] = useState<string | null>(null);
-  const quantityRef = useRef<TextInput>(null); const [focusRequest, setFocusRequest] = useState(0); const [keyboard, setKeyboard] = useState(true);
+  const quantityRef = useRef<TextInputInstance>(null); const [focusRequest, setFocusRequest] = useState(0); const [keyboard, setKeyboard] = useState(true);
   const current = useWatch({ control: form.control, name: `lines.${index}` });
   const sourceCodes = line.sourceScanCodes ?? []; const productCodes = line.productScanCodes ?? [line.sku];
   const locationConfirmed = matchesReturnCode(current?.scannedSlotCode ?? '', sourceCodes);
