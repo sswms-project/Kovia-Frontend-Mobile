@@ -51,7 +51,7 @@ export function PutawayLocationPicker({ state, receivingSlotId }: Props) {
           <Button label={item.displayPath} variant="outline" disabled={locked} onPress={() => { state.chooseDestination(item); setSearch(''); setError(null); }} />
           {item.capacityLabel && <Text style={{ color: theme.textSecondary }}>{item.capacityLabel}</Text>}
         </View>}
-        ListEmptyComponent={state.layout.isSuccess ? <Text style={{ color: theme.textSecondary }}>Không tìm thấy vị trí lưu trữ phù hợp.</Text> : null}
+        ListEmptyComponent={state.layout.isSuccess ? <Text style={{ color: theme.textSecondary }}>Không tìm thấy vị trí lưu trữ phù hợp.</Text> : undefined}
         ListFooterComponent={<Button label="Đóng chọn vị trí" variant="outline" onPress={state.closePicker} />} />
     </SafeAreaView></SafeAreaProvider>
   </Modal>;

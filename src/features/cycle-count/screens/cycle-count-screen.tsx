@@ -69,7 +69,7 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
           </>}
         </>}
         <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
-      </View>} ListEmptyComponent={items.length > 0 ? <Text style={[styles.text, { color: theme.textSecondary }]}>Không có dòng kiểm kê phù hợp.</Text> : null} />
+      </View>} ListEmptyComponent={items.length > 0 ? <Text style={[styles.text, { color: theme.textSecondary }]}>Không có dòng kiểm kê phù hợp.</Text> : undefined} />
     {(state.allowed('Start') || state.allowed('Submit')) && <WorkActionBar hint={`Còn ${remaining} dòng chưa ghi đếm. Gửi kết quả không điều chỉnh tồn kho.`}>
       {state.allowed('Start') && <Button label="Bắt đầu kiểm kê" disabled={busy} onPress={() => state.begin('Start')} />}
       {state.allowed('Submit') && <Button label="Gửi kết quả kiểm kê" disabled={busy} onPress={() => state.begin('Submit')} />}

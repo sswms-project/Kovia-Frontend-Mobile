@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { RefreshCw } from 'lucide-react-native';
 import { useRef } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
-import { Pressable, StyleSheet, Text, View, type TextInput } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type TextInputInstance } from 'react-native';
 
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
@@ -46,7 +46,7 @@ export function LoginForm({
   onForgotPassword,
 }: LoginFormProps) {
   const theme = useTheme();
-  const passwordRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
   const { control, handleSubmit } = form;
   const submit = handleSubmit(onSubmit, () => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -94,7 +94,7 @@ export function LoginForm({
             autoComplete="current-password"
             textContentType="password"
             returnKeyType="go"
-            onSubmitEditing={submit}
+            onSubmitEditing={() => void submit()}
             labelAccessory={
               <Pressable
                 accessibilityRole="link"
@@ -144,7 +144,7 @@ export function LoginForm({
                 keyboardType="number-pad"
                 autoComplete="off"
                 returnKeyType="go"
-                onSubmitEditing={submit}
+                onSubmitEditing={() => void submit()}
               />
             )}
           />

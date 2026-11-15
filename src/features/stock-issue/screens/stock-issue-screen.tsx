@@ -84,7 +84,7 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
           </>}
         </>}
         <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
-      </View>} ListEmptyComponent={items.length > 0 ? <Text style={[styles.text, { color: theme.textSecondary }]}>Không có dòng hàng phù hợp. Đổi bộ lọc để xem lại.</Text> : null} />
+      </View>} ListEmptyComponent={items.length > 0 ? <Text style={[styles.text, { color: theme.textSecondary }]}>Không có dòng hàng phù hợp. Đổi bộ lọc để xem lại.</Text> : undefined} />
     {(canPick || canDispatch) && <WorkActionBar hint={canPick && nextPick ? 'Quét vị trí nguồn → mã hàng → số lượng thực lấy.' : 'Chỉ xác nhận sau khi toàn bộ hàng của phiếu đã thực tế rời kho.'}>
       {canPick && nextPick && <Button label="Quét & lấy hàng" disabled={busy} renderIcon={color => <ScanLine size={22} color={color} />}
         onPress={() => { void state.beginPick(nextPick.item, nextPick.location.inventoryStockId); }} />}
