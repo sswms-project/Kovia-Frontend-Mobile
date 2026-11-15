@@ -43,20 +43,21 @@ export function ReceiptEditorModal({ state, receipt, locations, documents, refus
   const readyToSubmit = canSubmit && !sending && (!hasReceived || correction ||
     (!!locations.selected && !locations.query.isFetching && !locations.query.isError)) &&
     (!hasRefused || correction || (refusal.acknowledged && refusal.files.length > 0));
-  const taskLines: ReceiptEditorLine[] = state.target?.task?.lines ?? [];
+  const taskLines = state.target?.task?.lines;
   const receiptLines: ReceiptEditorLine[] = receipt?.items.flatMap(item => item.inboundRequestItemId ? [{
     inboundRequestItemId: item.inboundRequestItemId, productSKU: item.productSKU, productName: item.productName,
     baseUnitId: item.baseUnitId, baseUnitName: item.baseUnitName, enteredUnitId: item.baseUnitId, enteredUnitName: item.baseUnitName,
     isLotTracked: !!item.lotId, remainingQuantity: item.orderedQuantity,
   }] : []) ?? [];
-  const lines = [...taskLines, ...receiptLines.filter(item => !taskLines.some(line => line.inboundRequestItemId === item.inboundRequestItemId))];
+  const lines = [...(taskLines ?? []), ...receiptLines.filter(item => !taskLines?.some(line => line.inboundRequestItemId === item.inboundRequestItemId))];
   const renderItem = useCallback(({ item }: { item: ReceiptEditorLine }) => {
     const index = state.fields.fields.findIndex(value => value.inboundRequestItemId === item.inboundRequestItemId);
     return index < 0 ? correction ? null : <Button label={`Chọn nhận ${item.productSKU} · ${item.productName}`}
       disabled={busy} variant="outline" onPress={() => state.addLine(item.inboundRequestItemId)} />
       : <ReceiptLineFields form={state.form} index={index} item={item} correction={correction} legacy={receipt?.receivingFlowVersion === 0} busy={busy}
+        taskLine={taskLines?.find(line => line.inboundRequestItemId === item.inboundRequestItemId)}
         onRemove={() => state.fields.remove(index)} />;
-  }, [state, correction, busy, receipt?.receivingFlowVersion]);
+  }, [state, correction, busy, receipt?.receivingFlowVersion, taskLines]);
   const conflict = state.mutation.error instanceof ApiError && state.mutation.error.statusCode === 409;
   return <Modal visible={!!state.target} animationType="slide" onRequestClose={sending ? undefined : close}>
     <SafeAreaProvider><SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>

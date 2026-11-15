@@ -8,7 +8,8 @@ import { FontFamily, Radius } from '@/constants/theme';
 import { ScanCodeButton } from '@/features/scanner/components/scan-code-button';
 import { useTheme } from '@/hooks/use-theme';
 
-import type { ReceiptForm } from '../../receiving.schema';
+import { getFullReceiptQuantity } from '../../receiving';
+import type { ReceiptForm, ReceivingTask } from '../../receiving.schema';
 
 export interface ReceiptEditorLine {
   inboundRequestItemId: string; productSKU: string; productName: string;
@@ -17,11 +18,12 @@ export interface ReceiptEditorLine {
 }
 interface ReceiptLineFieldsProps {
   readonly form: UseFormReturn<ReceiptForm>; readonly index: number; readonly item: ReceiptEditorLine;
+  readonly taskLine?: ReceivingTask['lines'][number];
   readonly correction: boolean; readonly legacy: boolean; readonly busy: boolean; readonly onRemove: () => void;
 }
 export function parseQuantity(value: string) { return value.trim() ? Number(value.replace(',', '.')) : Number.NaN; }
 export function quantityInput(value: number) { return Number.isFinite(value) ? String(value) : ''; }
-export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, item, correction, legacy, busy, onRemove }: ReceiptLineFieldsProps) {
+export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, item, taskLine, correction, legacy, busy, onRemove }: ReceiptLineFieldsProps) {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(true);
   const sku = item.productSKU;
@@ -33,7 +35,10 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
   function setScanCount(value: number) { scanCount.current = value; setScanned(value); }
   const units = item.enteredUnitId === item.baseUnitId ? [{ id: item.baseUnitId, name: item.baseUnitName }]
     : [{ id: item.baseUnitId, name: item.baseUnitName }, { id: item.enteredUnitId, name: item.enteredUnitName }];
-  const unitName = useWatch({ control: form.control, name: `lines.${index}.enteredUnitId` }) === item.enteredUnitId ? item.enteredUnitName : item.baseUnitName;
+  const unitId = useWatch({ control: form.control, name: `lines.${index}.enteredUnitId` });
+  const unitName = unitId === item.enteredUnitId ? item.enteredUnitName : item.baseUnitName;
+  const rejectedQty = useWatch({ control: form.control, name: `lines.${index}.rejectedQty` });
+  const fullQuantity = taskLine && !correction ? getFullReceiptQuantity(taskLine, unitId) : null;
   return <View style={[styles.card, { borderColor: theme.border, backgroundColor: theme.card }]}>
     <View style={styles.header}>
       <Pressable style={styles.headerText} accessibilityRole="button"
@@ -72,8 +77,13 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
         </Pressable>; })}
       </View>} />}
     <View style={styles.quantityGroup}>
-    <View style={styles.row}>
-      <Text style={[styles.quantityLabel, { color: theme.text }]}>{`Số lượng thực nhận (${unitName})`}</Text>
+    <View style={[styles.row, styles.quantityHeadings]}>
+      <View style={styles.receiveHeading}>
+        <Text style={[styles.quantityLabel, styles.receiveLabel, { color: theme.text }]}>{`SL thực nhận (${unitName})`}</Text>
+        {fullQuantity !== null && <Button label="Nhận đủ" variant="outline" accessibilityLabel={`Nhận đủ ${sku}`}
+          disabled={busy || rejectedQty > 0 || receivedQty === fullQuantity}
+          onPress={() => form.setValue(`lines.${index}.receivedQty`, fullQuantity, { shouldDirty: true, shouldValidate: true })} />}
+      </View>
       <Text style={[styles.quantityLabel, { color: theme.text }]}>{`${correction || legacy ? 'Hỏng' : 'Từ chối'} (${unitName})`}</Text>
     </View>
     <View style={styles.row}>
@@ -126,6 +136,9 @@ const styles = StyleSheet.create({
   inactive: { opacity: 0.5 },
   row: { flexDirection: 'row', gap: 12 },
   quantityGroup: { gap: 6 },
+  quantityHeadings: { alignItems: 'flex-end' },
+  receiveHeading: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  receiveLabel: { flexBasis: 96 },
   quantityLabel: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 13, lineHeight: 19 },
   cell: { flex: 1 },
   hint: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 17, marginTop: -4 },
