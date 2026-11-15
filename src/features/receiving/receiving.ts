@@ -28,6 +28,18 @@ function precisionMatches(value: number, precision: number) {
   const scaled = value * 10 ** precision;
   return Number.isSafeInteger(Math.round(scaled)) && Math.abs(scaled - Math.round(scaled)) < 1e-7;
 }
+export function getFullReceiptQuantity(line: ReceivingTask['lines'][number], unitId: string) {
+  const isBaseUnit = unitId === line.baseUnitId;
+  if (!isBaseUnit && unitId !== line.enteredUnitId) return null;
+  const factor = isBaseUnit ? 1 : line.conversionFactorSnapshot;
+  const precision = isBaseUnit ? line.baseUnitQuantityPrecision : line.enteredUnitQuantityPrecision;
+  const quantity = Number((line.remainingQuantity / factor).toFixed(precision));
+  const baseQuantity = quantity * factor;
+  return quantity > 0 && baseQuantity <= line.remainingQuantity &&
+    Math.abs(baseQuantity - line.remainingQuantity) < 1e-7 &&
+    precisionMatches(baseQuantity, line.baseUnitQuantityPrecision) && precisionMatches(baseQuantity, 2)
+    ? quantity : null;
+}
 export function assertReceiptQuantities(values: ReceiptForm, task: ReceivingTask) {
   for (const line of values.lines) {
     const original = task.lines.find(candidate => candidate.inboundRequestItemId === line.inboundRequestItemId);

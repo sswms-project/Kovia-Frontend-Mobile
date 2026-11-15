@@ -40,6 +40,7 @@ export function PutAwayEditorModal({ state, receipt }: PutAwayEditorModalProps) 
             label="Mã vị trí thực tế" value={field.value} autoCapitalize="characters" editable={!busy} maxLength={101}
             onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message}
             labelAccessory={state.editor && <ScanCodeButton compact label="Quét mã vị trí" title="Quét mã vị trí thực tế" disabled={busy}
+              locationHint={`Vị trí cần quét: ${state.editor.destination.displayPath}`}
               onScan={code => {
                 if (!state.editor || !matchesLocationScan(code, state.editor.destination.id, state.editor.destination.slotCode)) return false;
                 field.onChange(state.editor.destination.slotCode); return true;

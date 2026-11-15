@@ -12,6 +12,7 @@ import { ScannerScreen } from '../screens/scanner-screen';
 interface Props {
   readonly label: string;
   readonly title: string;
+  readonly locationHint?: string;
   readonly disabled?: boolean;
   readonly renderIcon?: (color: string) => ReactNode;
   /** Small chip for label rows and card headers instead of a full-width button. */
@@ -31,7 +32,7 @@ interface Props {
   readonly onBeforeClose?: () => boolean | Promise<boolean>;
 }
 
-export function ScanCodeButton({ label, title, disabled = false, renderIcon, compact = false, continuous = false, closeAfterScan, showScannedCode = true, status, onScan, onOpen, onClose, confirm, onBeforeClose }: Props) {
+export function ScanCodeButton({ label, title, locationHint, disabled = false, renderIcon, compact = false, continuous = false, closeAfterScan, showScannedCode = true, status, onScan, onOpen, onClose, confirm, onBeforeClose }: Props) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
   const session = useRef(0);
@@ -48,7 +49,7 @@ export function ScanCodeButton({ label, title, disabled = false, renderIcon, com
       </Pressable>
       : <Button label={label} variant="outline" disabled={disabled} renderIcon={renderIcon} onPress={start} />}
     <Modal visible={open && !disabled} animationType="slide" onRequestClose={() => { void requestClose(); }}>
-      <View style={styles.root}>{open && !disabled && <ScannerScreen title={title} status={status} repeatGuardMs={continuous ? 1000 : undefined}
+      <View style={styles.root}>{open && !disabled && <ScannerScreen title={title} locationHint={locationHint} status={status} repeatGuardMs={continuous ? 1000 : undefined}
         showScannedCode={showScannedCode}
         onClose={() => { void requestClose(); }}
         confirm={confirm && { ...confirm, onPress: () => { confirm.onPress(); close(); } }}
