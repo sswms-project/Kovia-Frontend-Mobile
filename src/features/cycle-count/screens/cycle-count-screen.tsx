@@ -20,10 +20,14 @@ import { WarehouseWorkspaceControl } from '@/components/warehouse-workspace';
 import { CountEditor } from '../components/count-editor';
 import { CountItemCard } from '../components/count-item-card';
 import { CountLineLocator } from '../components/count-line-locator';
+import { CycleCountHeader } from '../components/cycle-count-header';
+import { CycleCountInfoSection } from '../components/cycle-count-info-section';
+import { CycleCountModeNotice } from '../components/cycle-count-mode-notice';
+import { CycleCountUrgentBanner } from '../components/cycle-count-urgent-banner';
 import { canRecordCountItem } from '../cycle-count';
+import { formatCountDate } from '../cycle-count.labels';
 import { useCycleCount } from '../hooks/use-cycle-count';
 
-const STATES: Readonly<Record<string, string>> = { Scheduled: 'Đã lên lịch', Counting: 'Đang kiểm đếm', Recount: 'Đang đếm lại', Submitted: 'Đã gửi quản lý', Completed: 'Đã hoàn tất', Cancelled: 'Đã hủy' };
 export function CycleCountScreen({ documentId }: { readonly documentId: string }) {
   const state = useCycleCount(documentId); const theme = useTheme(); const document = state.detail.data;
   useScreenSubtitle(state.canView ? document?.code : undefined);
@@ -42,33 +46,36 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
   return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
     <FlatList style={styles.root} data={visible} keyExtractor={item => item.id} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
       refreshing={state.detail.isFetching || state.actions.isFetching} onRefresh={busy ? undefined : () => { void state.refresh(); }}
-      ItemSeparatorComponent={Separator} renderItem={({ item }) => <CountItemCard item={item} busy={busy}
+      ItemSeparatorComponent={Separator} renderItem={({ item }) => <CountItemCard item={item} busy={busy} recountRound={document?.recountRound ?? 0}
         canRecord={canRecord && !!document && canRecordCountItem(document, item)} onRecord={state.beginRecord} onOpenEvidence={file => { void evidence.open(file); }} />}
       ListHeaderComponent={<View style={styles.header}>
         <WorkCompletionActions visible={!busy && !state.detail.isFetching && !state.detail.isError && !!document && ['Completed', 'Submitted'].includes(document.status)} message={document?.status === 'Submitted' ? 'Đã gửi kết quả kiểm kê.' : 'Đã hoàn tất kiểm kê.'} />
         {!state.access.ready && <WarehouseWorkspaceControl access={state.access} />}
         {!state.canView ? <AlertBanner title={state.validId ? 'Chọn kho được giao và kiểm tra quyền xem kiểm kê.' : 'Mã kiểm kê không hợp lệ.'} /> : <>
+          {document && <>
+            <CycleCountHeader document={document} />
+            <CycleCountUrgentBanner document={document} canStart={state.allowed('Start')} />
+            {document.status === 'Cancelled' && <AlertBanner variant="destructive" title="Phiếu đã bị huỷ"
+              description={`Phiếu đã bị huỷ${document.cancelledAt ? ` lúc ${formatCountDate(document.cancelledAt)}` : ''}${document.cancelledByName ? ` bởi ${document.cancelledByName}` : ''}. Lý do: ${document.cancelReason ?? '—'}`} />}
+            <CycleCountInfoSection document={document} />
+          </>}
           {state.detail.isPending && <AlertBanner title="Đang tải phiếu kiểm kê…" />}
           {error && <AlertBanner variant="destructive" title="Chưa thể tải dữ liệu mới" description={getApiErrorMessage(error)} />}
           {document && state.detail.isError && <AlertBanner title="Đang hiển thị dữ liệu cũ"
-            description={`Lần tải thành công: ${new Date(state.detail.dataUpdatedAt).toLocaleString('vi-VN')}. Tải lại trước khi thao tác.`} />}
+            description={`Lần tải thành công: ${formatCountDate(new Date(state.detail.dataUpdatedAt).toISOString())}. Tải lại trước khi thao tác.`} />}
           {state.notice && <AlertBanner title={state.notice} />}
           {document && <>
-            <Text style={[styles.text, { color: theme.textSecondary }]}>{document.warehouseName} · {STATES[document.status]} · Vòng {document.recountRound}</Text>
-            <Text style={[styles.text, { color: theme.textSecondary }]}>Bắt đầu theo lịch: {new Date(document.scheduledDate).toLocaleString('vi-VN')}</Text>
-            <AlertBanner title={document.isBlindCount && ['Scheduled', 'Counting', 'Recount'].includes(document.status) ? 'Kiểm kê mù · Tồn sổ sách được ẩn' : 'Kiểm kê thực tế'}
-              description="Ghi số thực đếm tại đúng vị trí/lô. Số lượng tồn không thay đổi khi lưu/gửi/hoàn tất kiểm kê; chênh lệch phải theo phiếu điều chỉnh được duyệt riêng." />
+            <CycleCountModeNotice document={document} />
             {state.actions.data?.denialReasonCode === 'NOT_YET_SCHEDULED' && <AlertBanner title="Chưa đến thời gian kiểm kê theo lịch." />}
             {state.actions.data?.denialReasonCode === 'SNAPSHOT_RECONCILIATION_REQUIRED' && <AlertBanner title="Phiếu cũ chưa có mốc tồn xác thực. Cần quản lý yêu cầu đếm lại." />}
             {state.actions.data?.denialReasonCode === 'TASK_PAUSED_OR_CANCELLED' && <AlertBanner title="Công việc đang tạm dừng hoặc đã hủy. Mở Công việc để tiếp tục khi đủ điều kiện." />}
-            <Text style={[styles.text, { color: theme.primary }]}>{items.length - remaining}/{items.length} dòng đã ghi đếm</Text>
+            <Text accessibilityRole="header" style={[styles.section, { color: theme.text }]}>Dòng kiểm kê</Text>
             <WorkListTools search={search} onSearch={setSearch} filter={filter} onFilter={setFilter} shown={visible.length} total={items.length} disabled={busy} />
             {state.actions.data?.allowedActions.includes('Scan') && <CountLineLocator key={`${state.contextKey}:${document.recountRound}`}
               document={document} disabled={busy || !canRecord || !state.allowed('Scan')} onRecord={state.beginRecord} />}
             {!document.items.length && <AlertBanner title="Phiếu không có dòng kiểm kê." />}
           </>}
         </>}
-        <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
       </View>} ListEmptyComponent={items.length > 0 ? <Text style={[styles.text, { color: theme.textSecondary }]}>Không có dòng kiểm kê phù hợp.</Text> : undefined} />
     {(state.allowed('Start') || state.allowed('Submit')) && <WorkActionBar hint={`Còn ${remaining} dòng chưa ghi đếm. Gửi kết quả không điều chỉnh tồn kho.`}>
       {state.allowed('Start') && <Button label="Bắt đầu kiểm kê" disabled={busy} onPress={() => state.begin('Start')} />}
@@ -96,4 +103,5 @@ export function CycleCountScreen({ documentId }: { readonly documentId: string }
 function Separator() { return <View style={styles.separator} />; }
 const styles = StyleSheet.create({ root: { flex: 1 }, content: { padding: 20, width: '100%', maxWidth: 760, alignSelf: 'center' },
   header: { gap: 16, paddingBottom: 16 }, separator: { height: 16 },
+  section: { fontFamily: FontFamily.semibold, fontSize: 15, lineHeight: 22 },
   text: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 23 } });
