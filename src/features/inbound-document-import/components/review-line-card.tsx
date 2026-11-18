@@ -30,25 +30,30 @@ function ReviewLineCardBase({ index, line, control, errors, options, isLotTracke
   const theme = useTheme();
   const lineErrors = errors?.[index];
   const status = STATUS[line.status] ?? { label: 'Cần xử lý', tone: 'danger' as const };
-  const extracted = [line.extractedSku, line.extractedProductName].filter(Boolean).join(' · ') || 'AI không đọc được tên hàng';
+  const name = line.extractedProductName || line.extractedSku;
+  const kicker = [`Dòng ${line.sourceLineNumber}`, line.extractedProductName ? line.extractedSku : null].filter(Boolean).join(' · ');
   return <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
     <View style={styles.top}>
-      <Text style={[styles.heading, { color: theme.text }]}>Dòng {line.sourceLineNumber}</Text>
+      <Text style={[styles.kicker, { color: theme.textSecondary }]} numberOfLines={1}>{kicker}</Text>
       <View style={styles.pills}>
-        {line.isUserCorrected && <StatusPill label="Đã hiệu chỉnh" tone="primary" />}
+        {line.isUserCorrected ? <StatusPill label="Đã hiệu chỉnh" tone="primary" /> : null}
         <StatusPill label={status.label} tone={status.tone} />
       </View>
     </View>
-    <Text style={[styles.text, { color: theme.textSecondary }]}>
-      Trên phiếu: {extracted}{line.documentQuantity !== null ? ` · SL ${line.documentQuantity}` : ''}{line.extractedUnitOfMeasure ? ` ${line.extractedUnitOfMeasure}` : ''}
-    </Text>
-    {line.orderedQuantity !== null && <Text style={[styles.text, { color: theme.textSecondary }]}>
-      Theo đơn: đặt {line.orderedQuantity} · đã nhận {line.previouslyReceivedQuantity ?? 0} · còn {line.remainingQuantity ?? 0} {line.unitName ?? ''}
-    </Text>}
+    <Text style={[styles.title, { color: name ? theme.text : theme.textSecondary }]}>{name || 'AI không đọc được tên hàng'}</Text>
+    <View style={[styles.compare, { backgroundColor: theme.backgroundElement }]}>
+      <Stat label="Trên phiếu" value={line.documentQuantity === null ? '—' : String(line.documentQuantity)} unit={line.extractedUnitOfMeasure} />
+      {line.orderedQuantity !== null ? <>
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+        <Stat label="Còn theo đơn" value={String(line.remainingQuantity ?? 0)} unit={line.unitName}
+          detail={`Đặt ${line.orderedQuantity} · đã nhận ${line.previouslyReceivedQuantity ?? 0}`} />
+      </> : null}
+    </View>
     <Controller control={control} name={`lines.${index}.inboundRequestItemId`} render={({ field }) => <View style={styles.field}>
       <SelectionField label="Dòng hàng trong yêu cầu nhập" value={field.value} options={options} disabled={disabled}
         placeholder="Chọn sản phẩm khớp" onChange={value => onSelectItem(index, value)} />
-      {lineErrors?.inboundRequestItemId?.message && <Text style={[styles.error, { color: theme.error }]}>{lineErrors.inboundRequestItemId.message}</Text>}
+      {lineErrors?.inboundRequestItemId?.message
+        ? <Text style={[styles.error, { color: theme.error }]}>{lineErrors.inboundRequestItemId.message}</Text> : null}
     </View>} />
     <View style={styles.row}>
       <Controller control={control} name={`lines.${index}.confirmedQuantity`} render={({ field }) => <View style={styles.flex}>
@@ -63,7 +68,8 @@ function ReviewLineCardBase({ index, line, control, errors, options, isLotTracke
     <Controller control={control} name={`lines.${index}.exceptionReason`} render={({ field }) => <TextField label="Lý do ngoại lệ"
       value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} editable={!disabled} placeholder="Bắt buộc khi có hàng hỏng"
       error={lineErrors?.exceptionReason?.message} />} />
-    {isLotTracked && <>
+    {isLotTracked ? <View style={[styles.section, { borderTopColor: theme.border }]}>
+      <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>Thông tin lô</Text>
       <Controller control={control} name={`lines.${index}.lotNumber`} render={({ field }) => <TextField label="Số lô"
         value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} editable={!disabled} autoCapitalize="characters"
         error={lineErrors?.lotNumber?.message} />} />
@@ -77,17 +83,43 @@ function ReviewLineCardBase({ index, line, control, errors, options, isLotTracke
             editable={!disabled} error={lineErrors?.expiryDate?.message} />
         </View>} />
       </View>
-    </>}
+    </View> : null}
   </View>;
 }
 export const ReviewLineCard = memo(ReviewLineCardBase);
 
+interface StatProps {
+  readonly label: string;
+  readonly value: string;
+  readonly unit?: string | null;
+  readonly detail?: string;
+}
+
+function Stat({ label, value, unit, detail }: StatProps) {
+  const theme = useTheme();
+  return <View style={styles.stat}>
+    <Text style={[styles.caption, { color: theme.textSecondary }]}>{label}</Text>
+    <Text style={[styles.value, { color: theme.text }]}>
+      {value}{unit ? <Text style={[styles.unit, { color: theme.textSecondary }]}>{` ${unit}`}</Text> : null}
+    </Text>
+    {detail ? <Text style={[styles.caption, { color: theme.textSecondary }]}>{detail}</Text> : null}
+  </View>;
+}
+
 const styles = StyleSheet.create({
-  card: { gap: 10, padding: 16, borderWidth: 1, borderRadius: Radius.xl },
+  card: { gap: 12, padding: 16, borderWidth: 1, borderRadius: Radius.xl },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  pills: { flexDirection: 'row', gap: 6, flexShrink: 1, flexWrap: 'wrap', justifyContent: 'flex-end' },
-  heading: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 24 },
-  text: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 21 },
+  kicker: { flex: 1, fontFamily: FontFamily.medium, fontSize: 13, lineHeight: 18 },
+  pills: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' },
+  title: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 24 },
+  compare: { flexDirection: 'row', gap: 12, padding: 12, borderRadius: Radius.lg },
+  divider: { width: 1, alignSelf: 'stretch' },
+  stat: { flex: 1, gap: 4 },
+  caption: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 16 },
+  value: { fontFamily: FontFamily.semibold, fontSize: 20, lineHeight: 28, fontVariant: ['tabular-nums'] },
+  unit: { fontFamily: FontFamily.regular, fontSize: 13 },
   error: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 18 },
-  field: { gap: 4 }, row: { flexDirection: 'row', gap: 10 }, flex: { flex: 1 },
+  section: { gap: 12, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  sectionLabel: { fontFamily: FontFamily.semibold, fontSize: 13, lineHeight: 18 },
+  field: { gap: 4 }, row: { flexDirection: 'row', gap: 12 }, flex: { flex: 1 },
 });
