@@ -1,7 +1,7 @@
 import { useNavigation, usePathname } from 'expo-router';
 import { CommonActions, useIsFocused, usePreventRemove } from 'expo-router/react-navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Alert, View, StyleSheet } from 'react-native';
+import { Alert, BackHandler, View, StyleSheet } from 'react-native';
 import { toast } from 'sonner-native';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -60,10 +60,13 @@ export function ScreenExitBoundary({ children, standalone = false }: { readonly 
       current.revision === revision && current.signature === signature;
   }, [identity, warehouseId, revision, signature]);
   const protections = useRef(new Map<symbol, () => ExitProtection>());
-  const generation = useRef(0); const locked = useRef(false); const alive = useRef(true); const approving = useRef(false);
+  const generation = useRef(0); const locked = useRef(false); const alive = useRef(true);
+  const releasePrevention = useRef<() => void>(() => {});
   const currentScope = useRef(scope);
   const [leavingScope, setLeavingScope] = useState<string | null>(null);
   const [subtitle, setSubtitle] = useState<string | undefined>(undefined);
+  // True only for the approved exit attempt; prevention re-arms as soon as `leaving` ends.
+  const [released, setReleased] = useState(false);
   const leaving = focused && leavingScope === scope;
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   useLayoutEffect(() => { currentScope.current = scope; generation.current++; locked.current = false; }, [scope]);
@@ -80,7 +83,7 @@ export function ScreenExitBoundary({ children, standalone = false }: { readonly 
   }, [sessionIsCurrent, navigation]);
   const request = useCallback(async (action: () => void, destination = 'về trang chủ', stayOnRoute = false) => {
     if (locked.current || !alive.current || !navigation.isFocused()) return;
-    locked.current = true; const original = ++generation.current; setLeavingScope(currentScope.current);
+    locked.current = true; const original = ++generation.current; setLeavingScope(currentScope.current); setReleased(false);
     const originalScope = currentScope.current;
     const valid = () => alive.current && sessionIsCurrent() && original === generation.current && originalScope === currentScope.current;
     let committed = false;
@@ -107,15 +110,21 @@ export function ScreenExitBoundary({ children, standalone = false }: { readonly 
       } else if (current.some(guard => guard.dirty || guard.photos)) throw new Error('Dữ liệu đã thay đổi. Vui lòng chọn cách rời màn hình lại.');
       if (valid()) {
         if (stayOnRoute) for (const guard of current) guard.prepareClose?.();
-        approving.current = true; action(); committed = true;
+        // Expo Router 58 swallows a removal while prevention is on, so lift it in the same batch as the dispatch.
+        else { setReleased(true); releasePrevention.current(); }
+        action(); committed = true;
       }
     } catch (failure) { if (valid()) toast.error(getApiErrorMessage(failure)); }
     finally {
-      approving.current = false;
       if (valid() && (!committed || stayOnRoute)) {
         if (!committed) for (const read of protections.current.values()) read().resume?.();
         locked.current = false; generation.current++; setLeavingScope(null);
-      }
+      } else if (committed) setTimeout(() => {
+        // The action may not remove this screen (e.g. a no-op dispatch); never leave the header locked.
+        if (alive.current && navigation.isFocused() && original === generation.current) {
+          locked.current = false; generation.current++; setLeavingScope(null);
+        }
+      }, 600);
     }
   }, [sessionIsCurrent, navigation]);
   const resetToTab = useCallback((target: 'index' | 'tasks') => {
@@ -145,10 +154,17 @@ export function ScreenExitBoundary({ children, standalone = false }: { readonly 
       resetToTab(profile && getAllowedTabs(profile).some(tab => tab.name === 'tasks') ? 'tasks' : 'index');
     }
   }, 'quay lại'); }, [request, client, navigation, resetToTab]);
-  usePreventRemove(signedIn && focused, ({ data }) => {
-    if (approving.current || !useAuth.getState().signedIn) navigation.dispatch(data.action);
-    else void request(() => navigation.dispatch(data.action), 'quay lại');
+  const disablePrevention = usePreventRemove(signedIn && focused && !(released && leaving), ({ repeat }) => {
+    if (!useAuth.getState().signedIn) repeat();
+    else void request(repeat, 'quay lại');
   });
+  useLayoutEffect(() => { releasePrevention.current = disablePrevention; }, [disablePrevention]);
+  useEffect(() => {
+    if (!focused) return;
+    // Expo Router's own hardware Back never reaches the prevention callback; route it through the guarded exit.
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => { back(); return true; });
+    return () => subscription.remove();
+  }, [focused, back]);
   useLayoutEffect(() => {
     if (!standalone) navigation.setOptions({
       headerRight: () => <NavigationIcon home onPress={home} disabled={leaving} />,

@@ -1,4 +1,4 @@
-import { Camera, ImagePlus, ScanLine } from 'lucide-react-native';
+import { Camera, ImagePlus, LockKeyhole, ScanLine } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Controller, useWatch, type UseFormReturn } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, View, type TextInputInstance } from 'react-native';
@@ -10,7 +10,9 @@ import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
 import { FontFamily, Radius } from '@/constants/theme';
 import { ScanCodeButton } from '@/features/scanner/components/scan-code-button';
+import { StatusPill } from '@/components/ui/status-pill';
 import { formatCountLocation } from '../cycle-count';
+import { QUALITY_LABELS, QUALITY_TONES, formatCount, formatCountDay } from '../cycle-count.labels';
 import { codesMatch } from '@/features/scanner/warehouse-scan';
 import { useTheme } from '@/hooks/use-theme';
 import type { CountForm, CountItem } from '../cycle-count.schema';
@@ -39,10 +41,15 @@ export function CountEditor({ item, form, busy, canScan, submitDisabled, notice,
     <WorkScreenHeader modal title="Ghi số đếm kiểm kê" onBack={close} />
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
       <View style={[styles.card, { borderColor: theme.border, backgroundColor: theme.card }]}>
-        <Text style={[styles.text, { color: theme.textSecondary }]}>{item.productSku}</Text>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{item.productName}</Text>
-        <Text style={[styles.text, { color: theme.text }]}>{formatCountLocation(item)}</Text>
-        <Text style={[styles.text, { color: theme.textSecondary }]}>Lô {item.lotNumber ?? 'không có'} · {item.qualityStatus === 'Good' ? 'Hàng đạt' : item.qualityStatus === 'Damaged' ? 'Hàng hỏng' : 'Cách ly'} · Đơn vị {item.unitName ?? 'cơ sở'}</Text>
+        <Text style={[styles.mono, { color: theme.textSecondary }]}>{item.productSku}</Text>
+        <View style={styles.infoRow}><Text style={[styles.text, styles.grow, { color: theme.text }]}>{formatCountLocation(item)}</Text>
+          <StatusPill label={QUALITY_LABELS[item.qualityStatus] ?? item.qualityStatus} tone={QUALITY_TONES[item.qualityStatus] ?? 'neutral'} /></View>
+        <Text style={[styles.text, { color: theme.textSecondary }]}>Lô {item.lotNumber ?? 'không theo lô'}{item.expiryDate ? ` · HSD ${formatCountDay(item.expiryDate)}` : ''} · {item.unitName ?? 'Đơn vị cơ sở'}</Text>
+        <View style={[styles.infoRow, styles.divider, { borderColor: theme.border }]}><Text style={[styles.text, styles.grow, { color: theme.textSecondary }]}>Sổ sách</Text>
+          {item.systemQuantity === null ? <View style={styles.option}><LockKeyhole size={14} color={theme.textSecondary} />
+            <Text style={[styles.text, { color: theme.textSecondary }]}>Ẩn khi kiểm kê mù</Text></View>
+            : <Text style={[styles.mono, styles.label, { color: theme.text }]}>{formatCount(item.systemQuantity)} {item.unitName ?? 'Đơn vị cơ sở'}</Text>}</View>
       </View>
       {notice && <AlertBanner title={notice} />}
       {canScan && <>
@@ -99,4 +106,5 @@ const styles = StyleSheet.create({ root: { flex: 1 }, content: { width: '100%', 
   card: { borderWidth: 1, borderRadius: Radius.lg, padding: 16, gap: 10 }, quantityRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   option: { flexDirection: 'row', alignItems: 'center', gap: 10 }, grow: { flex: 1, minWidth: 0 },
   title: { fontFamily: FontFamily.bold, fontSize: 23, lineHeight: 31 }, label: { fontFamily: FontFamily.semibold, fontSize: 15, lineHeight: 22 },
-  text: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 21 } });
+  text: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 21 }, mono: { fontFamily: FontFamily.mono, fontSize: 14, lineHeight: 20 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 }, divider: { borderTopWidth: 1, paddingTop: 10 } });

@@ -58,7 +58,7 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
   return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
     <FlatList style={styles.root} data={visible} keyExtractor={item => item.id} renderItem={renderItem} keyboardShouldPersistTaps="handled"
       contentContainerStyle={styles.content} refreshing={state.detail.isFetching || state.actions.isFetching}
-      onRefresh={() => { void state.refresh(); }} ItemSeparatorComponent={Separator}
+      onRefresh={busy ? undefined : () => { void state.refresh(); }} ItemSeparatorComponent={Separator}
       ListHeaderComponent={<View style={styles.header}>
         <WorkCompletionActions visible={!busy && !state.detail.isFetching && !state.detail.isError && state.detail.data?.status === 'Dispatched'} message={'Đã hoàn tất xuất hàng.'} />
         <Text selectable style={[styles.reference, { color: theme.text }]}>{state.canView ? state.detail.data?.stockIssueRequestCode ?? 'Phiếu xuất được giao' : 'Chưa thể mở phiếu xuất'}</Text>
@@ -83,7 +83,6 @@ export function StockIssueScreen({ documentId }: { readonly documentId: string }
               shown={visible.length} total={items.length} disabled={busy} />
           </>}
         </>}
-        <Button label="Tải lại phiếu và quyền" variant="outline" disabled={busy} onPress={() => { void state.refresh(); }} />
       </View>} ListEmptyComponent={items.length > 0 ? <Text style={[styles.text, { color: theme.textSecondary }]}>Không có dòng hàng phù hợp. Đổi bộ lọc để xem lại.</Text> : undefined} />
     {(canPick || canDispatch) && <WorkActionBar hint={canPick && nextPick ? 'Quét vị trí nguồn → mã hàng → số lượng thực lấy.' : 'Chỉ xác nhận sau khi toàn bộ hàng của phiếu đã thực tế rời kho.'}>
       {canPick && nextPick && <Button label="Quét & lấy hàng" disabled={busy} renderIcon={color => <ScanLine size={22} color={color} />}
