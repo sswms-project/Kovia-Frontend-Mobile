@@ -50,7 +50,9 @@ export function PutawayAllocationModal({ state, locations, receipt, suggestions,
           ListHeaderComponent={<View style={styles.group}>
             <Text style={[styles.kicker, { color: theme.primary }]}>CẤT HÀNG</Text>
             <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{receipt?.receiptCode}</Text>
-            <Text style={[styles.text, { color: theme.textSecondary }]}>{receipt?.inboundRequestCode} · {receipt?.warehouseName}</Text>
+            {receipt && <Text style={[styles.text, { color: theme.textSecondary }]}>
+              {receipt.inboundRequestCode ?? (receipt.inboundRequestId ? 'Không đọc được mã yêu cầu' : 'Nhận hàng trực tiếp')} · {receipt.warehouseName}
+            </Text>}
             {hasPlan && <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
               <Text style={[styles.name, { color: theme.text }]}>Vị trí cất do quản lý cấu hình</Text>
               <Text style={[styles.text, { color: theme.textSecondary }]}>Đã điền sẵn theo kế hoạch. Có thể chia sang vị trí khác; thay đổi cần ghi rõ lý do.</Text>
