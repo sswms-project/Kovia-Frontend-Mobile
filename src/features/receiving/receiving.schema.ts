@@ -53,7 +53,7 @@ const lifecycleSchema = z.object({ action: text, fromState: nullableText, toStat
   actorName: text, reason: nullableText, createdAt: text });
 export const receiptSchema = z.object({
   supplierCode: nullableText, supplierName: nullableText, sourceName: nullableText,
-  id, receiptCode: text, inboundRequestId: id, inboundRequestCode: text, warehouseId: id, warehouseCode: text,
+  id, receiptCode: text, inboundRequestId: id.nullable(), inboundRequestCode: nullableText, warehouseId: id, warehouseCode: text,
   warehouseName: text, status: text, createdBy: id, createdByName: text, approvedBy: id.nullable(), approvedByName: nullableText,
   createdAt: text, modifiedAt: nullableText, submittedAt: nullableText, approvedAt: nullableText, rejectionReason: nullableText,
   arrivalConfirmedBy: id.nullable(), arrivalConfirmedAt: nullableText, receivingSlotId: id.nullable(),

@@ -120,6 +120,14 @@ test('physical source and current assignee must match exact task and receipt ide
   assert.throws(() => logic.assertReceiptScope({ ...receipt(), receivingAssignedTo: sourceId }, warehouseId, userId, 'receiving', inboundId));
   assert.throws(() => logic.assertReceiptScope({ ...receipt(), putAwayAssignedTo: sourceId }, warehouseId, userId, 'putaway'));
 });
+test('direct receipt is accepted for assigned putaway, while request-bound receiving remains guarded', () => {
+  const directReceipt = { ...receipt(), inboundRequestId: null, inboundRequestCode: null };
+  assert.equal(schema.receiptSchema.shape.inboundRequestId.safeParse(null).success, true);
+  assert.equal(schema.receiptSchema.shape.inboundRequestCode.safeParse(null).success, true);
+  assert.equal(schema.receivingTaskSchema.shape.inboundRequestId.safeParse(null).success, false);
+  assert.equal(logic.assertReceiptScope(directReceipt, warehouseId, userId, 'putaway'), directReceipt);
+  assert.throws(() => logic.assertReceiptScope(directReceipt, warehouseId, userId, 'receiving', inboundId));
+});
 test('inactive membership, removed permission or inactive warehouse blocks even a still-cached task', () => {
   const profile = { id: userId, tenantId: inboundId, status: 'Active', permissions: [P.GOODS_RECEIPTS_VIEW, P.GOODS_RECEIPTS_SUBMIT],
     assignedWarehouses: [{ id: warehouseId, warehouseCode: 'WH', warehouseName: 'QA', status: 'Active' }] };
