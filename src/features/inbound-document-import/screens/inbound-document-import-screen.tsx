@@ -103,7 +103,7 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
       description={getApiErrorMessage(context.task.error, 'Vui lòng thử lại.')}>
       <Button label="Thử lại" onPress={() => void context.task.refetch()} />
     </AlertBanner>;
-    if (ocr.upload.isPending) return <Loading title="Đang phân tích chứng từ" description="AI đang đọc phiếu, có thể mất đến 1 phút." />;
+    if (ocr.upload.isPending) return <Loading title="Đang phân tích chứng từ" description="AI đang đọc phiếu, có thể mất chút thời gian." />;
     if (!ocr.importId) return <UploadPanel busy={ocr.picking} onPick={source => void ocr.choose(source)} />;
     if (ocr.documentImport.isLoading) return <Loading title="Đang tải kết quả AI…" />;
     if (ocr.documentImport.isError || !item) return <AlertBanner variant="destructive" title="Không tải được kết quả AI"
