@@ -34,8 +34,10 @@ async function pickDocument(source: 'camera' | 'library'): Promise<PickedDocumen
 export function useInboundDocumentImport(context: ReceiptContext) {
   const inboundRequestId = context.documentId;
   const [startedId, setStartedId] = useState<string | null>(null);
+  // The task keeps pointing at the last unfinished import, so once the user replaces it only their own upload counts.
+  const [replacing, setReplacing] = useState(false);
   const [picking, setPicking] = useState(false);
-  const importId = startedId ?? context.task.data?.activeDocumentImportId ?? null;
+  const importId = startedId ?? (replacing ? null : context.task.data?.activeDocumentImportId ?? null);
   const queryKey = [...context.prefix, 'document-import', importId];
 
   const documentImport = useQuery({
@@ -90,12 +92,11 @@ export function useInboundDocumentImport(context: ReceiptContext) {
   }
 
   function reset() {
+    setReplacing(true);
     setStartedId(null);
     upload.reset();
   }
 
-  return { importId, documentImport, upload, review, draft, choose, picking, reset,
-    // A resumed import from the task is only replaced once the user picks a new file.
-    discardActive: () => setStartedId(null) };
+  return { importId, documentImport, upload, review, draft, choose, picking, reset };
 }
 export type InboundDocumentImportState = ReturnType<typeof useInboundDocumentImport>;

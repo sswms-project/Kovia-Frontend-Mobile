@@ -1,6 +1,7 @@
+import { Trash2 } from 'lucide-react-native';
 import { memo } from 'react';
 import { Controller, type Control, type FieldErrors } from 'react-hook-form';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SelectionField, type SelectionOption } from '@/components/ui/selection-field';
 import { StatusPill, type PillTone } from '@/components/ui/status-pill';
@@ -24,20 +25,27 @@ interface ReviewLineCardProps {
   readonly isLotTracked: boolean;
   readonly disabled: boolean;
   readonly onSelectItem: (index: number, itemId: string) => void;
+  /** Only lines the reviewer added can be removed; lines printed on the document must stay. */
+  readonly onRemove?: (index: number) => void;
 }
 
-function ReviewLineCardBase({ index, line, control, errors, options, isLotTracked, disabled, onSelectItem }: ReviewLineCardProps) {
+function ReviewLineCardBase({ index, line, control, errors, options, isLotTracked, disabled, onSelectItem, onRemove }: ReviewLineCardProps) {
   const theme = useTheme();
   const lineErrors = errors?.[index];
   const status = STATUS[line.status] ?? { label: 'Cần xử lý', tone: 'danger' as const };
-  const name = line.extractedProductName || line.extractedSku;
+  const name = line.isManuallyAdded ? 'Dòng hàng thêm thủ công' : line.extractedProductName || line.extractedSku;
   const kicker = [`Dòng ${line.sourceLineNumber}`, line.extractedProductName ? line.extractedSku : null].filter(Boolean).join(' · ');
   return <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
     <View style={styles.top}>
       <Text style={[styles.kicker, { color: theme.textSecondary }]} numberOfLines={1}>{kicker}</Text>
       <View style={styles.pills}>
-        {line.isUserCorrected ? <StatusPill label="Đã hiệu chỉnh" tone="primary" /> : null}
-        <StatusPill label={status.label} tone={status.tone} />
+        {line.isManuallyAdded ? <StatusPill label="Thêm thủ công" tone="primary" />
+          : line.isUserCorrected ? <StatusPill label="Đã hiệu chỉnh" tone="primary" /> : null}
+        {line.status ? <StatusPill label={status.label} tone={status.tone} /> : null}
+        {onRemove ? <Pressable accessibilityRole="button" accessibilityLabel={`Xoá dòng ${line.sourceLineNumber}`} hitSlop={8}
+          disabled={disabled} onPress={() => onRemove(index)} style={styles.remove}>
+          <Trash2 size={18} color={disabled ? theme.textSecondary : theme.error} />
+        </Pressable> : null}
       </View>
     </View>
     <Text style={[styles.title, { color: name ? theme.text : theme.textSecondary }]}>{name || 'AI không đọc được tên hàng'}</Text>
@@ -121,5 +129,6 @@ const styles = StyleSheet.create({
   error: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 18 },
   section: { gap: 12, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
   sectionLabel: { fontFamily: FontFamily.semibold, fontSize: 13, lineHeight: 18 },
+  remove: { padding: 4 },
   field: { gap: 4 }, row: { flexDirection: 'row', gap: 12 }, flex: { flex: 1 },
 });
