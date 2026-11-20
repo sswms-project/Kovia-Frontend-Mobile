@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { router } from 'expo-router';
-import { CircleCheck, FilePlus2, Info, RotateCcw, Save, Sparkles } from 'lucide-react-native';
+import { CircleCheck, FilePlus2, Info, Plus, RotateCcw, Save, Sparkles } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
@@ -18,7 +18,7 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { FailedPanel, ReviewHeader, UploadPanel } from '../components/document-import-panels';
 import { ReviewLineCard } from '../components/review-line-card';
 import { useInboundDocumentImport } from '../hooks/use-inbound-document-import';
-import { reviewFormSchema, type DocumentImport, type ReviewForm } from '../inbound-document-import.schema';
+import { reviewFormSchema, type DocumentImport, type DocumentReviewLine, type ReviewForm } from '../inbound-document-import.schema';
 
 const EMPTY_FORM: ReviewForm = { acknowledgeWarehouseMismatch: false, lines: [] };
 const STEPS = ['Chụp ảnh', 'Rà soát', 'Tạo phiếu nháp'] as const;
@@ -30,11 +30,23 @@ function toForm(item: DocumentImport | undefined): ReviewForm {
   return {
     acknowledgeWarehouseMismatch: review.warehouseMismatchAcknowledged,
     lines: review.lines.map(line => ({
-      sourceLineNumber: line.sourceLineNumber, inboundRequestItemId: line.inboundRequestItemId ?? '', isLotTracked: line.isLotTracked,
+      sourceLineNumber: line.sourceLineNumber, isManuallyAdded: line.isManuallyAdded, inboundRequestItemId: line.inboundRequestItemId ?? '', isLotTracked: line.isLotTracked,
       confirmedQuantity: text(line.confirmedQuantity ?? line.documentQuantity), damagedQuantity: text(line.damagedQuantity),
       exceptionReason: line.exceptionReason ?? '', lotNumber: line.lotNumber ?? '',
       manufacturedDate: line.manufacturedDate ?? '', expiryDate: line.expiryDate ?? '',
     })),
+  };
+}
+
+/** Placeholder shown for a line the reviewer just added and has not saved yet. */
+function manualLine(sourceLineNumber: number): DocumentReviewLine {
+  return {
+    sourceLineNumber, extractedSku: null, extractedProductName: null, extractedUnitOfMeasure: null, documentQuantity: null,
+    inboundRequestItemId: null, productId: null, productSku: null, productName: null, unitName: null,
+    orderedQuantity: null, previouslyReceivedQuantity: null, remainingQuantity: null,
+    confirmedQuantity: null, damagedQuantity: null, exceptionReason: null,
+    isLotTracked: false, lotNumber: null, manufacturedDate: null, expiryDate: null,
+    status: '', isUserCorrected: true, isManuallyAdded: true,
   };
 }
 
@@ -50,7 +62,7 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
   const busy = ocr.picking || ocr.upload.isPending || ocr.review.isPending || ocr.draft.isPending;
 
   const form = useForm<ReviewForm>({ resolver: zodResolver(reviewFormSchema), defaultValues: EMPTY_FORM });
-  const { fields } = useFieldArray({ control: form.control, name: 'lines' });
+  const { fields, append, remove } = useFieldArray({ control: form.control, name: 'lines' });
   const { errors, isDirty } = form.formState;
   const acknowledged = useWatch({ control: form.control, name: 'acknowledgeWarehouseMismatch' });
   const watchedLines = useWatch({ control: form.control, name: 'lines' });
@@ -75,6 +87,16 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
     form.setValue(`lines.${index}.inboundRequestItemId`, itemId, { shouldDirty: true, shouldValidate: true });
     form.setValue(`lines.${index}.isLotTracked`, lotTracked.get(itemId) ?? false, { shouldDirty: true });
   }, [form, lotTracked]);
+
+  const usedItems = new Set((watchedLines ?? []).map(line => line.inboundRequestItemId).filter(Boolean));
+  const canAddLine = (task?.lines ?? []).some(line => !usedItems.has(line.inboundRequestItemId));
+  const addLine = () => append({
+    // Keep added lines numbered after every line on the document so they never collide with a source line.
+    sourceLineNumber: Math.max(0, ...(review?.lines ?? []).map(line => line.sourceLineNumber), ...(watchedLines ?? []).map(line => line.sourceLineNumber)) + 1,
+    isManuallyAdded: true, inboundRequestItemId: '', isLotTracked: false, confirmedQuantity: '', damagedQuantity: '',
+    exceptionReason: '', lotNumber: '', manufacturedDate: '', expiryDate: '',
+  });
+  const removeLine = useCallback((index: number) => remove(index), [remove]);
 
   const content = [styles.content, { backgroundColor: theme.background }];
   const header = <View style={styles.titleBlock}>
@@ -122,6 +144,8 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
   const notice = canDraft ? 'Đã sẵn sàng tạo phiếu nhận hàng nháp.'
     : isDirty ? 'Lưu thay đổi trước khi tạo phiếu nháp.' : 'Xử lý hết lỗi rồi lưu lại để tạo phiếu nháp.';
   const footer = reviewing ? <View style={styles.footer}>
+    <Button label="Thêm dòng hàng AI bỏ sót" variant="outline" disabled={busy || !canAddLine} onPress={addLine}
+      renderIcon={color => <Plus size={18} color={color} />} />
     {errors.lines?.root?.message ? <AlertBanner variant="destructive" title={errors.lines.root.message} /> : null}
     <View style={[styles.notice, { backgroundColor: canDraft ? theme.secondaryContainer : theme.backgroundElement }]}>
       {canDraft ? <CircleCheck size={18} color={theme.onSecondaryContainer} /> : <Info size={18} color={theme.textSecondary} />}
@@ -146,11 +170,13 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
       ListFooterComponent={footer}
       extraData={watchedLines}
       renderItem={({ index }) => {
-        const line = review?.lines[index];
-        if (!line) return null;
-        const itemId = watchedLines?.[index]?.inboundRequestItemId ?? '';
+        const formLine = watchedLines?.[index];
+        if (!formLine) return null;
+        const line = review?.lines.find(value => value.sourceLineNumber === formLine.sourceLineNumber) ?? manualLine(formLine.sourceLineNumber);
+        const itemId = formLine.inboundRequestItemId;
         return <ReviewLineCard index={index} line={line} control={form.control} errors={errors.lines} options={options}
-          isLotTracked={lotTracked.get(itemId) ?? line.isLotTracked} disabled={busy} onSelectItem={selectItem} />;
+          isLotTracked={lotTracked.get(itemId) ?? line.isLotTracked} disabled={busy} onSelectItem={selectItem}
+          onRemove={formLine.isManuallyAdded ? removeLine : undefined} />;
       }}
     />
   </SafeAreaView>;

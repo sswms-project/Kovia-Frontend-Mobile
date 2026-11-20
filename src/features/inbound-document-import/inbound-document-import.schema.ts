@@ -37,7 +37,7 @@ export const reviewLineSchema = z.object({
   unitName: nullableText, orderedQuantity: nullableNumber, previouslyReceivedQuantity: nullableNumber, remainingQuantity: nullableNumber,
   confirmedQuantity: nullableNumber, damagedQuantity: nullableNumber, exceptionReason: nullableText,
   isLotTracked: z.boolean().default(false), lotNumber: nullableText, manufacturedDate: nullableText, expiryDate: nullableText,
-  status: z.string(), isUserCorrected: z.boolean().default(false),
+  status: z.string(), isUserCorrected: z.boolean().default(false), isManuallyAdded: z.boolean().default(false),
 });
 export const reviewSchema = z.object({
   extraction: extractionSchema.nullable().optional().transform(value => value ?? null),
@@ -61,6 +61,7 @@ export const documentImportSchema = z.object({
 const optionalDate = z.string().trim().regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Ngày phải theo dạng YYYY-MM-DD.');
 export const reviewFormLineSchema = z.object({
   sourceLineNumber: z.number().int().positive(),
+  isManuallyAdded: z.boolean(),
   inboundRequestItemId: z.string().min(1, 'Chọn dòng hàng trong yêu cầu nhập.'),
   isLotTracked: z.boolean(),
   confirmedQuantity: z.string().trim().refine(value => Number(value) > 0, 'Số xác nhận phải lớn hơn 0.'),
