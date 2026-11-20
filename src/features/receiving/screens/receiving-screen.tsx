@@ -103,8 +103,12 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
                 ? 'Đã duyệt biên bản từ chối toàn bộ' : STATUS_LABELS[receipt.status] ?? receipt.status} /></View>
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
             <View style={styles.meta}>
-              <Text style={[styles.metaLabel, { color: theme.textSecondary }]}>Yêu cầu</Text>
-              <Text style={[styles.metaValue, { color: theme.text }]} numberOfLines={1}>{receipt.inboundRequestCode}</Text>
+              <Text style={[styles.metaLabel, { color: theme.textSecondary }]}>
+                {receipt.inboundRequestId ? 'Yêu cầu' : 'Hình thức nhận'}
+              </Text>
+              <Text style={[styles.metaValue, { color: theme.text }]} numberOfLines={1}>
+                {receipt.inboundRequestCode ?? (receipt.inboundRequestId ? 'Không đọc được mã yêu cầu' : 'Nhận hàng trực tiếp')}
+              </Text>
             </View>
             <View style={styles.meta}>
               <Text style={[styles.metaLabel, { color: theme.textSecondary }]}>Cập nhật</Text>

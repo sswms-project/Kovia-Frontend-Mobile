@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { router } from 'expo-router';
+import { CircleCheck, FilePlus2, Info, RotateCcw, Save, Sparkles } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
@@ -8,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlertBanner } from '@/components/ui/alert-banner';
 import { Button } from '@/components/ui/button';
 import type { SelectionOption } from '@/components/ui/selection-field';
-import { FontFamily, MaxContentWidth } from '@/constants/theme';
+import { FontFamily, MaxContentWidth, Radius } from '@/constants/theme';
 import { useReceiptContext } from '@/features/receiving/hooks/use-receipt-context';
 import { useExitProtection, useScreenSubtitle } from '@/hooks/use-screen-exit';
 import { useTheme } from '@/hooks/use-theme';
@@ -20,6 +21,7 @@ import { useInboundDocumentImport } from '../hooks/use-inbound-document-import';
 import { reviewFormSchema, type DocumentImport, type ReviewForm } from '../inbound-document-import.schema';
 
 const EMPTY_FORM: ReviewForm = { acknowledgeWarehouseMismatch: false, lines: [] };
+const STEPS = ['Chụp ảnh', 'Rà soát', 'Tạo phiếu nháp'] as const;
 
 function toForm(item: DocumentImport | undefined): ReviewForm {
   const review = item?.review;
@@ -75,8 +77,13 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
   }, [form, lotTracked]);
 
   const content = [styles.content, { backgroundColor: theme.background }];
-  const header = <View style={styles.header}>
-    <Text style={[styles.kicker, { color: theme.primary }]}>KOVIA · {context.access.warehouse?.warehouseName ?? 'Kho'}</Text>
+  const header = <View style={styles.titleBlock}>
+    <View style={styles.kickerRow}>
+      <Sparkles size={14} color={theme.primary} />
+      <Text style={[styles.kicker, { color: theme.primary }]} numberOfLines={1}>
+        KOVIA · {context.access.warehouse?.warehouseName ?? 'Kho'}
+      </Text>
+    </View>
     <Text style={[styles.title, { color: theme.text }]}>Quét phiếu giao hàng bằng AI</Text>
   </View>;
 
@@ -91,14 +98,14 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
   </SafeAreaView>;
 
   function body() {
-    if (context.task.isLoading) return <Loading label="Đang tải yêu cầu nhập kho…" />;
+    if (context.task.isLoading) return <Loading title="Đang tải yêu cầu nhập kho…" />;
     if (context.task.isError || !task) return <AlertBanner variant="destructive" title="Không tải được yêu cầu nhập kho"
       description={getApiErrorMessage(context.task.error, 'Vui lòng thử lại.')}>
       <Button label="Thử lại" onPress={() => void context.task.refetch()} />
     </AlertBanner>;
-    if (ocr.upload.isPending) return <Loading label="Đang phân tích chứng từ… có thể mất đến 1 phút." />;
+    if (ocr.upload.isPending) return <Loading title="Đang phân tích chứng từ" description="AI đang đọc phiếu, có thể mất đến 1 phút." />;
     if (!ocr.importId) return <UploadPanel busy={ocr.picking} onPick={source => void ocr.choose(source)} />;
-    if (ocr.documentImport.isLoading) return <Loading label="Đang tải kết quả AI…" />;
+    if (ocr.documentImport.isLoading) return <Loading title="Đang tải kết quả AI…" />;
     if (ocr.documentImport.isError || !item) return <AlertBanner variant="destructive" title="Không tải được kết quả AI"
       description={getApiErrorMessage(ocr.documentImport.error, 'Vui lòng thử lại.')}>
       <Button label="Thử lại" onPress={() => void ocr.documentImport.refetch()} />
@@ -111,15 +118,22 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
 
   const reviewing = !!review && item?.status !== 'Failed';
   const canDraft = reviewing && !isDirty && item?.status === 'ReadyForDraft' && !!review?.canCreateDraft;
+  const step = canDraft ? 2 : ocr.importId ? 1 : 0;
+  const notice = canDraft ? 'Đã sẵn sàng tạo phiếu nhận hàng nháp.'
+    : isDirty ? 'Lưu thay đổi trước khi tạo phiếu nháp.' : 'Xử lý hết lỗi rồi lưu lại để tạo phiếu nháp.';
   const footer = reviewing ? <View style={styles.footer}>
-    {errors.lines?.root?.message && <AlertBanner variant="destructive" title={errors.lines.root.message} />}
+    {errors.lines?.root?.message ? <AlertBanner variant="destructive" title={errors.lines.root.message} /> : null}
+    <View style={[styles.notice, { backgroundColor: canDraft ? theme.secondaryContainer : theme.backgroundElement }]}>
+      {canDraft ? <CircleCheck size={18} color={theme.onSecondaryContainer} /> : <Info size={18} color={theme.textSecondary} />}
+      <Text style={[styles.noticeText, { color: canDraft ? theme.onSecondaryContainer : theme.textSecondary }]}>{notice}</Text>
+    </View>
     <Button label="Lưu và kiểm tra lại" variant={canDraft ? 'outline' : 'primary'} loading={ocr.review.isPending}
-      disabled={busy} onPress={() => void form.handleSubmit(values => ocr.review.mutate(values))()} />
-    <Button label="Tạo phiếu nhận hàng nháp" loading={ocr.draft.isPending} disabled={busy || !canDraft} onPress={() => ocr.draft.mutate()} />
-    {!canDraft && <Text style={[styles.hint, { color: theme.textSecondary }]}>
-      {isDirty ? 'Lưu thay đổi trước khi tạo phiếu nháp.' : 'Xử lý hết lỗi rồi lưu lại để tạo phiếu nháp.'}
-    </Text>}
-    <Button label="Chọn tệp khác" variant="ghost" disabled={busy} onPress={ocr.reset} />
+      disabled={busy} onPress={() => void form.handleSubmit(values => ocr.review.mutate(values))()}
+      renderIcon={color => <Save size={18} color={color} />} />
+    <Button label="Tạo phiếu nhận hàng nháp" loading={ocr.draft.isPending} disabled={busy || !canDraft} onPress={() => ocr.draft.mutate()}
+      renderIcon={color => <FilePlus2 size={18} color={color} />} />
+    <Button label="Chọn tệp khác" variant="ghost" disabled={busy} onPress={ocr.reset}
+      renderIcon={color => <RotateCcw size={18} color={color} />} />
   </View> : undefined;
 
   return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
@@ -128,7 +142,7 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
       keyExtractor={field => field.id}
       contentContainerStyle={content}
       keyboardShouldPersistTaps="handled"
-      ListHeaderComponent={<View style={styles.header}>{header}{body()}</View>}
+      ListHeaderComponent={<View style={styles.listHeader}>{header}{task ? <Stepper step={step} /> : null}{body()}</View>}
       ListFooterComponent={footer}
       extraData={watchedLines}
       renderItem={({ index }) => {
@@ -142,21 +156,43 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
   </SafeAreaView>;
 }
 
-function Loading({ label }: { readonly label: string }) {
+function Stepper({ step }: { readonly step: number }) {
   const theme = useTheme();
-  return <View style={styles.loading}>
-    <ActivityIndicator color={theme.primary} />
-    <Text style={[styles.hint, { color: theme.textSecondary }]}>{label}</Text>
+  return <View style={styles.stepper} accessible accessibilityLabel={`Bước ${step + 1}/${STEPS.length}: ${STEPS[step]}`}>
+    {STEPS.map((label, index) => <View key={label} style={styles.step}>
+      <View style={[styles.stepBar, { backgroundColor: index <= step ? theme.primary : theme.border }]} />
+      <Text style={[styles.stepLabel, index === step
+        ? { color: theme.text, fontFamily: FontFamily.semibold }
+        : { color: theme.textSecondary }]}>{label}</Text>
+    </View>)}
+  </View>;
+}
+
+function Loading({ title, description }: { readonly title: string; readonly description?: string }) {
+  const theme = useTheme();
+  return <View style={[styles.loading, { backgroundColor: theme.card, borderColor: theme.border }]}>
+    <ActivityIndicator size="large" color={theme.primary} />
+    <Text style={[styles.loadingTitle, { color: theme.text }]}>{title}</Text>
+    {description ? <Text style={[styles.loadingText, { color: theme.textSecondary }]}>{description}</Text> : null}
   </View>;
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', padding: 20, gap: 16 },
-  header: { gap: 16 },
-  kicker: { fontFamily: FontFamily.semibold, fontSize: 13, lineHeight: 18 },
-  title: { fontFamily: FontFamily.bold, fontSize: 26, lineHeight: 35 },
-  footer: { gap: 12 },
-  hint: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 21, textAlign: 'center' },
-  loading: { alignItems: 'center', gap: 12, paddingVertical: 32 },
+  content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', padding: 20, paddingBottom: 32, gap: 16 },
+  listHeader: { gap: 16 },
+  titleBlock: { gap: 4 },
+  kickerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  kicker: { flexShrink: 1, fontFamily: FontFamily.semibold, fontSize: 13, lineHeight: 18 },
+  title: { fontFamily: FontFamily.bold, fontSize: 26, lineHeight: 34 },
+  stepper: { flexDirection: 'row', gap: 8 },
+  step: { flex: 1, gap: 8 },
+  stepBar: { height: 4, borderRadius: Radius.sm },
+  stepLabel: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 16 },
+  footer: { gap: 12, paddingTop: 8 },
+  notice: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: Radius.lg },
+  noticeText: { flex: 1, fontFamily: FontFamily.medium, fontSize: 14, lineHeight: 20 },
+  loading: { alignItems: 'center', gap: 16, paddingVertical: 32, paddingHorizontal: 24, borderWidth: 1, borderRadius: Radius.xl },
+  loadingTitle: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 24, textAlign: 'center' },
+  loadingText: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 21, textAlign: 'center' },
 });
