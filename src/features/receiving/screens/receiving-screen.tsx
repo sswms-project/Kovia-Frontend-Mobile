@@ -81,7 +81,6 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
       onRefresh={busy ? undefined : () => { void context.refresh(); }}
       ListHeaderComponent={<View style={styles.group}>
         <WorkCompletionActions visible={!busy && !fetching && !error && !editor.target && !allocation.visible && !execution.editor && (mode === 'receiving' ? task?.executionStatus === 'Completed' || receipt?.status === 'Completed' : receipt?.putAwayTaskExecutionStatus === 'Completed')} message={mode === 'receiving' ? 'Đã hoàn tất bước nhận hàng.' : 'Đã hoàn tất cất hàng.'} />
-        <Text style={[styles.kicker, { color: theme.primary }]}>KOVIA · {context.access.warehouse?.warehouseName}</Text>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{mode === 'putaway' ? 'Cất hàng được giao' : 'Nhận hàng được giao'}</Text>
         {loading && <Text style={[styles.text, { color: theme.textSecondary }]}>Đang tải chứng từ…</Text>}
         {error && <AlertBanner variant="destructive" title="Chưa tải được chứng từ" description={getApiErrorMessage(error)}>
@@ -113,6 +112,10 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
             <View style={styles.meta}>
               <Text style={[styles.metaLabel, { color: theme.textSecondary }]}>Cập nhật</Text>
               <Text style={[styles.metaValue, { color: theme.text }]}>{taskDate(receipt.modifiedAt ?? receipt.createdAt)}</Text>
+            </View>
+            <View style={styles.meta}>
+              <Text style={[styles.metaLabel, { color: theme.textSecondary }]}>Kho</Text>
+              <Text style={[styles.metaValue, { color: theme.text }]}>{receipt.warehouseName}</Text>
             </View>
           </View>
           {receipt.arrivalConfirmedAt && !receipt.arrivalStockPostedAt && <AlertBanner title="Phiếu nhận cũ cần quản lý đối soát tồn thực nhận có bằng chứng trước khi tiếp tục." />}
@@ -204,7 +207,7 @@ export function ReceivingScreen({ documentId, mode }: ReceivingScreenProps) {
 }
 
 const styles = StyleSheet.create({ root: { flex: 1 }, content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', padding: 20, gap: 16 },
-  group: { gap: 14 }, title: { fontFamily: FontFamily.bold, fontSize: 26, lineHeight: 35 }, kicker: { fontFamily: FontFamily.semibold, fontSize: 13 },
+  group: { gap: 14 }, title: { fontFamily: FontFamily.bold, fontSize: 26, lineHeight: 35 },
   sectionTitle: { fontFamily: FontFamily.semibold, fontSize: 18, lineHeight: 26 },
   code: { flex: 1, fontFamily: FontFamily.mono, fontSize: 18, lineHeight: 27 }, text: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 23 },
   card: { gap: 10, padding: 16, borderWidth: 1, borderRadius: Radius.xl }, cardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },

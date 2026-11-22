@@ -37,7 +37,7 @@ export function MyTasksScreen() {
     </SafeAreaView>;
   }
   return <>
-    <MyTaskList warehouseName={state.access.warehouse?.warehouseName ?? ''} data={state.list.data}
+    <MyTaskList data={state.list.data}
       filters={state.filters} loading={state.list.isPending} fetching={state.list.isFetching} error={state.list.error}
       busy={state.mutation.isPending} canManage={state.canManage} notice={state.notice}
       onFilters={state.changeFilters} onRefresh={() => { void state.list.refetch(); }}
