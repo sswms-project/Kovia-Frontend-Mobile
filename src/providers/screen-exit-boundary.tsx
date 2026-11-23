@@ -1,4 +1,4 @@
-import { useNavigation, usePathname } from 'expo-router';
+import { router, useNavigation, usePathname } from 'expo-router';
 import { CommonActions, useIsFocused, usePreventRemove } from 'expo-router/react-navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Alert, BackHandler, View, StyleSheet } from 'react-native';
@@ -139,7 +139,9 @@ export function ScreenExitBoundary({ children, standalone = false }: { readonly 
     if (!state) throw new Error('Chưa xác định được điều hướng hiện tại. Vui lòng thử lại.');
     const profile = client.getQueryData<UserProfile>(profileQueryKey);
     const allowedTarget = target === 'tasks' && (!profile || !getAllowedTabs(profile).some(tab => tab.name === 'tasks')) ? 'index' : target;
-    root.dispatch(CommonActions.reset(homeNavigationState(state, allowedTarget)));
+    const nextState = homeNavigationState(state, allowedTarget);
+    if (nextState) root.dispatch(CommonActions.reset(nextState));
+    else router.replace(allowedTarget === 'tasks' ? '/tasks' : '/');
   }, [navigation, client]);
   const navigateTab = useCallback((target: 'index' | 'tasks') => {
     void request(() => resetToTab(target), target === 'tasks' ? 'về công việc' : 'về trang chủ');
