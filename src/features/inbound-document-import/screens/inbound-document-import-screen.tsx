@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { router } from 'expo-router';
-import { CircleCheck, FilePlus2, Info, RotateCcw, Save, Sparkles } from 'lucide-react-native';
+import { CircleCheck, FilePlus2, Info, RotateCcw, Save } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
@@ -78,12 +78,6 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
 
   const content = [styles.content, { backgroundColor: theme.background }];
   const header = <View style={styles.titleBlock}>
-    <View style={styles.kickerRow}>
-      <Sparkles size={14} color={theme.primary} />
-      <Text style={[styles.kicker, { color: theme.primary }]} numberOfLines={1}>
-        KOVIA · {context.access.warehouse?.warehouseName ?? 'Kho'}
-      </Text>
-    </View>
     <Text style={[styles.title, { color: theme.text }]}>Quét phiếu giao hàng bằng AI</Text>
   </View>;
 
@@ -182,8 +176,6 @@ const styles = StyleSheet.create({
   content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', padding: 20, paddingBottom: 32, gap: 16 },
   listHeader: { gap: 16 },
   titleBlock: { gap: 4 },
-  kickerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  kicker: { flexShrink: 1, fontFamily: FontFamily.semibold, fontSize: 13, lineHeight: 18 },
   title: { fontFamily: FontFamily.bold, fontSize: 26, lineHeight: 34 },
   stepper: { flexDirection: 'row', gap: 8 },
   step: { flex: 1, gap: 8 },

@@ -19,13 +19,14 @@ export interface ReceiptEditorLine {
 interface ReceiptLineFieldsProps {
   readonly form: UseFormReturn<ReceiptForm>; readonly index: number; readonly item: ReceiptEditorLine;
   readonly taskLine?: ReceivingTask['lines'][number];
+  readonly initiallyExpanded?: boolean;
   readonly correction: boolean; readonly legacy: boolean; readonly busy: boolean; readonly onRemove: () => void;
 }
 export function parseQuantity(value: string) { return value.trim() ? Number(value.replace(',', '.')) : Number.NaN; }
 export function quantityInput(value: number) { return Number.isFinite(value) ? String(value) : ''; }
-export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, item, taskLine, correction, legacy, busy, onRemove }: ReceiptLineFieldsProps) {
+export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, item, taskLine, initiallyExpanded = true, correction, legacy, busy, onRemove }: ReceiptLineFieldsProps) {
   const theme = useTheme();
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(initiallyExpanded);
   const sku = item.productSKU;
   const receivedQty = useWatch({ control: form.control, name: `lines.${index}.receivedQty` });
   const baseQty = Number.isFinite(receivedQty) ? receivedQty : 0;
@@ -43,6 +44,17 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
   const damagedWatch = useWatch({ control: form.control, name: `lines.${index}.damagedQty` });
   const rejectedQty = Number.isFinite(rejectedWatch) ? rejectedWatch : 0;
   const damagedQty = Number.isFinite(damagedWatch) ? damagedWatch : 0;
+  function removeLine() {
+    const line = form.getValues(`lines.${index}`);
+    const hasEnteredData = Number.isFinite(line?.receivedQty) || (line?.rejectedQty ?? 0) > 0 ||
+      (line?.damagedQty ?? 0) > 0 || !!line?.exceptionReason.trim() || !!line?.lotNumber.trim() ||
+      !!line?.manufacturedDate.trim() || !!line?.expiryDate.trim();
+    if (!hasEnteredData) { onRemove(); return; }
+    Alert.alert('Bỏ dòng hàng đã nhập?', `Số liệu của ${sku} sẽ bị xóa khỏi phiếu.`, [
+      { text: 'Giữ lại', style: 'cancel' },
+      { text: 'Bỏ dòng', style: 'destructive', onPress: onRemove },
+    ]);
+  }
   const round = (value: number) => Math.round(value * 1e6) / 1e6;
   const fullQuantity = taskLine && !correction ? getFullReceiptQuantity(taskLine, enteredUnitId) : null;
   return <View style={[styles.card, { borderColor: theme.border, backgroundColor: theme.card }]}>
@@ -54,6 +66,11 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
         <Text style={[styles.name, { color: theme.text }]}>{item.productName}</Text>
         <Text style={[styles.text, { color: theme.primary }]}>{expanded ? 'Thu gọn ▴' : 'Mở chi tiết ▾'}</Text>
       </Pressable>
+      {!expanded && !correction && <Pressable accessibilityRole="button" accessibilityLabel={`Bỏ ${sku} khỏi phiếu nhận`}
+        accessibilityState={{ disabled: busy }} disabled={busy} onPress={removeLine}
+        style={({ pressed }) => [styles.removeCollapsed, { borderColor: theme.border, backgroundColor: theme.card }, (busy || pressed) && styles.inactive]}>
+        <Text style={[styles.removeLabel, { color: theme.error }]}>Bỏ dòng</Text>
+      </Pressable>}
       {expanded && !correction && <ScanCodeButton compact continuous label={baseQty > 0 ? `Quét đếm · ${baseQty}` : 'Quét đếm'}
         title={`Quét mã ${sku}`} status={`Đã quét: ${scanned} ${unitName} · Số lượng thực nhận sau xác nhận: ${baseQty + scanned}`} disabled={busy}
         onOpen={() => setScanCount(0)}
@@ -126,7 +143,7 @@ export const ReceiptLineFields = memo(function ReceiptLineFields({ form, index, 
     <Controller control={form.control} name={`lines.${index}.exceptionReason`} render={({ field, fieldState }) => <TextField
       label={correction || legacy ? 'Tình trạng hàng hỏng' : 'Lý do từ chối nhận'} accessibilityLabel={`Tình trạng hàng ${sku}`} placeholder="Móp, rách bao bì, sai quy cách… (nếu có)"
       value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} editable={!busy} multiline maxLength={501} />} />
-    {!correction && <Button label="Bỏ dòng này" accessibilityLabel={`Bỏ nhận ${sku} lần này`} variant="ghost" disabled={busy} onPress={onRemove} />}
+    {!correction && <Button label="Bỏ dòng này" accessibilityLabel={`Bỏ nhận ${sku} lần này`} variant="ghost" disabled={busy} onPress={removeLine} />}
     </>}
   </View>;
 });
@@ -134,6 +151,8 @@ const styles = StyleSheet.create({
   card: { padding: 16, borderWidth: 1, borderRadius: Radius.lg, gap: 12 },
   header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 },
   headerText: { flexBasis: 160, flexGrow: 1, minWidth: 0, gap: 2, minHeight: 48 },
+  removeCollapsed: { minWidth: 72, minHeight: 44, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderRadius: Radius.md },
+  removeLabel: { fontFamily: FontFamily.medium, fontSize: 13, lineHeight: 18 },
   sku: { fontFamily: FontFamily.semibold, fontSize: 12, lineHeight: 16, letterSpacing: 0.5 },
   name: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 22 },
   text: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 18 },

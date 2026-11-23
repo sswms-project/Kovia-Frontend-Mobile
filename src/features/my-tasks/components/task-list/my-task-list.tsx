@@ -15,7 +15,6 @@ import { TaskCard } from './task-card';
 import { TaskFiltersPanel } from './task-filters';
 
 interface MyTaskListProps {
-  readonly warehouseName: string;
   readonly data?: WarehouseTaskList;
   readonly filters: TaskFilters;
   readonly loading: boolean;
@@ -32,7 +31,7 @@ interface MyTaskListProps {
   readonly canOpenDocument?: (task: WarehouseTask) => boolean;
 }
 
-export function MyTaskList({ warehouseName, data, filters, loading, fetching, error, busy, canManage, notice,
+export function MyTaskList({ data, filters, loading, fetching, error, busy, canManage, notice,
   onFilters, onRefresh, warehouseSelector, onAction, onOpenDocument, canOpenDocument }: MyTaskListProps) {
   const theme = useTheme();
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -48,7 +47,6 @@ export function MyTaskList({ warehouseName, data, filters, loading, fetching, er
       renderItem={renderItem} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
       refreshing={fetching && !loading} onRefresh={busy ? undefined : onRefresh}
       ListHeaderComponent={<View style={styles.header}>
-        <Text style={[styles.kicker, { color: theme.primary }]}>KOVIA · {warehouseName}</Text>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>Công việc của tôi</Text>
         {warehouseSelector}
         <View style={styles.row}>
@@ -98,7 +96,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', padding: 16, paddingBottom: 48, gap: 12 },
   header: { gap: 16, paddingTop: 16, paddingBottom: 8 },
-  kicker: { fontFamily: FontFamily.semibold, fontSize: 12, lineHeight: 18 },
   title: { fontFamily: FontFamily.bold, fontSize: 28, lineHeight: 36 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   summary: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 22 },
