@@ -20,14 +20,21 @@ import { ReviewLineCard } from '../components/review-line-card';
 import { useInboundDocumentImport } from '../hooks/use-inbound-document-import';
 import { reviewFormSchema, type DocumentImport, type ReviewForm } from '../inbound-document-import.schema';
 
-const EMPTY_FORM: ReviewForm = { acknowledgeWarehouseMismatch: false, lines: [] };
+const EMPTY_HEADER: ReviewForm['header'] = {
+  documentNumber: '', inboundRequestCode: '', supplierName: '', documentDate: '', supplierDeliveryDate: '', warehouseCode: '', warehouseName: '',
+};
+const EMPTY_FORM: ReviewForm = { header: EMPTY_HEADER, acknowledgeWarehouseMismatch: false, lines: [] };
 const STEPS = ['Chụp ảnh', 'Rà soát', 'Tạo phiếu nháp'] as const;
 
 function toForm(item: DocumentImport | undefined): ReviewForm {
   const review = item?.review;
   if (!review) return EMPTY_FORM;
   const text = (value: number | null) => (value === null ? '' : String(value));
+  const extraction = review.extraction;
+  const header = Object.fromEntries(Object.keys(EMPTY_HEADER).map(key =>
+    [key, extraction?.[key as keyof ReviewForm['header']]?.value ?? ''])) as ReviewForm['header'];
   return {
+    header,
     acknowledgeWarehouseMismatch: review.warehouseMismatchAcknowledged,
     lines: review.lines.map(line => ({
       sourceLineNumber: line.sourceLineNumber, inboundRequestItemId: line.inboundRequestItemId ?? '', isLotTracked: line.isLotTracked,
@@ -54,6 +61,7 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
   const { errors, isDirty } = form.formState;
   const acknowledged = useWatch({ control: form.control, name: 'acknowledgeWarehouseMismatch' });
   const watchedLines = useWatch({ control: form.control, name: 'lines' });
+  const supplierName = useWatch({ control: form.control, name: 'header.supplierName' });
 
   useEffect(() => { form.reset(toForm(item)); }, [item, form]);
 
@@ -107,7 +115,9 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
     </AlertBanner>;
     if (item.status === 'Failed' || !review) return <FailedPanel item={item} onRetry={ocr.reset} onManual={() => router.back()} />;
     return <ReviewHeader item={item} review={review} acknowledged={acknowledged}
-      onAcknowledge={value => form.setValue('acknowledgeWarehouseMismatch', value, { shouldDirty: true })} />;
+      onAcknowledge={value => form.setValue('acknowledgeWarehouseMismatch', value, { shouldDirty: true })}
+      supplierName={supplierName} supplierNameError={errors.header?.supplierName?.message}
+      onSupplierNameChange={value => form.setValue('header.supplierName', value, { shouldDirty: true, shouldValidate: true })} />;
   }
 
   const reviewing = !!review && item?.status !== 'Failed';

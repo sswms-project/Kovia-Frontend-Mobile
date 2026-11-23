@@ -1,5 +1,4 @@
 import { Camera, Check, FileText, FileWarning, ImageIcon, Info, RefreshCw, ScanText, Square, SquareCheck } from 'lucide-react-native';
-import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AlertBanner } from '@/components/ui/alert-banner';
@@ -101,20 +100,28 @@ function FieldRow({ label, field, fallback }: { readonly label: string; readonly
   </View>;
 }
 
-/** OCR can misread Vietnamese diacritics; lets the user retype the name. Display-only: the supplier of record comes from the PO. */
-function EditableSupplierRow({ field, fallback }: { readonly field?: ExtractedTextField; readonly fallback?: string | null }) {
+interface EditableSupplierRowProps {
+  readonly field?: ExtractedTextField;
+  readonly expected?: string | null;
+  readonly value: string;
+  readonly error?: string;
+  readonly onChange: (value: string) => void;
+}
+/** OCR can misread Vietnamese diacritics; the corrected name is saved and re-checked against the inbound request's supplier. */
+function EditableSupplierRow({ field, expected, value, error, onChange }: EditableSupplierRowProps) {
   const theme = useTheme();
-  const original = field?.value ?? fallback ?? '';
-  const [value, setValue] = useState(original);
+  const original = field?.value ?? '';
   const edited = value.trim() !== original.trim();
   return <View style={[styles.fieldStack, { borderTopColor: theme.border }]}>
     <View style={styles.fieldHead}>
       <FieldLabel label="Nhà cung cấp" field={field} />
-      {edited ? <StatusPill label="Đã chỉnh sửa" tone="primary" /> : field ? <VerificationPill field={field} /> : null}
+      {edited ? <StatusPill label="Chưa lưu" tone="primary" /> : field ? <VerificationPill field={field} /> : null}
     </View>
-    <TextField label="Nhà cung cấp" hideLabel value={value} onChangeText={setValue} autoCapitalize="words"
-      hint={`${edited ? 'Đã chỉnh sửa' : 'Sửa nếu OCR đọc sai'} · chỉ để đối chiếu, nhà cung cấp theo yêu cầu nhập kho`} />
-    {edited ? <Text style={[styles.meta, { color: theme.textSecondary }]}>Gốc: {original || '—'}</Text> : null}
+    <TextField label="Nhà cung cấp" hideLabel value={value} onChangeText={onChange} autoCapitalize="words"
+      placeholder={expected ?? undefined} error={error}
+      hint={edited ? 'Bấm "Lưu và kiểm tra lại" để đối chiếu lại với yêu cầu nhập kho' : 'Sửa nếu OCR đọc sai'} />
+    {edited ? <Text style={[styles.meta, { color: theme.textSecondary }]}>OCR đọc: {original || '—'}</Text> : null}
+    {expected ? <Text style={[styles.meta, { color: theme.textSecondary }]}>Theo yêu cầu nhập kho: {expected}</Text> : null}
   </View>;
 }
 
@@ -123,8 +130,13 @@ interface ReviewHeaderProps {
   readonly review: DocumentReview;
   readonly acknowledged: boolean;
   readonly onAcknowledge: (value: boolean) => void;
+  readonly supplierName: string;
+  readonly supplierNameError?: string;
+  readonly onSupplierNameChange: (value: string) => void;
 }
-export function ReviewHeader({ item, review, acknowledged, onAcknowledge }: ReviewHeaderProps) {
+export function ReviewHeader({
+  item, review, acknowledged, onAcknowledge, supplierName, supplierNameError, onSupplierNameChange,
+}: ReviewHeaderProps) {
   const theme = useTheme();
   const extraction = review.extraction;
   const file = [item.fileName, item.extractionModel].filter(Boolean).join(' · ');
@@ -142,7 +154,8 @@ export function ReviewHeader({ item, review, acknowledged, onAcknowledge }: Revi
         <FieldRow label="Mã yêu cầu" field={extraction?.inboundRequestCode} fallback={review.inboundRequestCode} />
         <FieldRow label="Ngày chứng từ" field={extraction?.documentDate} />
         <FieldRow label="Ngày giao" field={extraction?.supplierDeliveryDate} />
-        <EditableSupplierRow key={item.id} field={extraction?.supplierName} fallback={review.supplierName} />
+        <EditableSupplierRow field={extraction?.supplierName} expected={review.supplierName}
+          value={supplierName} error={supplierNameError} onChange={onSupplierNameChange} />
         <FieldRow label="Mã kho" field={extraction?.warehouseCode} fallback={review.warehouseCode} />
         <FieldRow label="Tên kho" field={extraction?.warehouseName} fallback={review.warehouseName} />
       </View>

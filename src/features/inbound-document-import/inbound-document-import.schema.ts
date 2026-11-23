@@ -77,7 +77,15 @@ export const reviewFormLineSchema = z.object({
   if (line.manufacturedDate && line.expiryDate && line.expiryDate < line.manufacturedDate)
     context.addIssue({ code: 'custom', path: ['expiryDate'], message: 'Hạn dùng phải sau ngày sản xuất.' });
 });
+const headerText = (max: number) => z.string().trim().max(max, `Tối đa ${max} ký tự.`);
+// The whole OCR header is sent back on save: the server treats any omitted value as cleared.
+export const reviewFormHeaderSchema = z.object({
+  documentNumber: headerText(100), inboundRequestCode: headerText(100), supplierName: headerText(300),
+  documentDate: z.string(), supplierDeliveryDate: z.string(),
+  warehouseCode: headerText(100), warehouseName: headerText(300),
+});
 export const reviewFormSchema = z.object({
+  header: reviewFormHeaderSchema,
   acknowledgeWarehouseMismatch: z.boolean(),
   lines: z.array(reviewFormLineSchema).min(1, 'Chứng từ chưa có dòng hàng.'),
 }).superRefine((form, context) => {
@@ -96,4 +104,5 @@ export type DocumentReview = z.infer<typeof reviewSchema>;
 export type DocumentReviewLine = z.infer<typeof reviewLineSchema>;
 export type ReviewForm = z.infer<typeof reviewFormSchema>;
 export type ReviewFormLine = z.infer<typeof reviewFormLineSchema>;
+export type ReviewFormHeader = z.infer<typeof reviewFormHeaderSchema>;
 export interface PickedDocument { readonly uri: string; readonly mimeType: string; readonly fileName: string; readonly file?: File }
