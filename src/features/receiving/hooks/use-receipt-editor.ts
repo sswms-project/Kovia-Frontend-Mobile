@@ -169,7 +169,10 @@ export function useReceiptEditor(context: ReceiptContext, evidence?: { documents
         task: context.task.data ?? null, correction: !!receipt.arrivalConfirmedAt });
     } else {
       if (!context.task.data || context.task.isFetching || context.task.isError) return;
-      form.reset({ receiptCode: '', lines: [] });
+      form.reset({ receiptCode: '', lines: context.task.data.lines.map(line => ({
+        inboundRequestItemId: line.inboundRequestItemId, enteredUnitId: line.baseUnitId, receivedQty: Number.NaN,
+        damagedQty: 0, rejectedQty: 0, exceptionReason: '', lotNumber: '', manufacturedDate: '', expiryDate: '',
+      })) });
       codeEdited.current = false;
       setTarget({ key: context.contextKey, session: ++session.current, receiptId: null, version: context.task.data.version,
         task: context.task.data, correction: false });

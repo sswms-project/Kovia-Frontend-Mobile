@@ -45,20 +45,35 @@ const inventoryLabels = load('src/features/inventory/inventory.labels.ts', {
   './inventory.types': load('src/features/inventory/inventory.types.ts'),
 });
 function navigationTree() {
-  return { key: 'root', type: 'stack', stale: false, routeNames: ['(app)', '(account)'], index: 1, routes: [
-    { key: 'app', name: '(app)', state: { type: 'tab', stale: false, index: 1, history: [{ type: 'route', key: 'tasks-tab' }], routes: [
+  return { key: 'root', routeKeySeq: 6, type: 'stack', stale: false, routeNames: ['(app)', '(account)'], index: 1, routes: [
+    { key: 'app', name: '(app)', state: { key: 'app-state', routeKeySeq: 5, type: 'tab', stale: false, routeNames: ['index', 'tasks', 'catalog'], index: 1, history: [{ type: 'route', key: 'tasks-tab' }], routes: [
       { key: 'home', name: 'index', params: { selectedWarehouse: 'warehouse' } },
-      { key: 'tasks-tab', name: 'tasks', state: { type: 'stack', stale: false, index: 1, routes: [
+      { key: 'tasks-tab', name: 'tasks', state: { key: 'tasks-state', routeKeySeq: 2, type: 'stack', stale: false, routeNames: ['index', '[taskType]/[taskId]'], index: 1, routes: [
         { key: 'task-list', name: 'index', params: { status: 'InProgress' } }, { key: 'task-detail', name: '[taskType]/[taskId]' },
       ] } },
       { key: 'catalog', name: 'catalog', params: { filter: 'keep' } },
-    ] } }, { key: 'account', name: '(account)', state: { type: 'stack', index: 0, routes: [{ name: 'receiving/[id]' }] } },
+    ] } }, { key: 'account', name: '(account)', state: { key: 'account-state', routeKeySeq: 1, type: 'stack', stale: false, routeNames: ['receiving/[id]'], index: 0, routes: [{ key: 'receiving', name: 'receiving/[id]' }] } },
   ] };
+}
+function assertCompleteNavigationState(state) {
+  assert.equal(state.stale, false);
+  assert.equal(typeof state.key, 'string');
+  assert.ok(Number.isInteger(state.index));
+  assert.ok(Number.isInteger(state.routeKeySeq));
+  assert.ok(Array.isArray(state.routeNames));
+  assert.ok(state.routes.length > 0);
+  for (const route of state.routes) {
+    assert.equal(typeof route.key, 'string');
+    assert.ok(state.routeNames.includes(route.name));
+    if (route.state) assertCompleteNavigationState(route.state);
+  }
 }
 test('Home removes account/current task flow while preserving Home identity, warehouse and other tab filters', () => {
   const source = navigationTree(); const before = structuredClone(source);
   const result = navigationLogic.homeNavigationState(source);
+  assert.ok(result);
   assert.deepEqual(source, before);
+  assertCompleteNavigationState(result);
   assert.equal(result.routes.length, 1);
   const tabs = result.routes[0].state;
   assert.equal(tabs.index, 0); assert.equal(tabs.routes[0].key, 'home');
@@ -68,35 +83,39 @@ test('Home removes account/current task flow while preserving Home identity, war
   assert.deepEqual(tabs.routes[1].state.routes[0].params, { status: 'InProgress' });
   assert.deepEqual(tabs.history, [{ type: 'route', key: 'home' }]);
 });
-test('task completion returns to actual task list and deep-link fallback builds the signed-in shell', () => {
+test('task completion selects Tasks and incomplete navigation state requires route fallback', () => {
   const tasks = navigationLogic.homeNavigationState(navigationTree(), 'tasks');
+  assert.ok(tasks);
+  assertCompleteNavigationState(tasks);
   assert.equal(tasks.routes[0].state.index, 1);
   assert.deepEqual(tasks.routes[0].state.routes[1].state.routes.map(route => route.name), ['index']);
-  assert.equal(navigationLogic.homeNavigationState({ routes: [{ name: '(account)' }] }).routes[0].name, '(app)');
-  assert.equal(navigationLogic.homeNavigationState({ routes: [] }, 'tasks').routes[0].state.routes[0].name, 'tasks');
+  assert.equal(navigationLogic.homeNavigationState({ routes: [{ name: '(account)' }] }), null);
+  assert.equal(navigationLogic.homeNavigationState({ routes: [] }, 'tasks'), null);
 });
 
 function boundaryFixture({ canGoBack = false, missingOwner = false, deepLink = false } = {}) {
   const runtime = hooks(); const alerts = []; const errors = []; const actions = []; const queued = [];
   const session = { signedIn: true }; const selection = { identity: 'user', warehouseId: 'warehouse', revision: 1, signature: 'scope' };
-  let focused = true; let removal; let focusListener;
+  let focused = true; let preventionEnabled = false; let removal; let focusListener;
   const replayed = new WeakSet();
   const wrapperActions = [];
   const wrapper = { getParent: () => undefined,
     getState: () => ({ key: 'expo-root', type: 'stack', routeNames: ['__root', '+not-found', '_sitemap'], index: 0, routes: [{ name: '__root', state: navigationTree() }] }),
     dispatch: action => wrapperActions.push(action) };
   const owner = { getParent: () => wrapper,
-    getState: () => missingOwner ? wrapper.getState() : deepLink ? { ...navigationTree(), index: 0, routes: [{ name: '(account)' }] } : navigationTree(),
+    getState: () => missingOwner ? wrapper.getState() : deepLink ? { ...navigationTree(), index: 0, routes: [{ key: 'account', name: '(account)' }] } : navigationTree(),
     dispatch(action) { navigation.dispatch(action); } };
   const navigation = { getParent: () => owner, getState: () => ({ key: 'account', type: 'stack', routeNames: ['receiving/[id]'], index: 0, routes: [{ name: 'receiving/[id]' }] }), isFocused: () => focused, canGoBack: () => canGoBack, setOptions() {},
     addListener: (_, listener) => { focusListener = listener; return () => {}; },
-    dispatch(action) { if (!replayed.has(action)) { replayed.add(action); removal({ data: { action } }); } else actions.push(action); } };
+    dispatch(action) { if (preventionEnabled && !replayed.has(action)) { replayed.add(action); removal({ data: { action } }); } else actions.push(action); } };
   const jsx = (type, props) => ({ type, props });
   const { ScreenExitBoundary } = load('src/providers/screen-exit-boundary.tsx', {
     react: runtime.react, 'react/jsx-runtime': { jsx, jsxs: jsx },
-    'react-native': { Alert: { alert: (title, message, buttons, options) => alerts.push({ title, message, buttons, options }) }, View: 'View', StyleSheet: { create: value => value } },
+    'react-native': { Alert: { alert: (title, message, buttons, options) => alerts.push({ title, message, buttons, options }) },
+      BackHandler: { addEventListener: () => ({ remove() {} }) }, View: 'View', StyleSheet: { create: value => value } },
     'expo-router': { router: { canGoBack: () => canGoBack, back: () => queued.push({ type: 'GO_BACK' }), replace: route => queued.push({ replace: route }) }, useNavigation: () => navigation, usePathname: () => '/receiving/document' },
-    'expo-router/react-navigation': { CommonActions: { goBack: () => ({ type: 'GO_BACK' }), reset: payload => ({ type: 'RESET', payload }) }, useIsFocused: () => focused, usePreventRemove: (_, handler) => { removal = handler; } },
+    'expo-router/react-navigation': { CommonActions: { goBack: () => ({ type: 'GO_BACK' }), reset: payload => ({ type: 'RESET', payload }) }, useIsFocused: () => focused,
+      usePreventRemove: (enabled, handler) => { preventionEnabled = enabled; removal = handler; return () => { preventionEnabled = false; }; } },
     '@tanstack/react-query': { useQueryClient: () => ({ getQueryData: () => ({ permissions: ['tasks'] }) }) },
     'sonner-native': { toast: { error: message => errors.push(message) } },
     '@/components/work-screen-header': { WorkScreenHeader: 'WorkScreenHeader', NavigationIcon: 'NavigationIcon' },
@@ -108,7 +127,8 @@ function boundaryFixture({ canGoBack = false, missingOwner = false, deepLink = f
     '@/lib/api-error': { getApiErrorMessage: failure => failure.message }, '@/lib/screen-navigation': navigationLogic,
   });
   const render = () => runtime.render(() => ScreenExitBoundary({ children: 'screen', standalone: true })).props.value;
-  return { render, alerts, errors, actions, wrapperActions, queued, selection, session, navigation, remove: action => removal({ data: { action } }),
+  return { render, alerts, errors, actions, wrapperActions, queued, selection, session, navigation,
+    remove: action => removal({ action, repeat: () => navigation.dispatch(action) }),
     focus: () => { focused = true; focusListener(); }, blur: () => { focused = false; }, cleanup: runtime.cleanup };
 }
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -187,19 +207,20 @@ test('Home and Tasks reset the app owner below Expo 57 __root without dispatchin
   for (const target of ['home', 'tasks']) {
     const f = boundaryFixture(); f.render()[target](); await tick();
     assert.equal(f.wrapperActions.length, 0);
-    assert.equal(f.errors.length, 0);
+    assert.equal(f.errors.length, 0, f.errors.join('; '));
     assert.equal(f.actions.length, 1);
     assert.equal(f.actions[0].payload.key, 'root');
     assert.equal(f.actions[0].payload.routes[0].name, '(app)');
+    assertCompleteNavigationState(f.actions[0].payload);
     assert.equal(f.actions[0].payload.routes[0].state.index, target === 'home' ? 0 : 1);
     f.cleanup();
   }
 });
 
-test('a deep link without a mounted app route resets only the navigator that registers (app)', async () => {
+test('a deep link without mounted app state uses the registered route instead of dispatching a partial reset', async () => {
   const f = boundaryFixture({ deepLink: true }); f.render().tasks(); await tick();
-  assert.equal(f.wrapperActions.length, 0); assert.equal(f.actions.length, 1);
-  assert.equal(f.actions[0].payload.routes[0].state.routes[0].name, 'tasks'); f.cleanup();
+  assert.equal(f.wrapperActions.length, 0); assert.equal(f.actions.length, 0);
+  assert.deepEqual(f.queued, [{ replace: '/tasks' }]); f.cleanup();
 });
 
 test('missing app navigator reports an error and unlocks exit without an invalid RESET', async () => {

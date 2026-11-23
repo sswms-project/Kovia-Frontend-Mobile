@@ -55,6 +55,7 @@ export function ReceiptEditorModal({ state, receipt, locations, documents, refus
     return index < 0 ? correction ? null : <Button label={`Chọn nhận ${item.productSKU} · ${item.productName}`}
       disabled={busy} variant="outline" onPress={() => state.addLine(item.inboundRequestItemId)} />
       : <ReceiptLineFields form={state.form} index={index} item={item} correction={correction} legacy={receipt?.receivingFlowVersion === 0} busy={busy}
+        initiallyExpanded={!!state.target?.receiptId}
         taskLine={taskLines?.find(line => line.inboundRequestItemId === item.inboundRequestItemId)}
         onRemove={() => state.fields.remove(index)} />;
   }, [state, correction, busy, receipt?.receivingFlowVersion, taskLines]);
