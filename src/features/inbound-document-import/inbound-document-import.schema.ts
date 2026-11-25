@@ -81,7 +81,7 @@ const headerText = (max: number) => z.string().trim().max(max, `Tối đa ${max}
 // The whole OCR header is sent back on save: the server treats any omitted value as cleared.
 export const reviewFormHeaderSchema = z.object({
   documentNumber: headerText(100), inboundRequestCode: headerText(100), supplierName: headerText(300),
-  documentDate: z.string(), supplierDeliveryDate: z.string(),
+  documentDate: optionalDate, supplierDeliveryDate: optionalDate,
   warehouseCode: headerText(100), warehouseName: headerText(300),
 });
 export const reviewFormSchema = z.object({

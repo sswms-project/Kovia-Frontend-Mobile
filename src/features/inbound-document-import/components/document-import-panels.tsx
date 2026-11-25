@@ -8,7 +8,7 @@ import { TextField } from '@/components/ui/text-field';
 import { FontFamily, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-import type { DocumentImport, DocumentReview, ExtractedTextField } from '../inbound-document-import.schema';
+import type { DocumentImport, DocumentReview, ExtractedTextField, ReviewFormHeader } from '../inbound-document-import.schema';
 
 const SOURCE_LABELS: Readonly<Record<string, string>> = {
   AiExtracted: 'AI trích xuất', DocumentParser: 'Đọc từ tệp', InboundRequest: 'Yêu cầu nhập kho', SupplierMaster: 'Danh mục NCC',
@@ -88,40 +88,51 @@ function FieldLabel({ label, field }: { readonly label: string; readonly field?:
   </View>;
 }
 
-function FieldRow({ label, field, fallback }: { readonly label: string; readonly field?: ExtractedTextField; readonly fallback?: string | null }) {
-  const theme = useTheme();
-  const value = field?.value ?? fallback ?? null;
-  return <View style={[styles.fieldRow, { borderTopColor: theme.border }]}>
-    <FieldLabel label={label} field={field} />
-    <View style={styles.fieldValue}>
-      <Text style={[styles.value, { color: value ? theme.text : theme.textSecondary }]}>{value ?? '—'}</Text>
-      {field ? <VerificationPill field={field} /> : null}
-    </View>
-  </View>;
+type HeaderKey = keyof ReviewFormHeader;
+interface HeaderRowConfig {
+  readonly label: string;
+  readonly reference?: 'inboundRequestCode' | 'supplierName' | 'warehouseCode' | 'warehouseName';
+  readonly date?: boolean;
+  readonly autoCapitalize?: 'characters' | 'words';
 }
+export const HEADER_ROWS: Readonly<Record<HeaderKey, HeaderRowConfig>> = {
+  documentNumber: { label: 'Số chứng từ', autoCapitalize: 'characters' },
+  inboundRequestCode: { label: 'Mã yêu cầu', reference: 'inboundRequestCode', autoCapitalize: 'characters' },
+  documentDate: { label: 'Ngày chứng từ', date: true },
+  supplierDeliveryDate: { label: 'Ngày giao', date: true },
+  supplierName: { label: 'Nhà cung cấp', reference: 'supplierName', autoCapitalize: 'words' },
+  warehouseCode: { label: 'Mã kho', reference: 'warehouseCode', autoCapitalize: 'characters' },
+  warehouseName: { label: 'Tên kho', reference: 'warehouseName', autoCapitalize: 'words' },
+};
+export const HEADER_KEYS = Object.keys(HEADER_ROWS) as HeaderKey[];
 
-interface EditableSupplierRowProps {
+interface EditableHeaderRowProps {
+  readonly row: HeaderRowConfig;
   readonly field?: ExtractedTextField;
-  readonly expected?: string | null;
+  readonly reference?: string | null;
   readonly value: string;
   readonly error?: string;
   readonly onChange: (value: string) => void;
 }
-/** OCR can misread Vietnamese diacritics; the corrected name is saved and re-checked against the inbound request's supplier. */
-function EditableSupplierRow({ field, expected, value, error, onChange }: EditableSupplierRowProps) {
+/** OCR can misread any header value; every field stays editable so a validation error is always fixable before save. */
+function EditableHeaderRow({ row, field, reference, value, error, onChange }: EditableHeaderRowProps) {
   const theme = useTheme();
-  const original = field?.value ?? '';
-  const edited = value.trim() !== original.trim();
+  const edited = value.trim() !== (field?.value ?? '').trim();
+  // rawValue keeps the OCR text after a saved correction; value then holds the corrected one.
+  const ocrRead = field?.rawValue ?? field?.value ?? '';
+  const hint = edited ? 'Bấm "Lưu và kiểm tra lại" để áp dụng'
+    : row.date ? 'Dạng YYYY-MM-DD, để trống nếu không có' : 'Sửa nếu OCR đọc sai';
   return <View style={[styles.fieldStack, { borderTopColor: theme.border }]}>
     <View style={styles.fieldHead}>
-      <FieldLabel label="Nhà cung cấp" field={field} />
+      <FieldLabel label={row.label} field={field} />
       {edited ? <StatusPill label="Chưa lưu" tone="primary" /> : field ? <VerificationPill field={field} /> : null}
     </View>
-    <TextField label="Nhà cung cấp" hideLabel value={value} onChangeText={onChange} autoCapitalize="words"
-      placeholder={expected ?? undefined} error={error}
-      hint={edited ? 'Bấm "Lưu và kiểm tra lại" để đối chiếu lại với yêu cầu nhập kho' : 'Sửa nếu OCR đọc sai'} />
-    {edited ? <Text style={[styles.meta, { color: theme.textSecondary }]}>OCR đọc: {original || '—'}</Text> : null}
-    {expected ? <Text style={[styles.meta, { color: theme.textSecondary }]}>Theo yêu cầu nhập kho: {expected}</Text> : null}
+    <TextField label={row.label} hideLabel value={value} onChangeText={onChange} autoCapitalize={row.autoCapitalize ?? 'none'}
+      keyboardType={row.date ? 'numbers-and-punctuation' : 'default'}
+      placeholder={row.date ? 'YYYY-MM-DD' : reference ?? undefined} error={error} hint={hint} />
+    {ocrRead.trim() !== value.trim() ? <Text style={[styles.meta, { color: theme.textSecondary }]}>OCR đọc: {ocrRead || '—'}</Text> : null}
+    {reference && reference !== value.trim()
+      ? <Text style={[styles.meta, { color: theme.textSecondary }]}>Theo yêu cầu nhập kho: {reference}</Text> : null}
   </View>;
 }
 
@@ -130,13 +141,11 @@ interface ReviewHeaderProps {
   readonly review: DocumentReview;
   readonly acknowledged: boolean;
   readonly onAcknowledge: (value: boolean) => void;
-  readonly supplierName: string;
-  readonly supplierNameError?: string;
-  readonly onSupplierNameChange: (value: string) => void;
+  readonly header: ReviewFormHeader;
+  readonly headerErrors?: Partial<Record<HeaderKey, { readonly message?: string }>>;
+  readonly onHeaderChange: (key: HeaderKey, value: string) => void;
 }
-export function ReviewHeader({
-  item, review, acknowledged, onAcknowledge, supplierName, supplierNameError, onSupplierNameChange,
-}: ReviewHeaderProps) {
+export function ReviewHeader({ item, review, acknowledged, onAcknowledge, header, headerErrors, onHeaderChange }: ReviewHeaderProps) {
   const theme = useTheme();
   const extraction = review.extraction;
   const file = [item.fileName, item.extractionModel].filter(Boolean).join(' · ');
@@ -150,14 +159,12 @@ export function ReviewHeader({
         </View> : null}
       </View>
       <View>
-        <FieldRow label="Số chứng từ" field={extraction?.documentNumber} />
-        <FieldRow label="Mã yêu cầu" field={extraction?.inboundRequestCode} fallback={review.inboundRequestCode} />
-        <FieldRow label="Ngày chứng từ" field={extraction?.documentDate} />
-        <FieldRow label="Ngày giao" field={extraction?.supplierDeliveryDate} />
-        <EditableSupplierRow field={extraction?.supplierName} expected={review.supplierName}
-          value={supplierName} error={supplierNameError} onChange={onSupplierNameChange} />
-        <FieldRow label="Mã kho" field={extraction?.warehouseCode} fallback={review.warehouseCode} />
-        <FieldRow label="Tên kho" field={extraction?.warehouseName} fallback={review.warehouseName} />
+        {HEADER_KEYS.map(key => {
+          const row = HEADER_ROWS[key];
+          return <EditableHeaderRow key={key} row={row} field={extraction?.[key]} value={header[key]}
+            reference={row.reference ? review[row.reference] : null}
+            error={headerErrors?.[key]?.message} onChange={value => onHeaderChange(key, value)} />;
+        })}
       </View>
     </View>
     {item.duplicateFileDetected && <AlertBanner title="Tệp này đã từng được tải lên trước đó." />}
@@ -207,17 +214,14 @@ const styles = StyleSheet.create({
   small: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 20 },
   caption: { fontFamily: FontFamily.medium, fontSize: 13, lineHeight: 18 },
   meta: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 16 },
-  value: { fontFamily: FontFamily.medium, fontSize: 15, lineHeight: 22, textAlign: 'right' },
   tips: { gap: 8, padding: 16, borderRadius: Radius.lg },
   tip: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   actions: { gap: 8 },
   cardHead: { gap: 8 },
   fileChip: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', maxWidth: '100%', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.md },
-  fieldRow: { flexDirection: 'row', gap: 16, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth },
   fieldStack: { gap: 8, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth },
   fieldHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   fieldLabel: { width: 112, gap: 2 },
-  fieldValue: { flex: 1, alignItems: 'flex-end', gap: 4 },
   check: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, padding: 12, borderWidth: 1, borderRadius: Radius.lg },
   pressed: { opacity: 0.85 },
   section: { gap: 4, marginTop: 8 },

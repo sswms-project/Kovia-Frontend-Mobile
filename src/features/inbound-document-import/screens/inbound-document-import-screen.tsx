@@ -15,7 +15,7 @@ import { useExitProtection, useScreenSubtitle } from '@/hooks/use-screen-exit';
 import { useTheme } from '@/hooks/use-theme';
 import { getApiErrorMessage } from '@/lib/api-error';
 
-import { FailedPanel, ReviewHeader, UploadPanel } from '../components/document-import-panels';
+import { FailedPanel, HEADER_KEYS, HEADER_ROWS, ReviewHeader, UploadPanel } from '../components/document-import-panels';
 import { ReviewLineCard } from '../components/review-line-card';
 import { useInboundDocumentImport } from '../hooks/use-inbound-document-import';
 import { reviewFormSchema, type DocumentImport, type ReviewForm } from '../inbound-document-import.schema';
@@ -61,7 +61,7 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
   const { errors, isDirty } = form.formState;
   const acknowledged = useWatch({ control: form.control, name: 'acknowledgeWarehouseMismatch' });
   const watchedLines = useWatch({ control: form.control, name: 'lines' });
-  const supplierName = useWatch({ control: form.control, name: 'header.supplierName' });
+  const headerValues = useWatch({ control: form.control, name: 'header' });
 
   useEffect(() => { form.reset(toForm(item)); }, [item, form]);
 
@@ -116,8 +116,8 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
     if (item.status === 'Failed' || !review) return <FailedPanel item={item} onRetry={ocr.reset} onManual={() => router.back()} />;
     return <ReviewHeader item={item} review={review} acknowledged={acknowledged}
       onAcknowledge={value => form.setValue('acknowledgeWarehouseMismatch', value, { shouldDirty: true })}
-      supplierName={supplierName} supplierNameError={errors.header?.supplierName?.message}
-      onSupplierNameChange={value => form.setValue('header.supplierName', value, { shouldDirty: true, shouldValidate: true })} />;
+      header={headerValues} headerErrors={errors.header}
+      onHeaderChange={(key, value) => form.setValue(`header.${key}`, value, { shouldDirty: true, shouldValidate: true })} />;
   }
 
   const reviewing = !!review && item?.status !== 'Failed';
@@ -125,7 +125,10 @@ export function InboundDocumentImportScreen({ documentId }: Props) {
   const step = canDraft ? 2 : ocr.importId ? 1 : 0;
   const notice = canDraft ? 'Đã sẵn sàng tạo phiếu nhận hàng nháp.'
     : isDirty ? 'Lưu thay đổi trước khi tạo phiếu nháp.' : 'Xử lý hết lỗi rồi lưu lại để tạo phiếu nháp.';
+  // The header sits above the line list, so name its invalid fields next to the save button.
+  const invalidHeader = HEADER_KEYS.filter(key => errors.header?.[key]).map(key => HEADER_ROWS[key].label);
   const footer = reviewing ? <View style={styles.footer}>
+    {invalidHeader.length ? <AlertBanner variant="destructive" title="Kiểm tra lại thông tin chứng từ" description={invalidHeader.join(', ')} /> : null}
     {errors.lines?.root?.message ? <AlertBanner variant="destructive" title={errors.lines.root.message} /> : null}
     <View style={[styles.notice, { backgroundColor: canDraft ? theme.secondaryContainer : theme.backgroundElement }]}>
       {canDraft ? <CircleCheck size={18} color={theme.onSecondaryContainer} /> : <Info size={18} color={theme.textSecondary} />}
