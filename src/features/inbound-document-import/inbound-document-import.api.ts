@@ -13,6 +13,7 @@ export interface StartImportInput { readonly document: PickedDocument; readonly 
 export function toReviewBody(importId: string, inboundRequestId: string, form: ReviewForm) {
   return {
     id: importId, inboundRequestId, acknowledgeWarehouseMismatch: form.acknowledgeWarehouseMismatch,
+    header: Object.fromEntries(Object.entries(form.header).map(([key, value]) => [key, value.trim() || null])),
     lines: form.lines.map(line => ({
       sourceLineNumber: line.sourceLineNumber, inboundRequestItemId: line.inboundRequestItemId,
       confirmedQuantity: Number(line.confirmedQuantity), damagedQuantity: Number(line.damagedQuantity || 0),

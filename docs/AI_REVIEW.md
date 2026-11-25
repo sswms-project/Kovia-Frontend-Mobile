@@ -1,5 +1,13 @@
 # Mobile operational workflows — 20/10/2026
 
+## 2026-11-25 — PR #61 review fix MOB-01 (Claude implementer)
+
+Branch `fix/ocr-supplier-name-review`. Implements MOB-01 and review note 6.3 from `REVIEW-PR359-OCR-MATCHING-20261125.md`. Self-verification only; this is not an independent review. Nothing has been committed or pushed.
+
+MOB-01: the review form validates all 7 header fields and keeps the 7-field contract, because the server treats an omitted value as cleared. Previously, an invalid header value blocked saving with no visible error. Now every header field is editable and shows its own zod error and hint. A destructive banner next to the save button lists the invalid fields. Dates must be in the YYYY-MM-DD format or left blank. Nothing is dropped or cleared silently to pass validation. Note 6.3: "OCR đọc" shows `rawValue` and falls back to `value`.
+
+Checks: tsc shows only the 3 errors in `src/lib/screen-navigation.ts`, which were already there. Lint has 0 errors and 1 warning that was already there. `scripts/test-receiving.cjs` passed 32/32. `scripts/test-receipt-editor.cjs` passed 33/34; the 1 failure was already there ("Cannot find module '../../receiving'"). Not verified: the review's step 5 manual check on an Android device (a standard document, an IR SKU document and a bad OCR header) was not run.
+
 ## 2026-10-23 — P25 notification task navigation
 
 Synced latest `origin/dev` 6b55814 by fast-forward; P24 merged and the new header/profile/notification styling retained. New branch `fix/mobile-notification-task-navigation` starts at that dev revision. Mobile only; no BE/FE changes. User subsequently authorized commit/push; no PR/merge/deploy requested. Delivery reuses the exact verified P25 source fingerprint; device/API acceptance remains pending.
